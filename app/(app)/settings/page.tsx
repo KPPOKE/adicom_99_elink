@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { prisma } from "@/lib/prisma";
 
@@ -29,9 +30,18 @@ export default async function SettingsPage() {
               <Field name="whatsapp" label="Nomor WhatsApp" value={setting?.whatsapp ?? ""} />
               <Field name="email" label="Email" value={setting?.email ?? ""} />
               <Field name="invoicePrefix" label="Prefix Invoice" value={setting?.invoicePrefix ?? "INV"} />
+              <div className="space-y-1.5">
+                <Label>Default Format Cetak</Label>
+                <Select name="defaultPrintFormat" defaultValue={setting?.defaultPrintFormat ?? "thermal_80"}>
+                  <option value="thermal_58">Thermal 58mm</option>
+                  <option value="thermal_80">Thermal 80mm</option>
+                  <option value="a4">A4</option>
+                </Select>
+              </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Logo Toko</Label>
                 <Input type="file" name="logoFile" accept="image/*" />
+                {setting?.logo ? <p className="text-xs text-slate-500">Logo aktif: {setting.logo}</p> : null}
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Alamat</Label>

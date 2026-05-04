@@ -80,6 +80,7 @@ export const transactionSchema = z.object({
   jenisProduk: z.string().optional(),
   serialNumber: z.string().optional(),
   digitalStatus: z.enum(["Berhasil", "Pending", "Gagal"]).optional(),
+  status: z.enum(["Berhasil", "Pending", "Batal"]).optional(),
   items: z
     .array(
       z.object({
@@ -89,4 +90,14 @@ export const transactionSchema = z.object({
       })
     )
     .min(1, "Minimal satu item")
+}).superRefine((value, context) => {
+  const total = value.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const grandTotal = Math.max(0, total - value.diskon);
+  if (value.paymentMethod === "Cash" && value.paidAmount < grandTotal) {
+    context.addIssue({
+      code: "custom",
+      path: ["paidAmount"],
+      message: "Uang dibayar tidak boleh kurang dari grand total"
+    });
+  }
 });

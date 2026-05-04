@@ -1,7 +1,9 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { CreditCard, Edit, Plus, Printer, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,8 +14,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
-import { ServiceStatusBadge } from "@/components/shared/status-badge";
-import { deleteService, updateServiceStatus, upsertService } from "@/app/actions/operations";
+import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
+import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const statuses = ["Masuk", "Dicek", "Menunggu_Konfirmasi", "Diproses", "Selesai", "Diambil", "Batal"];
@@ -32,11 +34,14 @@ type ServiceRow = {
   estimatedCost: number;
   finalCost: number;
   status: string;
+  paymentStatus: string;
+  paidAt: string | Date | null;
   technicianNote: string | null;
   receivedDate: string | Date;
 };
 
 export function ServiceClient({ services, customers }: { services: ServiceRow[]; customers: { id: number; name: string; phone: string | null }[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,6 +59,7 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
     },
     { header: "Perangkat", cell: ({ row }) => `${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}` },
     { header: "Status", cell: ({ row }) => <ServiceStatusBadge status={row.original.status} /> },
+    { header: "Pembayaran", cell: ({ row }) => <PaymentStatusBadge status={row.original.paymentStatus} /> },
     { header: "Biaya", cell: ({ row }) => formatCurrency(row.original.finalCost || row.original.estimatedCost) },
     { header: "Masuk", cell: ({ row }) => formatDate(row.original.receivedDate) },
     {
@@ -66,6 +72,7 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
             startTransition(async () => {
               await updateServiceStatus(row.original.id, event.target.value);
               toast.success("Status service diperbarui");
+              router.refresh();
             })
           }
         >
@@ -92,6 +99,34 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
           >
             <Edit className="h-4 w-4" />
           </Button>
+          <Button asChild variant="outline" size="icon" title={`Cetak ${row.original.kodeService}`}>
+            <Link href={`/services/${row.original.id}/invoice`}>
+              <Printer className="h-4 w-4" />
+            </Link>
+          </Button>
+          {row.original.paymentStatus !== "paid" ? (
+            <ConfirmDialog
+              title="Tandai service lunas?"
+              description="Pemasukan service akan dibuat di catatan keuangan."
+              confirmLabel="Tandai Lunas"
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await markServicePaid(row.original.id);
+                    toast.success("Service ditandai lunas");
+                    router.refresh();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal memproses pembayaran");
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon" title="Tandai dibayar">
+                  <CreditCard className="h-4 w-4 text-emerald-600" />
+                </Button>
+              }
+            />
+          ) : null}
           <ConfirmDialog
             onConfirm={() =>
               startTransition(async () => {

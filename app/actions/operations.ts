@@ -31,6 +31,7 @@ export async function createTransaction(payload: unknown) {
   const grandTotal = Math.max(0, total - parsed.diskon);
   const changeAmount = parsed.paymentMethod === "Cash" ? Math.max(0, parsed.paidAmount - grandTotal) : 0;
   const kodeTransaksi = await nextCode("TRX", "transaction");
+  const status = parsed.status ?? "Berhasil";
 
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.create({
@@ -49,6 +50,7 @@ export async function createTransaction(payload: unknown) {
         jenisProduk: parsed.jenisProduk || null,
         serialNumber: parsed.serialNumber || null,
         digitalStatus: parsed.digitalStatus || null,
+        status,
         userId: user.id,
         items: {
           create: parsed.items.map((item) => ({
@@ -68,20 +70,48 @@ export async function createTransaction(payload: unknown) {
       });
     }
 
-    await tx.financeRecord.create({
-      data: {
-        type: "income",
-        category: "Penjualan",
-        amount: grandTotal,
-        description: `Transaksi ${kodeTransaksi}`,
-        referenceType: "transaction",
-        referenceId: transaction.id,
-        transactionId: transaction.id,
-        userId: user.id
-      }
-    });
+    if (status === "Berhasil") {
+      await tx.financeRecord.create({
+        data: {
+          type: "income",
+          category: "Penjualan",
+          amount: grandTotal,
+          description: `Transaksi ${kodeTransaksi}`,
+          referenceType: "transaction",
+          referenceId: transaction.id,
+          transactionId: transaction.id,
+          userId: user.id
+        }
+      });
+    }
   });
 
+  revalidatePath("/transactions");
+  revalidatePath("/inventory");
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
+export async function cancelTransaction(id: number) {
+  await requireUser();
+  await prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.findUnique({
+      where: { id },
+      include: { items: true, financeRecords: true }
+    });
+    if (!transaction) throw new Error("Transaksi tidak ditemukan");
+    if (transaction.status === "Batal") throw new Error("Transaksi sudah dibatalkan");
+
+    for (const line of transaction.items) {
+      await tx.item.update({
+        where: { id: line.itemId },
+        data: { stok: { increment: line.qty } }
+      });
+    }
+
+    await tx.financeRecord.deleteMany({ where: { transactionId: id } });
+    await tx.transaction.update({ where: { id }, data: { status: "Batal" } });
+  });
   revalidatePath("/transactions");
   revalidatePath("/inventory");
   revalidatePath("/finance");
@@ -91,13 +121,8 @@ export async function createTransaction(payload: unknown) {
 export async function upsertService(formData: FormData) {
   const user = await requireUser();
   const parsed = serviceSchema.parse(Object.fromEntries(formData));
-  const wasPaid = parsed.status === "Selesai" || parsed.status === "Diambil";
 
   if (parsed.id) {
-    const existing = await prisma.service.findUnique({
-      where: { id: parsed.id },
-      include: { financeRecords: true }
-    });
     await prisma.service.update({
       where: { id: parsed.id },
       data: {
@@ -107,23 +132,9 @@ export async function upsertService(formData: FormData) {
         pickedUpDate: parsed.status === "Diambil" ? new Date() : undefined
       }
     });
-    if (wasPaid && parsed.finalCost > 0 && !existing?.financeRecords.length) {
-      await prisma.financeRecord.create({
-        data: {
-          type: "income",
-          category: "Service",
-          amount: parsed.finalCost,
-          description: `Service ${existing?.kodeService}`,
-          referenceType: "service",
-          referenceId: parsed.id,
-          serviceId: parsed.id,
-          userId: user.id
-        }
-      });
-    }
   } else {
     const kodeService = await nextCode("SRV", "service");
-    const service = await prisma.service.create({
+    await prisma.service.create({
       data: {
         ...parsed,
         kodeService,
@@ -133,13 +144,36 @@ export async function upsertService(formData: FormData) {
         pickedUpDate: parsed.status === "Diambil" ? new Date() : null
       }
     });
-    if (wasPaid && parsed.finalCost > 0) {
-      await prisma.financeRecord.create({
+  }
+
+  revalidatePath("/services");
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
+export async function markServicePaid(id: number) {
+  const user = await requireUser();
+  await prisma.$transaction(async (tx) => {
+    const service = await tx.service.findUnique({
+      where: { id },
+      include: { financeRecords: true }
+    });
+    if (!service) throw new Error("Service tidak ditemukan");
+    if (service.paymentStatus === "paid") throw new Error("Service sudah dibayar");
+    if (toNumber(service.finalCost) <= 0) throw new Error("Biaya final wajib diisi sebelum pembayaran");
+    const hasIncomeRecord = service.financeRecords.some((record) => record.type === "income");
+
+    await tx.service.update({
+      where: { id },
+      data: { paymentStatus: "paid", paidAt: new Date() }
+    });
+    if (!hasIncomeRecord) {
+      await tx.financeRecord.create({
         data: {
           type: "income",
           category: "Service",
-          amount: parsed.finalCost,
-          description: `Service ${kodeService}`,
+          amount: service.finalCost,
+          description: `Service ${service.kodeService}`,
           referenceType: "service",
           referenceId: service.id,
           serviceId: service.id,
@@ -147,8 +181,7 @@ export async function upsertService(formData: FormData) {
         }
       });
     }
-  }
-
+  });
   revalidatePath("/services");
   revalidatePath("/finance");
   revalidatePath("/dashboard");

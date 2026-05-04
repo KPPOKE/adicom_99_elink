@@ -7,11 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 export function ConfirmDialog({
   title = "Hapus data?",
   description = "Aksi ini tidak dapat dibatalkan.",
+  confirmLabel = "Hapus",
   onConfirm,
   trigger
 }: {
   title?: string;
   description?: string;
+  confirmLabel?: string;
   onConfirm: () => void;
   trigger: React.ReactNode;
 }) {
@@ -28,7 +30,7 @@ export function ConfirmDialog({
         </DialogHeader>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="destructive" onClick={onConfirm}>
-            Hapus
+            {confirmLabel}
           </Button>
         </div>
       </DialogContent>

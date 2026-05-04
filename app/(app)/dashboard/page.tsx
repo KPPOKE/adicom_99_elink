@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const [todayFinance, todayTransactions, services, lowStock, recentTransactions, recentServices, finance7Days, transactionItems] =
     await Promise.all([
       prisma.financeRecord.findMany({ where: { date: { gte: start, lt: end } } }),
-      prisma.transaction.count({ where: { createdAt: { gte: start, lt: end } } }),
+      prisma.transaction.count({ where: { createdAt: { gte: start, lt: end }, status: { not: "Batal" } } }),
       prisma.service.findMany({ where: { createdAt: { gte: start, lt: end } } }),
       prisma.item.findMany({ where: { stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true }, take: 8 }),
       prisma.transaction.findMany({ include: { items: true }, orderBy: { createdAt: "desc" }, take: 5 }),
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
         where: { type: "income", date: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } },
         orderBy: { date: "asc" }
       }),
-      prisma.transactionItem.findMany({ include: { item: { include: { category: true } } }, take: 200 })
+      prisma.transactionItem.findMany({ where: { transaction: { status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, take: 200 })
     ]);
 
   const income = todayFinance.filter((item) => item.type === "income").reduce((sum, item) => sum + toNumber(item.amount), 0);

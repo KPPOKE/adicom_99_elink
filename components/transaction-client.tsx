@@ -1,7 +1,9 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Printer, Trash2 } from "lucide-react";
+import { Ban, Plus, Printer, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,10 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
-import { createTransaction } from "@/app/actions/operations";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TransactionStatusBadge } from "@/components/shared/status-badge";
+import { cancelTransaction, createTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
-type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number };
+type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string };
 type CustomerOption = { id: number; name: string; phone: string | null };
 type Line = { itemId: number; qty: number; price: number };
 type TransactionRow = {
@@ -22,6 +26,7 @@ type TransactionRow = {
   customerName: string | null;
   grandTotal: number;
   paymentMethod: string;
+  status: string;
   createdAt: string | Date;
   items: { qty: number; item: { namaBarang: string } }[];
 };
@@ -35,17 +40,25 @@ export function TransactionClient({
   customers: CustomerOption[];
   transactions: TransactionRow[];
 }) {
+  const router = useRouter();
   const [lines, setLines] = useState<Line[]>([{ itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }]);
   const [diskon, setDiskon] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [status, setStatus] = useState("Berhasil");
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [nomorTujuan, setNomorTujuan] = useState("");
+  const [provider, setProvider] = useState("");
+  const [jenisProduk, setJenisProduk] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [digitalStatus, setDigitalStatus] = useState("Berhasil");
   const [isPending, startTransition] = useTransition();
 
   const total = useMemo(() => lines.reduce((sum, line) => sum + line.qty * line.price, 0), [lines]);
   const grandTotal = Math.max(0, total - diskon);
   const change = paymentMethod === "Cash" ? Math.max(0, paidAmount - grandTotal) : 0;
+  const hasDigitalItem = lines.some((line) => items.find((item) => item.id === line.itemId)?.categoryName === "Produk Digital");
 
   const columns: ColumnDef<TransactionRow>[] = [
     { accessorKey: "kodeTransaksi", header: "Kode" },
@@ -53,14 +66,42 @@ export function TransactionClient({
     { header: "Item", cell: ({ row }) => row.original.items.map((item) => `${item.item.namaBarang} x${item.qty}`).join(", ") },
     { header: "Total", cell: ({ row }) => formatCurrency(row.original.grandTotal) },
     { accessorKey: "paymentMethod", header: "Pembayaran" },
+    { header: "Status", cell: ({ row }) => <TransactionStatusBadge status={row.original.status} /> },
     { header: "Tanggal", cell: ({ row }) => formatDateTime(row.original.createdAt) },
     {
-      id: "invoice",
-      header: "",
+      id: "actions",
+      header: "Aksi",
       cell: ({ row }) => (
-        <Button variant="outline" size="icon" onClick={() => window.print()} title={`Cetak ${row.original.kodeTransaksi}`}>
-          <Printer className="h-4 w-4" />
-        </Button>
+        <div className="flex justify-end gap-2">
+          <Button asChild variant="outline" size="icon" title={`Cetak ${row.original.kodeTransaksi}`}>
+            <Link href={`/transactions/${row.original.id}/invoice`}>
+              <Printer className="h-4 w-4" />
+            </Link>
+          </Button>
+          {row.original.status !== "Batal" ? (
+            <ConfirmDialog
+              title="Batalkan transaksi?"
+              description="Stok item akan dikembalikan dan pemasukan transaksi ini akan dikoreksi."
+              confirmLabel="Batalkan"
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await cancelTransaction(row.original.id);
+                    toast.success("Transaksi dibatalkan");
+                    router.refresh();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal membatalkan transaksi");
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon" title={`Batalkan ${row.original.kodeTransaksi}`}>
+                  <Ban className="h-4 w-4 text-red-600" />
+                </Button>
+              }
+            />
+          ) : null}
+        </div>
       )
     }
   ];
@@ -88,13 +129,24 @@ export function TransactionClient({
           diskon,
           paymentMethod,
           paidAmount,
+          status,
+          nomorTujuan,
+          provider,
+          jenisProduk,
+          serialNumber,
           items: lines.filter((line) => line.itemId),
-          digitalStatus: "Berhasil"
+          digitalStatus: hasDigitalItem ? digitalStatus : undefined
         });
         toast.success("Transaksi berhasil disimpan");
         setLines([{ itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }]);
         setDiskon(0);
         setPaidAmount(0);
+        setStatus("Berhasil");
+        setNomorTujuan("");
+        setProvider("");
+        setJenisProduk("");
+        setSerialNumber("");
+        router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Transaksi gagal");
       }
@@ -172,6 +224,13 @@ export function TransactionClient({
               </Select>
             </div>
             <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+                <option value="Berhasil">Berhasil</option>
+                <option value="Pending">Pending</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Dibayar</Label>
               <Input type="number" value={paidAmount} onChange={(event) => setPaidAmount(Number(event.target.value))} />
             </div>
@@ -180,6 +239,34 @@ export function TransactionClient({
               <p className="font-semibold">{formatCurrency(change)}</p>
             </div>
           </div>
+          {hasDigitalItem ? (
+            <div className="grid gap-3 rounded-lg border border-cyan-100 bg-cyan-50/60 p-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Nomor Tujuan</Label>
+                <Input value={nomorTujuan} onChange={(event) => setNomorTujuan(event.target.value)} placeholder="08xxxxxxxxxx" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Provider</Label>
+                <Input value={provider} onChange={(event) => setProvider(event.target.value)} placeholder="Telkomsel, PLN, DANA" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Jenis Produk</Label>
+                <Input value={jenisProduk} onChange={(event) => setJenisProduk(event.target.value)} placeholder="Pulsa, token, paket data" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status Digital</Label>
+                <Select value={digitalStatus} onChange={(event) => setDigitalStatus(event.target.value)}>
+                  <option value="Berhasil">Berhasil</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Gagal">Gagal</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Serial Number / Token</Label>
+                <Input value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} />
+              </div>
+            </div>
+          ) : null}
           <div className="rounded-lg bg-blue-50 p-4">
             <div className="flex justify-between text-sm text-slate-600">
               <span>Subtotal</span>

@@ -193,7 +193,8 @@ async function main() {
       whatsapp: "081234567899",
       email: "support@adicom99.com",
       invoicePrefix: "INV",
-      invoiceFooter: "Terima kasih sudah mempercayakan kebutuhan service dan produk digital ke Adicom99."
+      invoiceFooter: "Terima kasih sudah mempercayakan kebutuhan service dan produk digital ke Adicom99.",
+      defaultPrintFormat: "thermal_80"
     }
   });
 }

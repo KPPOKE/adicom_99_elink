@@ -28,7 +28,8 @@ export async function updateSettings(formData: FormData) {
     whatsapp: String(formData.get("whatsapp") || "") || null,
     email: String(formData.get("email") || "") || null,
     invoicePrefix: String(formData.get("invoicePrefix") || "INV"),
-    invoiceFooter: String(formData.get("invoiceFooter") || "") || null
+    invoiceFooter: String(formData.get("invoiceFooter") || "") || null,
+    defaultPrintFormat: String(formData.get("defaultPrintFormat") || "thermal_80")
   };
   if (id) await prisma.setting.update({ where: { id }, data });
   else await prisma.setting.create({ data });

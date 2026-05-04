@@ -15,13 +15,15 @@ export default async function ServicesPage() {
         services={services.map((service) => ({
           ...service,
           status: service.status,
+          paymentStatus: service.paymentStatus,
           estimatedCost: toNumber(service.estimatedCost),
           finalCost: toNumber(service.finalCost),
           receivedDate: service.receivedDate.toISOString(),
           createdAt: service.createdAt.toISOString(),
           updatedAt: service.updatedAt.toISOString(),
           completedDate: service.completedDate?.toISOString() ?? null,
-          pickedUpDate: service.pickedUpDate?.toISOString() ?? null
+          pickedUpDate: service.pickedUpDate?.toISOString() ?? null,
+          paidAt: service.paidAt?.toISOString() ?? null
         }))}
         customers={customers.map((customer) => ({ id: customer.id, name: customer.name, phone: customer.phone }))}
       />

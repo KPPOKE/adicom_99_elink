@@ -39,6 +39,17 @@ enum DigitalStatus {
   Gagal
 }
 
+enum TransactionStatus {
+  Berhasil
+  Pending
+  Batal
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   name      RoleName @unique
@@ -145,6 +156,7 @@ model Transaction {
   jenisProduk     String?           @map("jenis_produk")
   serialNumber    String?           @map("serial_number")
   digitalStatus   DigitalStatus?    @map("digital_status")
+  status          TransactionStatus @default(Berhasil)
   userId          Int               @map("user_id")
   user            User              @relation(fields: [userId], references: [id])
   items           TransactionItem[]
@@ -189,6 +201,8 @@ model Service {
   estimatedCost      Decimal         @default(0) @db.Decimal(14, 2) @map("estimated_cost")
   finalCost          Decimal         @default(0) @db.Decimal(14, 2) @map("final_cost")
   status             ServiceStatus   @default(Masuk)
+  paymentStatus      PaymentStatus   @default(unpaid) @map("payment_status")
+  paidAt             DateTime?       @map("paid_at")
   technicianNote     String?         @db.Text @map("technician_note")
   receivedDate       DateTime        @default(now()) @map("received_date")
   completedDate      DateTime?       @map("completed_date")
@@ -237,6 +251,7 @@ model Setting {
   email           String?
   invoicePrefix   String   @default("INV") @map("invoice_prefix")
   invoiceFooter   String?  @db.Text @map("invoice_footer")
+  defaultPrintFormat String @default("thermal_80") @map("default_print_format")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

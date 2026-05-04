@@ -19,3 +19,17 @@ export function ServiceStatusBadge({ status }: { status: string }) {
   const item = map[status] ?? { label: status, variant: "slate" as const };
   return <Badge variant={item.variant}>{item.label}</Badge>;
 }
+
+export function TransactionStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; variant: "slate" | "orange" | "red" | "green" }> = {
+    Berhasil: { label: "Berhasil", variant: "green" },
+    Pending: { label: "Pending", variant: "orange" },
+    Batal: { label: "Batal", variant: "red" }
+  };
+  const item = map[status] ?? { label: status, variant: "slate" as const };
+  return <Badge variant={item.variant}>{item.label}</Badge>;
+}
+
+export function PaymentStatusBadge({ status }: { status: string }) {
+  return status === "paid" ? <Badge variant="green">Lunas</Badge> : <Badge variant="orange">Belum Dibayar</Badge>;
+}

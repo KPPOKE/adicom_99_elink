@@ -1,45 +1,81 @@
-import { Download } from "lucide-react";
+import Link from "next/link";
+import { Download, Filter, Printer } from "lucide-react";
 import { ReportChart } from "@/components/dashboard-charts";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { prisma } from "@/lib/prisma";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { loadReportData, parseReportFilters, reportCurrency, reportTitle } from "@/lib/reporting";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
-export default async function ReportsPage() {
-  const [transactions, services, items, finance] = await Promise.all([
-    prisma.transaction.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.service.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.item.findMany({ include: { category: true }, orderBy: { stok: "asc" }, take: 50 }),
-    prisma.financeRecord.findMany({ orderBy: { date: "desc" }, take: 120 })
-  ]);
-  const income = finance.filter((item) => item.type === "income").reduce((sum, item) => sum + toNumber(item.amount), 0);
-  const expense = finance.filter((item) => item.type === "expense").reduce((sum, item) => sum + toNumber(item.amount), 0);
-  const chartData = ["Penjualan", "Service", "Manual"].map((name) => ({
-    name,
-    income: finance.filter((item) => item.type === "income" && item.category === name).reduce((sum, item) => sum + toNumber(item.amount), 0),
-    expense: finance.filter((item) => item.type === "expense" && item.category === name).reduce((sum, item) => sum + toNumber(item.amount), 0)
-  }));
+export default async function ReportsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = (await searchParams) ?? {};
+  const filters = parseReportFilters(params);
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  const { transactions, services, items, finance, income, expense, chartData } = await loadReportData(filters);
 
   return (
     <>
       <PageHeader
         title="Laporan"
-        description="Laporan penjualan, service, stok, pemasukan, pengeluaran, dan laba rugi."
+        description={`Periode: ${reportTitle(filters)}`}
         action={
           <>
-            <Button variant="outline">
-              <Download className="h-4 w-4" />
-              Export PDF
+            <Button asChild variant="outline">
+              <Link href={`/reports/print?${query.toString()}`}>
+                <Printer className="h-4 w-4" />
+                Export PDF
+              </Link>
             </Button>
-            <Button variant="outline">
-              <Download className="h-4 w-4" />
-              Export Excel
+            <Button asChild variant="outline">
+              <Link href={`/reports/export?${query.toString()}&kind=sales`}>
+                <Download className="h-4 w-4" />
+                Excel Penjualan
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/reports/export?${query.toString()}&kind=finance`}>
+                <Download className="h-4 w-4" />
+                Excel Keuangan
+              </Link>
             </Button>
           </>
         }
       />
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <form className="grid gap-4 md:grid-cols-[220px_1fr_1fr_auto]">
+            <div className="space-y-1.5">
+              <Label>Periode</Label>
+              <Select name="period" defaultValue={filters.period}>
+                <option value="today">Hari Ini</option>
+                <option value="week">Minggu Ini</option>
+                <option value="month">Bulan Ini</option>
+                <option value="custom">Custom</option>
+                <option value="all">Semua Data</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dari</Label>
+              <Input type="date" name="from" defaultValue={filters.from ?? ""} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sampai</Label>
+              <Input type="date" name="to" defaultValue={filters.to ?? ""} />
+            </div>
+            <Button className="self-end">
+              <Filter className="h-4 w-4" />
+              Terapkan
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard title="Total Pemasukan" value={formatCurrency(income)} icon={Download} tone="green" />
         <StatCard title="Total Pengeluaran" value={formatCurrency(expense)} icon={Download} tone="red" />
@@ -49,10 +85,10 @@ export default async function ReportsPage() {
         <ReportChart data={chartData} />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <ReportTable title="Laporan Penjualan" rows={transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), formatCurrency(toNumber(item.grandTotal))])} />
-        <ReportTable title="Laporan Service" rows={services.map((item) => [item.kodeService, item.customerName, item.status.replace("_", " "), formatCurrency(toNumber(item.finalCost))])} />
+        <ReportTable title="Laporan Penjualan" rows={transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), item.status, formatCurrency(toNumber(item.grandTotal))])} />
+        <ReportTable title="Laporan Service" rows={services.map((item) => [item.kodeService, item.customerName, item.status.replace("_", " "), item.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar", formatCurrency(toNumber(item.finalCost))])} />
         <ReportTable title="Laporan Stok" rows={items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, `${item.stok} ${item.satuan}`])} />
-        <ReportTable title="Laporan Keuangan" rows={finance.map((item) => [formatDate(item.date), item.type === "income" ? "Pemasukan" : "Pengeluaran", item.category, formatCurrency(toNumber(item.amount))])} />
+        <ReportTable title="Laporan Keuangan" rows={finance.map((item) => [formatDate(item.date), item.type === "income" ? "Pemasukan" : "Pengeluaran", item.category, reportCurrency(item.amount)])} />
       </div>
     </>
   );

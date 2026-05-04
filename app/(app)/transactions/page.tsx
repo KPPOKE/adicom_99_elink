@@ -5,7 +5,7 @@ import { toNumber } from "@/lib/utils";
 
 export default async function TransactionsPage() {
   const [items, customers, transactions] = await Promise.all([
-    prisma.item.findMany({ where: { stok: { gt: 0 } }, orderBy: { namaBarang: "asc" } }),
+    prisma.item.findMany({ where: { stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" } }),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
     prisma.transaction.findMany({
       include: { items: { include: { item: true } } },
@@ -22,7 +22,8 @@ export default async function TransactionsPage() {
           namaBarang: item.namaBarang,
           kodeBarang: item.kodeBarang,
           hargaJual: toNumber(item.hargaJual),
-          stok: item.stok
+          stok: item.stok,
+          categoryName: item.category.name
         }))}
         customers={customers.map((customer) => ({ id: customer.id, name: customer.name, phone: customer.phone }))}
         transactions={transactions.map((transaction) => ({
@@ -31,6 +32,7 @@ export default async function TransactionsPage() {
           customerName: transaction.customerName,
           grandTotal: toNumber(transaction.grandTotal),
           paymentMethod: transaction.paymentMethod,
+          status: transaction.status,
           createdAt: transaction.createdAt.toISOString(),
           items: transaction.items.map((item) => ({
             qty: item.qty,

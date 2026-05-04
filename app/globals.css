@@ -28,7 +28,42 @@ textarea {
 }
 
 @media print {
+  aside,
+  header,
   .no-print {
     display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .lg\:pl-64 {
+    padding-left: 0 !important;
+  }
+
+  .print-thermal-58 {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    padding: 4mm !important;
+  }
+
+  .print-thermal-80 {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    padding: 5mm !important;
+  }
+
+  .print-a4 {
+    width: 190mm !important;
+    max-width: 190mm !important;
+  }
+
+  @page {
+    margin: 8mm;
   }
 }
