@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum RoleName {
+  admin
+  staff
+}
+
+enum PaymentMethod {
+  Cash
+  Transfer
+  QRIS
+  Ewallet
+}
+
+enum ServiceStatus {
+  Masuk
+  Dicek
+  Menunggu_Konfirmasi
+  Diproses
+  Selesai
+  Diambil
+  Batal
+}
+
+enum FinanceType {
+  income
+  expense
+}
+
+enum DigitalStatus {
+  Berhasil
+  Pending
+  Gagal
+}
+
+model Role {
+  id        Int      @id @default(autoincrement())
+  name      RoleName @unique
+  users     User[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  name           String
+  email          String          @unique
+  passwordHash   String          @map("password_hash")
+  roleId         Int             @map("role_id")
+  role           Role            @relation(fields: [roleId], references: [id])
+  transactions   Transaction[]
+  services       Service[]
+  financeRecords FinanceRecord[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?  @db.Text
+  items       Item[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+model Supplier {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  address   String?  @db.Text
+  note      String?  @db.Text
+  items     Item[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("suppliers")
+}
+
+model Customer {
+  id           Int           @id @default(autoincrement())
+  name         String
+  phone        String?
+  email        String?
+  address      String?       @db.Text
+  transactions Transaction[]
+  services     Service[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@map("customers")
+}
+
+model Item {
+  id               Int               @id @default(autoincrement())
+  namaBarang       String            @map("nama_barang")
+  kodeBarang       String            @unique @map("kode_barang")
+  categoryId       Int               @map("kategori_id")
+  category         Category          @relation(fields: [categoryId], references: [id])
+  gambar           String?
+  hargaModal       Decimal           @db.Decimal(14, 2) @map("harga_modal")
+  hargaJual        Decimal           @db.Decimal(14, 2) @map("harga_jual")
+  stok             Int               @default(0)
+  stokMinimum      Int               @default(1) @map("stok_minimum")
+  satuan           String            @default("pcs")
+  supplierId       Int?              @map("supplier_id")
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+  deskripsi        String?           @db.Text
+  transactionItems TransactionItem[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([supplierId])
+  @@map("items")
+}
+
+model Transaction {
+  id              Int               @id @default(autoincrement())
+  kodeTransaksi   String            @unique @map("kode_transaksi")
+  tanggal         DateTime          @default(now())
+  customerId      Int?              @map("customer_id")
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  customerName    String?           @map("customer_name")
+  total           Decimal           @db.Decimal(14, 2)
+  diskon          Decimal           @default(0) @db.Decimal(14, 2)
+  grandTotal      Decimal           @db.Decimal(14, 2) @map("grand_total")
+  paymentMethod   PaymentMethod     @map("payment_method")
+  paidAmount      Decimal           @default(0) @db.Decimal(14, 2) @map("paid_amount")
+  changeAmount    Decimal           @default(0) @db.Decimal(14, 2) @map("change_amount")
+  nomorTujuan     String?           @map("nomor_tujuan")
+  provider        String?
+  jenisProduk     String?           @map("jenis_produk")
+  serialNumber    String?           @map("serial_number")
+  digitalStatus   DigitalStatus?    @map("digital_status")
+  userId          Int               @map("user_id")
+  user            User              @relation(fields: [userId], references: [id])
+  items           TransactionItem[]
+  financeRecords  FinanceRecord[]
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([userId])
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id            Int         @id @default(autoincrement())
+  transactionId Int         @map("transaction_id")
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  itemId        Int         @map("item_id")
+  item          Item        @relation(fields: [itemId], references: [id])
+  qty           Int
+  price         Decimal     @db.Decimal(14, 2)
+  subtotal      Decimal     @db.Decimal(14, 2)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([transactionId])
+  @@index([itemId])
+  @@map("transaction_items")
+}
+
+model Service {
+  id                 Int             @id @default(autoincrement())
+  kodeService        String          @unique @map("kode_service")
+  customerId         Int?            @map("customer_id")
+  customer           Customer?       @relation(fields: [customerId], references: [id])
+  customerName       String          @map("customer_name")
+  customerPhone      String?         @map("customer_phone")
+  deviceType         String          @map("device_type")
+  deviceBrand        String?         @map("device_brand")
+  deviceModel        String?         @map("device_model")
+  problemDescription String          @db.Text @map("problem_description")
+  diagnosis          String?         @db.Text
+  estimatedCost      Decimal         @default(0) @db.Decimal(14, 2) @map("estimated_cost")
+  finalCost          Decimal         @default(0) @db.Decimal(14, 2) @map("final_cost")
+  status             ServiceStatus   @default(Masuk)
+  technicianNote     String?         @db.Text @map("technician_note")
+  receivedDate       DateTime        @default(now()) @map("received_date")
+  completedDate      DateTime?       @map("completed_date")
+  pickedUpDate       DateTime?       @map("picked_up_date")
+  userId             Int             @map("user_id")
+  user               User            @relation(fields: [userId], references: [id])
+  financeRecords     FinanceRecord[]
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([userId])
+  @@map("services")
+}
+
+model FinanceRecord {
+  id            Int          @id @default(autoincrement())
+  type          FinanceType
+  category      String
+  amount        Decimal      @db.Decimal(14, 2)
+  description   String?      @db.Text
+  date          DateTime     @default(now())
+  referenceType String?      @map("reference_type")
+  referenceId   Int?         @map("reference_id")
+  transactionId Int?         @map("transaction_id")
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  serviceId     Int?         @map("service_id")
+  service       Service?     @relation(fields: [serviceId], references: [id])
+  userId        Int          @map("user_id")
+  user          User         @relation(fields: [userId], references: [id])
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([transactionId])
+  @@index([serviceId])
+  @@map("finance_records")
+}
+
+model Setting {
+  id              Int      @id @default(autoincrement())
+  storeName       String   @default("Adicom99") @map("store_name")
+  logo            String?
+  address         String?  @db.Text
+  whatsapp        String?
+  email           String?
+  invoicePrefix   String   @default("INV") @map("invoice_prefix")
+  invoiceFooter   String?  @db.Text @map("invoice_footer")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
