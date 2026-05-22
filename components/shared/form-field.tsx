@@ -5,7 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 export function FormInput({
   label,
   error,
-  textarea,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & {
   label: string;

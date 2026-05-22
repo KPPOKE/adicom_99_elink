@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { categorySchema, customerSchema, itemSchema, supplierSchema } from "@/lib/validators";
 
 function cleanNullable(value: unknown) {
@@ -14,6 +14,8 @@ function cleanNullable(value: unknown) {
 
 async function saveUpload(file: File | null) {
   if (!file || file.size === 0) return undefined;
+  if (!file.type.startsWith("image/")) throw new Error("File upload harus berupa gambar");
+  if (file.size > 2 * 1024 * 1024) throw new Error("Ukuran gambar maksimal 2MB");
   const bytes = await file.arrayBuffer();
   const ext = path.extname(file.name) || ".jpg";
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
@@ -24,7 +26,7 @@ async function saveUpload(file: File | null) {
 }
 
 export async function upsertCategory(formData: FormData) {
-  await requireUser();
+  await requireAdmin();
   const parsed = categorySchema.parse(Object.fromEntries(formData));
   const data = { name: parsed.name, description: parsed.description || null };
   if (parsed.id) await prisma.category.update({ where: { id: parsed.id }, data });
@@ -33,13 +35,13 @@ export async function upsertCategory(formData: FormData) {
 }
 
 export async function deleteCategory(id: number) {
-  await requireUser();
+  await requireAdmin();
   await prisma.category.delete({ where: { id } });
   revalidatePath("/categories");
 }
 
 export async function upsertSupplier(formData: FormData) {
-  await requireUser();
+  await requireAdmin();
   const parsed = supplierSchema.parse(Object.fromEntries(formData));
   const data = {
     name: parsed.name,
@@ -53,7 +55,7 @@ export async function upsertSupplier(formData: FormData) {
 }
 
 export async function deleteSupplier(id: number) {
-  await requireUser();
+  await requireAdmin();
   await prisma.supplier.delete({ where: { id } });
   revalidatePath("/suppliers");
 }
@@ -73,13 +75,13 @@ export async function upsertCustomer(formData: FormData) {
 }
 
 export async function deleteCustomer(id: number) {
-  await requireUser();
+  await requireAdmin();
   await prisma.customer.delete({ where: { id } });
   revalidatePath("/customers");
 }
 
 export async function upsertItem(formData: FormData) {
-  await requireUser();
+  await requireAdmin();
   const image = await saveUpload(formData.get("image") as File | null);
   const values = Object.fromEntries(formData);
   delete values.image;
@@ -109,7 +111,7 @@ export async function upsertItem(formData: FormData) {
 }
 
 export async function deleteItem(id: number) {
-  await requireUser();
+  await requireAdmin();
   await prisma.item.delete({ where: { id } });
   revalidatePath("/inventory");
 }

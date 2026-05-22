@@ -1,10 +1,12 @@
 import { ServiceClient } from "@/components/service-client";
 import { PageHeader } from "@/components/shared/page-header";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 
 export default async function ServicesPage() {
-  const [services, customers] = await Promise.all([
+  const [user, services, customers] = await Promise.all([
+    getCurrentUser(),
     prisma.service.findMany({ orderBy: { createdAt: "desc" }, take: 150 }),
     prisma.customer.findMany({ orderBy: { name: "asc" } })
   ]);
@@ -26,6 +28,7 @@ export default async function ServicesPage() {
           paidAt: service.paidAt?.toISOString() ?? null
         }))}
         customers={customers.map((customer) => ({ id: customer.id, name: customer.name, phone: customer.phone }))}
+        role={user?.role.name ?? "staff"}
       />
     </>
   );

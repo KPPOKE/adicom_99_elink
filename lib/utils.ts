@@ -46,7 +46,15 @@ export function dateCode(date = new Date()) {
 
 export function toNumber(value: unknown) {
   if (typeof value === "number") return value;
-  if (typeof value === "string") return Number(value.replace(/[^\d.-]/g, "")) || 0;
+  if (typeof value === "string") {
+    const normalized = value.replace(/[^\d,.-]/g, "");
+    const decimalAware = normalized.includes(",")
+      ? normalized.replaceAll(".", "").replace(",", ".")
+      : /^-?\d{1,3}(\.\d{3})+$/.test(normalized)
+        ? normalized.replaceAll(".", "")
+        : normalized;
+    return Number(decimalAware) || 0;
+  }
   if (value && typeof value === "object" && "toNumber" in value && typeof value.toNumber === "function") {
     return value.toNumber();
   }

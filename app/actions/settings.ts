@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
 async function saveUpload(file: File | null) {
   if (!file || file.size === 0) return undefined;
+  if (!file.type.startsWith("image/")) throw new Error("File logo harus berupa gambar");
+  if (file.size > 2 * 1024 * 1024) throw new Error("Ukuran logo maksimal 2MB");
   const bytes = await file.arrayBuffer();
   const ext = path.extname(file.name) || ".png";
   const filename = `logo-${Date.now()}${ext}`;
@@ -18,7 +20,7 @@ async function saveUpload(file: File | null) {
 }
 
 export async function updateSettings(formData: FormData) {
-  await requireUser();
+  await requireAdmin();
   const logo = await saveUpload(formData.get("logoFile") as File | null);
   const id = Number(formData.get("id"));
   const data = {

@@ -3,6 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,15 +38,28 @@ type ItemRow = {
 export function InventoryClient({
   items,
   categories,
-  suppliers
+  suppliers,
+  role
 }: {
   items: ItemRow[];
   categories: { id: number; name: string }[];
   suppliers: { id: number; name: string }[];
+  role: "admin" | "staff";
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ItemRow | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
+  const filteredItems = items.filter((item) => {
+    const categoryMatch = categoryFilter === "all" || String(item.categoryId) === categoryFilter;
+    const supplierMatch = supplierFilter === "all" || String(item.supplierId ?? "none") === supplierFilter;
+    const stockStatus = item.stok <= 0 ? "empty" : item.stok <= item.stokMinimum ? "low" : "safe";
+    const stockMatch = stockFilter === "all" || stockFilter === stockStatus;
+    return categoryMatch && supplierMatch && stockMatch;
+  });
 
   const columns: ColumnDef<ItemRow>[] = [
     {
@@ -72,29 +86,38 @@ export function InventoryClient({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => {
-              setEditing(row.original);
-              setOpen(true);
-            }}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <ConfirmDialog
-            onConfirm={() =>
-              startTransition(async () => {
-                await deleteItem(row.original.id);
-                toast.success("Barang dihapus");
-              })
-            }
-            trigger={
-              <Button variant="outline" size="icon">
-                <Trash2 className="h-4 w-4 text-red-600" />
+          {role === "admin" ? (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setEditing(row.original);
+                  setOpen(true);
+                }}
+              >
+                <Edit className="h-4 w-4" />
               </Button>
-            }
-          />
+              <ConfirmDialog
+                onConfirm={() =>
+                  startTransition(async () => {
+                    try {
+                      await deleteItem(row.original.id);
+                      toast.success("Barang dihapus");
+                      router.refresh();
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Gagal menghapus barang");
+                    }
+                  })
+                }
+                trigger={
+                  <Button variant="outline" size="icon">
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </Button>
+                }
+              />
+            </>
+          ) : null}
         </div>
       )
     }
@@ -102,6 +125,7 @@ export function InventoryClient({
 
   return (
     <>
+      {role === "admin" ? (
       <div className="mb-4 flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -122,6 +146,7 @@ export function InventoryClient({
                     toast.success("Barang disimpan");
                     setOpen(false);
                     setEditing(null);
+                    router.refresh();
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : "Gagal menyimpan barang");
                   }
@@ -175,7 +200,39 @@ export function InventoryClient({
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={items} searchPlaceholder="Cari barang, kode, kategori..." />
+      ) : null}
+      <DataTable
+        columns={columns}
+        data={filteredItems}
+        searchPlaceholder="Cari barang, kode, kategori..."
+        filters={
+          <>
+            <Select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="w-[170px]">
+              <option value="all">Semua kategori</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </Select>
+            <Select value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} className="w-[170px]">
+              <option value="all">Semua supplier</option>
+              <option value="none">Tanpa supplier</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </Select>
+            <Select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)} className="w-[150px]">
+              <option value="all">Semua stok</option>
+              <option value="safe">Aman</option>
+              <option value="low">Hampir habis</option>
+              <option value="empty">Habis</option>
+            </Select>
+          </>
+        }
+      />
     </>
   );
 }

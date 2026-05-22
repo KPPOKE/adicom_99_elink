@@ -7,6 +7,29 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password minimal 6 karakter")
 });
 
+export const userSchema = z.object({
+  id: z.coerce.number().optional(),
+  name: z.string().min(2, "Nama user wajib diisi"),
+  email: z.string().email("Email tidak valid"),
+  role: z.enum(["admin", "staff"]),
+  password: z.string().optional()
+}).superRefine((value, context) => {
+  if (!value.id && (!value.password || value.password.length < 6)) {
+    context.addIssue({
+      code: "custom",
+      path: ["password"],
+      message: "Password minimal 6 karakter"
+    });
+  }
+  if (value.password && value.password.length > 0 && value.password.length < 6) {
+    context.addIssue({
+      code: "custom",
+      path: ["password"],
+      message: "Password minimal 6 karakter"
+    });
+  }
+});
+
 export const categorySchema = z.object({
   id: z.coerce.number().optional(),
   name: z.string().min(2, "Nama kategori wajib diisi"),

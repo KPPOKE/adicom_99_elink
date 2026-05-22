@@ -6,5 +6,7 @@ dist
 .env*.local
 *.log
 .playwright-mcp
+playwright-report
+test-results
 public/uploads/*
 !public/uploads/.gitkeep

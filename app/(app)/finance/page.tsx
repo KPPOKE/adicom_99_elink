@@ -1,14 +1,19 @@
 import { FinanceClient } from "@/components/finance-client";
 import { PageHeader } from "@/components/shared/page-header";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 
 export default async function FinancePage() {
-  const records = await prisma.financeRecord.findMany({ orderBy: { date: "desc" }, take: 200 });
+  const [user, records] = await Promise.all([
+    getCurrentUser(),
+    prisma.financeRecord.findMany({ orderBy: { date: "desc" }, take: 200 })
+  ]);
   return (
     <>
       <PageHeader title="Keuangan" description="Pantau pemasukan, pengeluaran, laba bersih, dan catatan manual." />
       <FinanceClient
+        role={user?.role.name ?? "staff"}
         records={records.map((record) => ({
           id: record.id,
           type: record.type,

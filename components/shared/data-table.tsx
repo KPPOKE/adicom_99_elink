@@ -9,6 +9,7 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import { Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +18,13 @@ import { EmptyState } from "@/components/shared/empty-state";
 export function DataTable<TData, TValue>({
   columns,
   data,
-  searchPlaceholder = "Cari data..."
+  searchPlaceholder = "Cari data...",
+  filters
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchPlaceholder?: string;
+  filters?: ReactNode;
 }) {
   const [globalFilter, setGlobalFilter] = useState("");
   const table = useReactTable({
@@ -36,9 +39,12 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input className="pl-9" placeholder={searchPlaceholder} value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input className="pl-9" placeholder={searchPlaceholder} value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} />
+        </div>
+        {filters ? <div className="flex flex-wrap gap-2">{filters}</div> : null}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="overflow-x-auto">
@@ -78,7 +84,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="flex items-center justify-between gap-2 text-sm text-slate-500">
         <span>
-          Halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount() || 1}
+          {table.getFilteredRowModel().rows.length} data, halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount() || 1}
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>

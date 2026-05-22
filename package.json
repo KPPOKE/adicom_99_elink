@@ -6,15 +6,18 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",
-    "@prisma/client": "latest",
     "@prisma/adapter-mariadb": "latest",
+    "@prisma/client": "latest",
     "@radix-ui/react-dialog": "latest",
     "@radix-ui/react-dropdown-menu": "latest",
     "@radix-ui/react-label": "latest",
@@ -27,6 +30,7 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "dotenv": "latest",
+    "exceljs": "^4.4.0",
     "lucide-react": "latest",
     "next": "latest",
     "next-themes": "latest",
@@ -40,15 +44,19 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "latest",
     "@types/bcryptjs": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
     "prisma": "latest",
     "tailwindcss": "latest",
     "tsx": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vitest": "^4.1.7"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

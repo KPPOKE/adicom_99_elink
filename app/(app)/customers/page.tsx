@@ -1,10 +1,14 @@
 import { deleteCustomer, upsertCustomer } from "@/app/actions/master-data";
 import { PageHeader } from "@/components/shared/page-header";
 import { SimpleCrud } from "@/components/shared/simple-crud";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export default async function CustomersPage() {
-  const data = await prisma.customer.findMany({ orderBy: { createdAt: "desc" } });
+  const [user, data] = await Promise.all([
+    getCurrentUser(),
+    prisma.customer.findMany({ orderBy: { createdAt: "desc" } })
+  ]);
   return (
     <>
       <PageHeader title="Customer" description="Data customer beserta riwayat transaksi dan service." />
@@ -19,6 +23,9 @@ export default async function CustomersPage() {
         ]}
         upsertAction={upsertCustomer}
         deleteAction={deleteCustomer}
+        canManage
+        canDelete={user?.role.name === "admin"}
+        detailHrefPrefix="/customers"
       />
     </>
   );

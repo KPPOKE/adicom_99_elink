@@ -28,9 +28,9 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
         action={
           <>
             <Button asChild variant="outline">
-              <Link href={`/reports/print?${query.toString()}`}>
+              <Link href={`/reports/export?${query.toString()}&kind=profit-loss&format=pdf`}>
                 <Printer className="h-4 w-4" />
-                Export PDF
+                PDF Laba/Rugi
               </Link>
             </Button>
             <Button asChild variant="outline">
@@ -43,6 +43,24 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
               <Link href={`/reports/export?${query.toString()}&kind=finance`}>
                 <Download className="h-4 w-4" />
                 Excel Keuangan
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/reports/export?${query.toString()}&kind=service`}>
+                <Download className="h-4 w-4" />
+                Excel Service
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/reports/export?${query.toString()}&kind=stock`}>
+                <Download className="h-4 w-4" />
+                Excel Stok
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/reports/print?${query.toString()}`}>
+                <Printer className="h-4 w-4" />
+                Print View
               </Link>
             </Button>
           </>

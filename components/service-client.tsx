@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CreditCard, Edit, Plus, Printer, Trash2 } from "lucide-react";
+import { CreditCard, Edit, Eye, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -40,11 +40,26 @@ type ServiceRow = {
   receivedDate: string | Date;
 };
 
-export function ServiceClient({ services, customers }: { services: ServiceRow[]; customers: { id: number; name: string; phone: string | null }[] }) {
+export function ServiceClient({
+  services,
+  customers,
+  role
+}: {
+  services: ServiceRow[];
+  customers: { id: number; name: string; phone: string | null }[];
+  role: "admin" | "staff";
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
+  const filteredServices = services.filter((service) => {
+    const statusMatch = statusFilter === "all" || service.status === statusFilter;
+    const paymentMatch = paymentFilter === "all" || service.paymentStatus === paymentFilter;
+    return statusMatch && paymentMatch;
+  });
 
   const columns: ColumnDef<ServiceRow>[] = [
     { accessorKey: "kodeService", header: "Kode" },
@@ -70,9 +85,13 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
           value={row.original.status}
           onChange={(event) =>
             startTransition(async () => {
-              await updateServiceStatus(row.original.id, event.target.value);
-              toast.success("Status service diperbarui");
-              router.refresh();
+              try {
+                await updateServiceStatus(row.original.id, event.target.value);
+                toast.success("Status service diperbarui");
+                router.refresh();
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Gagal memperbarui status");
+              }
             })
           }
         >
@@ -104,6 +123,11 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
               <Printer className="h-4 w-4" />
             </Link>
           </Button>
+          <Button asChild variant="outline" size="icon" title={`Detail ${row.original.kodeService}`}>
+            <Link href={`/services/${row.original.id}`}>
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
           {row.original.paymentStatus !== "paid" ? (
             <ConfirmDialog
               title="Tandai service lunas?"
@@ -127,19 +151,26 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
               }
             />
           ) : null}
-          <ConfirmDialog
-            onConfirm={() =>
-              startTransition(async () => {
-                await deleteService(row.original.id);
-                toast.success("Service dihapus");
-              })
-            }
-            trigger={
-              <Button variant="outline" size="icon">
-                <Trash2 className="h-4 w-4 text-red-600" />
-              </Button>
-            }
-          />
+          {role === "admin" ? (
+            <ConfirmDialog
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await deleteService(row.original.id);
+                    toast.success("Service dihapus");
+                    router.refresh();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon">
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
+              }
+            />
+          ) : null}
         </div>
       )
     }
@@ -233,7 +264,28 @@ export function ServiceClient({ services, customers }: { services: ServiceRow[];
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={services} searchPlaceholder="Cari kode service, customer, nomor HP..." />
+      <DataTable
+        columns={columns}
+        data={filteredServices}
+        searchPlaceholder="Cari kode service, customer, nomor HP..."
+        filters={
+          <>
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-[180px]">
+              <option value="all">Semua status</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status.replace("_", " ")}
+                </option>
+              ))}
+            </Select>
+            <Select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="w-[170px]">
+              <option value="all">Semua pembayaran</option>
+              <option value="unpaid">Belum dibayar</option>
+              <option value="paid">Lunas</option>
+            </Select>
+          </>
+        }
+      />
     </>
   );
 }

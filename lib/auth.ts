@@ -76,3 +76,13 @@ export async function requireUser() {
   if (!user) redirect("/login");
   return user;
 }
+
+export async function requireRole(roles: Array<"admin" | "staff">) {
+  const user = await requireUser();
+  if (!roles.includes(user.role.name)) redirect("/dashboard");
+  return user;
+}
+
+export async function requireAdmin() {
+  return requireRole(["admin"]);
+}

@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { dateCode, toNumber } from "@/lib/utils";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
 
@@ -32,6 +32,9 @@ export async function createTransaction(payload: unknown) {
   const changeAmount = parsed.paymentMethod === "Cash" ? Math.max(0, parsed.paidAmount - grandTotal) : 0;
   const kodeTransaksi = await nextCode("TRX", "transaction");
   const status = parsed.status ?? "Berhasil";
+  if (parsed.digitalStatus === "Gagal" && status === "Berhasil") {
+    throw new Error("Produk digital gagal tidak bisa disimpan sebagai transaksi berhasil");
+  }
 
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.create({
@@ -93,7 +96,7 @@ export async function createTransaction(payload: unknown) {
 }
 
 export async function cancelTransaction(id: number) {
-  await requireUser();
+  await requireAdmin();
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
       where: { id },
@@ -118,18 +121,67 @@ export async function cancelTransaction(id: number) {
   revalidatePath("/dashboard");
 }
 
+export async function completePendingTransaction(id: number) {
+  const user = await requireUser();
+  await prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.findUnique({
+      where: { id },
+      include: { financeRecords: true }
+    });
+    if (!transaction) throw new Error("Transaksi tidak ditemukan");
+    if (transaction.status === "Batal") throw new Error("Transaksi sudah dibatalkan");
+    if (transaction.status === "Berhasil") throw new Error("Transaksi sudah berhasil");
+    if (transaction.digitalStatus === "Gagal") throw new Error("Produk digital gagal tidak bisa diselesaikan");
+
+    await tx.transaction.update({
+      where: { id },
+      data: { status: "Berhasil", digitalStatus: transaction.digitalStatus ?? "Berhasil" }
+    });
+    if (!transaction.financeRecords.some((record) => record.type === "income")) {
+      await tx.financeRecord.create({
+        data: {
+          type: "income",
+          category: "Penjualan",
+          amount: transaction.grandTotal,
+          description: `Transaksi ${transaction.kodeTransaksi}`,
+          referenceType: "transaction",
+          referenceId: transaction.id,
+          transactionId: transaction.id,
+          userId: user.id
+        }
+      });
+    }
+  });
+
+  revalidatePath("/transactions");
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+}
+
 export async function upsertService(formData: FormData) {
   const user = await requireUser();
   const parsed = serviceSchema.parse(Object.fromEntries(formData));
 
   if (parsed.id) {
-    await prisma.service.update({
-      where: { id: parsed.id },
-      data: {
-        ...parsed,
-        customerId: parsed.customerId || null,
-        completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? new Date() : undefined,
-        pickedUpDate: parsed.status === "Diambil" ? new Date() : undefined
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.service.findUniqueOrThrow({ where: { id: parsed.id } });
+      await tx.service.update({
+        where: { id: parsed.id },
+        data: {
+          ...parsed,
+          customerId: parsed.customerId || null,
+          completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? existing.completedDate ?? new Date() : undefined,
+          pickedUpDate: parsed.status === "Diambil" ? existing.pickedUpDate ?? new Date() : undefined
+        }
+      });
+      if (existing.paymentStatus === "paid") {
+        await tx.financeRecord.updateMany({
+          where: { serviceId: parsed.id, type: "income" },
+          data: {
+            amount: parsed.finalCost,
+            description: `Service ${existing.kodeService}`
+          }
+        });
       }
     });
   } else {
@@ -209,14 +261,16 @@ export async function updateServiceStatus(id: number, status: string) {
 }
 
 export async function deleteService(id: number) {
-  await requireUser();
+  await requireAdmin();
+  const recordCount = await prisma.financeRecord.count({ where: { serviceId: id } });
+  if (recordCount > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
   await prisma.service.delete({ where: { id } });
   revalidatePath("/services");
 }
 
 export async function upsertFinanceRecord(formData: FormData) {
-  const user = await requireUser();
   const parsed = financeSchema.parse(Object.fromEntries(formData));
+  const user = parsed.id ? await requireAdmin() : await requireUser();
   const data: Prisma.FinanceRecordUncheckedCreateInput = {
     type: parsed.type,
     category: parsed.category,
@@ -233,7 +287,7 @@ export async function upsertFinanceRecord(formData: FormData) {
 }
 
 export async function deleteFinanceRecord(id: number) {
-  await requireUser();
+  await requireAdmin();
   await prisma.financeRecord.delete({ where: { id } });
   revalidatePath("/finance");
 }

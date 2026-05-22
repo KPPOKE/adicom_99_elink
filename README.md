@@ -58,15 +58,27 @@ Login seed:
 - CRUD inventory, kategori, supplier, customer
 - Upload gambar barang
 - Transaksi multi-item dengan diskon, metode pembayaran, kembalian cash, update stok otomatis
-- Pemasukan otomatis dari transaksi
+- Pemasukan otomatis dari transaksi berhasil; transaksi pending bisa diselesaikan atau dibatalkan
 - Manajemen service dengan update status cepat
-- Pemasukan otomatis dari service selesai/diambil jika ada biaya final
-- Keuangan manual income/expense dan summary laba bersih
-- Laporan sederhana dengan tombol export siap dikembangkan
-- Settings toko, invoice, logo, dan daftar user
+- Pemasukan service dibuat saat service ditandai lunas
+- Keuangan manual income/expense, filter, edit manual, dan summary laba bersih
+- Laporan penjualan, service, stok, keuangan, dan laba/rugi dengan export XLSX/PDF
+- Settings toko, invoice, logo, dan manajemen user admin/staff
+- Role admin/staff: admin mengelola settings, user, delete/cancel; staff fokus transaksi, service, customer, finance input
+
+## Quality Check
+
+```bash
+npm run lint
+npm run test
+npm run test:e2e
+npm run build
+```
+
+`npm run test:e2e` memakai Playwright dan dev server lokal `http://localhost:3000`.
 
 ## Catatan Produksi
 
 - Ganti `AUTH_SECRET` sebelum deploy.
 - Untuk upload produksi, pindahkan storage ke object storage seperti S3/R2.
-- Tambahkan role permission yang lebih granular bila workflow staff/admin mulai kompleks.
+- Review hasil `npm audit` sebelum deploy production.

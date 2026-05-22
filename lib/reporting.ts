@@ -118,6 +118,70 @@ export function reportCsv(kind: string, data: Awaited<ReturnType<typeof loadRepo
   return [["Kode", "Tanggal", "Customer", "Status", "Pembayaran", "Subtotal", "Diskon", "Grand Total"], ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
+export function reportDataset(kind: string, data: Awaited<ReturnType<typeof loadReportData>>) {
+  if (kind === "finance") {
+    return {
+      title: "Laporan Keuangan",
+      headers: ["Tanggal", "Tipe", "Kategori", "Nominal", "Referensi", "Deskripsi"],
+      rows: data.finance.map((item) => [
+        formatDate(item.date),
+        item.type === "income" ? "Pemasukan" : "Pengeluaran",
+        item.category,
+        toNumber(item.amount),
+        item.referenceType ?? "manual",
+        item.description ?? ""
+      ])
+    };
+  }
+  if (kind === "service") {
+    return {
+      title: "Laporan Service",
+      headers: ["Kode", "Tanggal Masuk", "Customer", "Perangkat", "Status", "Pembayaran", "Biaya Final"],
+      rows: data.services.map((item) => [
+        item.kodeService,
+        formatDate(item.receivedDate),
+        item.customerName,
+        [item.deviceType, item.deviceBrand, item.deviceModel].filter(Boolean).join(" "),
+        item.status.replace("_", " "),
+        item.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar",
+        toNumber(item.finalCost)
+      ])
+    };
+  }
+  if (kind === "stock") {
+    return {
+      title: "Laporan Stok",
+      headers: ["Kode", "Nama Barang", "Kategori", "Stok", "Stok Minimum", "Satuan"],
+      rows: data.items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, item.stok, item.stokMinimum, item.satuan])
+    };
+  }
+  if (kind === "profit-loss") {
+    return {
+      title: "Laporan Laba Rugi",
+      headers: ["Komponen", "Nominal"],
+      rows: [
+        ["Pemasukan", data.income],
+        ["Pengeluaran", data.expense],
+        ["Laba/Rugi", data.income - data.expense]
+      ]
+    };
+  }
+  return {
+    title: "Laporan Penjualan",
+    headers: ["Kode", "Tanggal", "Customer", "Status", "Pembayaran", "Subtotal", "Diskon", "Grand Total"],
+    rows: data.transactions.map((item) => [
+      item.kodeTransaksi,
+      formatDate(item.createdAt),
+      item.customerName ?? "Umum",
+      item.status,
+      item.paymentMethod,
+      toNumber(item.total),
+      toNumber(item.diskon),
+      toNumber(item.grandTotal)
+    ])
+  };
+}
+
 export function reportTitle(filters: ReportFilters) {
   const range = reportDateRange(filters);
   if (!range.start || !range.end) return "Semua Data";

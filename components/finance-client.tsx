@@ -1,7 +1,8 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Trash2 } from "lucide-react";
+import { Edit, Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,11 +27,21 @@ type FinanceRow = {
   referenceType: string | null;
 };
 
-export function FinanceClient({ records }: { records: FinanceRow[] }) {
+export function FinanceClient({ records, role }: { records: FinanceRow[]; role: "admin" | "staff" }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<FinanceRow | null>(null);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
-  const income = records.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-  const expense = records.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
+  const categories = Array.from(new Set(records.map((record) => record.category))).sort();
+  const filteredRecords = records.filter((record) => {
+    const typeMatch = typeFilter === "all" || record.type === typeFilter;
+    const categoryMatch = categoryFilter === "all" || record.category === categoryFilter;
+    return typeMatch && categoryMatch;
+  });
+  const income = filteredRecords.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
+  const expense = filteredRecords.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
 
   const columns: ColumnDef<FinanceRow>[] = [
     { header: "Tanggal", cell: ({ row }) => formatDate(row.original.date) },
@@ -43,20 +54,37 @@ export function FinanceClient({ records }: { records: FinanceRow[] }) {
       id: "actions",
       header: "",
       cell: ({ row }) =>
-        row.original.referenceType === "manual" || !row.original.referenceType ? (
-          <ConfirmDialog
-            onConfirm={() =>
-              startTransition(async () => {
-                await deleteFinanceRecord(row.original.id);
-                toast.success("Catatan keuangan dihapus");
-              })
-            }
-            trigger={
-              <Button variant="outline" size="icon">
-                <Trash2 className="h-4 w-4 text-red-600" />
-              </Button>
-            }
-          />
+        role === "admin" && (row.original.referenceType === "manual" || !row.original.referenceType) ? (
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setEditing(row.original);
+                setOpen(true);
+              }}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <ConfirmDialog
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await deleteFinanceRecord(row.original.id);
+                    toast.success("Catatan keuangan dihapus");
+                    router.refresh();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal menghapus catatan");
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon">
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
+              }
+            />
+          </div>
         ) : null
     }
   ];
@@ -71,14 +99,14 @@ export function FinanceClient({ records }: { records: FinanceRow[] }) {
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => setEditing(null)}>
               <Plus className="h-4 w-4" />
               Catat Manual
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Catatan Keuangan Manual</DialogTitle>
+              <DialogTitle>{editing ? "Edit Catatan Keuangan" : "Catatan Keuangan Manual"}</DialogTitle>
             </DialogHeader>
             <form
               action={(formData) =>
@@ -87,6 +115,8 @@ export function FinanceClient({ records }: { records: FinanceRow[] }) {
                     await upsertFinanceRecord(formData);
                     toast.success("Catatan keuangan disimpan");
                     setOpen(false);
+                    setEditing(null);
+                    router.refresh();
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : "Gagal menyimpan catatan");
                   }
@@ -94,26 +124,48 @@ export function FinanceClient({ records }: { records: FinanceRow[] }) {
               }
               className="grid gap-4"
             >
+              {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
               <div className="space-y-1.5">
                 <Label>Tipe</Label>
-                <Select name="type" defaultValue="expense">
+                <Select name="type" defaultValue={editing?.type ?? "expense"}>
                   <option value="income">Pemasukan</option>
                   <option value="expense">Pengeluaran</option>
                 </Select>
               </div>
-              <Field name="category" label="Kategori" />
-              <Field type="number" name="amount" label="Nominal" />
-              <Field type="date" name="date" label="Tanggal" value={new Date().toISOString().slice(0, 10)} />
+              <Field name="category" label="Kategori" value={editing?.category} />
+              <Field type="number" name="amount" label="Nominal" value={editing ? String(editing.amount) : ""} />
+              <Field type="date" name="date" label="Tanggal" value={editing ? new Date(editing.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)} />
               <div className="space-y-1.5">
                 <Label>Deskripsi</Label>
-                <Textarea name="description" />
+                <Textarea name="description" defaultValue={editing?.description ?? ""} />
               </div>
               <Button disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable columns={columns} data={records} searchPlaceholder="Cari catatan keuangan..." />
+      <DataTable
+        columns={columns}
+        data={filteredRecords}
+        searchPlaceholder="Cari catatan keuangan..."
+        filters={
+          <>
+            <Select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="w-[160px]">
+              <option value="all">Semua tipe</option>
+              <option value="income">Pemasukan</option>
+              <option value="expense">Pengeluaran</option>
+            </Select>
+            <Select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="w-[180px]">
+              <option value="all">Semua kategori</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </Select>
+          </>
+        }
+      />
     </div>
   );
 }

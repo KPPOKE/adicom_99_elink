@@ -1,10 +1,12 @@
 import { InventoryClient } from "@/components/inventory-client";
 import { PageHeader } from "@/components/shared/page-header";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 
 export default async function InventoryPage() {
-  const [items, categories, suppliers] = await Promise.all([
+  const [user, items, categories, suppliers] = await Promise.all([
+    getCurrentUser(),
     prisma.item.findMany({ include: { category: true, supplier: true }, orderBy: { createdAt: "desc" } }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ orderBy: { name: "asc" } })
@@ -20,6 +22,7 @@ export default async function InventoryPage() {
         }))}
         categories={categories}
         suppliers={suppliers}
+        role={user?.role.name ?? "staff"}
       />
     </>
   );

@@ -6,7 +6,6 @@ import {
   BarChart3,
   Boxes,
   Contact,
-  FileText,
   Home,
   Landmark,
   Layers3,
@@ -28,10 +27,10 @@ const nav = [
   { href: "/services", label: "Service", icon: Stethoscope },
   { href: "/finance", label: "Keuangan", icon: Landmark },
   { href: "/reports", label: "Laporan", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings }
+  { href: "/settings", label: "Settings", icon: Settings, adminOnly: true }
 ];
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: "admin" | "staff" }) {
   const pathname = usePathname();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white lg:block">
@@ -45,7 +44,7 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="space-y-1 p-4">
-        {nav.map((item) => {
+        {nav.filter((item) => !item.adminOnly || role === "admin").map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link

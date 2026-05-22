@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <Sidebar />
+      <Sidebar role={user.role.name} />
       <div className="lg:pl-64">
         <Topbar userName={user.name} role={user.role.name} />
         <main className="p-4 lg:p-8">{children}</main>

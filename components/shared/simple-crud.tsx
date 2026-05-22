@@ -1,7 +1,9 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, Eye, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,14 +28,21 @@ export function SimpleCrud({
   data,
   fields,
   upsertAction,
-  deleteAction
+  deleteAction,
+  canManage = true,
+  canDelete = canManage,
+  detailHrefPrefix
 }: {
   title: string;
   data: Row[];
   fields: Field[];
   upsertAction: (formData: FormData) => Promise<void>;
   deleteAction: (id: number) => Promise<void>;
+  canManage?: boolean;
+  canDelete?: boolean;
+  detailHrefPrefix?: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,33 +63,45 @@ export function SimpleCrud({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => {
-              setEditing(row.original);
-              setOpen(true);
-            }}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <ConfirmDialog
-            onConfirm={() =>
-              startTransition(async () => {
-                try {
-                  await deleteAction(row.original.id);
-                  toast.success(`${title} dihapus`);
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Gagal menghapus data");
-                }
-              })
-            }
-            trigger={
-              <Button variant="outline" size="icon">
-                <Trash2 className="h-4 w-4 text-red-600" />
-              </Button>
-            }
-          />
+          {detailHrefPrefix ? (
+            <Button asChild variant="outline" size="icon">
+              <Link href={`${detailHrefPrefix}/${row.original.id}`}>
+                <Eye className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : null}
+          {canManage ? (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setEditing(row.original);
+                setOpen(true);
+              }}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <ConfirmDialog
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await deleteAction(row.original.id);
+                    toast.success(`${title} dihapus`);
+                    router.refresh();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal menghapus data");
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon">
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
+              }
+            />
+          ) : null}
         </div>
       )
     }
@@ -93,6 +114,7 @@ export function SimpleCrud({
         toast.success(`${title} disimpan`);
         setOpen(false);
         setEditing(null);
+        router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Gagal menyimpan data");
       }
@@ -101,6 +123,7 @@ export function SimpleCrud({
 
   return (
     <>
+      {canManage ? (
       <div className="mb-4 flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -134,6 +157,7 @@ export function SimpleCrud({
           </DialogContent>
         </Dialog>
       </div>
+      ) : null}
       <DataTable columns={columns} data={data} searchPlaceholder={`Cari ${title.toLowerCase()}...`} />
     </>
   );

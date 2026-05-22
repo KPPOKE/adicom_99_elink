@@ -1,10 +1,12 @@
 import { TransactionClient } from "@/components/transaction-client";
 import { PageHeader } from "@/components/shared/page-header";
+import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 
 export default async function TransactionsPage() {
-  const [items, customers, transactions] = await Promise.all([
+  const [user, items, customers, transactions] = await Promise.all([
+    getCurrentUser(),
     prisma.item.findMany({ where: { stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" } }),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
     prisma.transaction.findMany({
@@ -39,6 +41,7 @@ export default async function TransactionsPage() {
             item: { namaBarang: item.item.namaBarang }
           }))
         }))}
+        role={user?.role.name ?? "staff"}
       />
     </>
   );

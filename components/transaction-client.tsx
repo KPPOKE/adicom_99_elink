@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Ban, Plus, Printer, Trash2 } from "lucide-react";
+import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -14,7 +14,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
-import { cancelTransaction, createTransaction } from "@/app/actions/operations";
+import { cancelTransaction, completePendingTransaction, createTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string };
@@ -34,11 +34,13 @@ type TransactionRow = {
 export function TransactionClient({
   items,
   customers,
-  transactions
+  transactions,
+  role
 }: {
   items: ItemOption[];
   customers: CustomerOption[];
   transactions: TransactionRow[];
+  role: "admin" | "staff";
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<Line[]>([{ itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }]);
@@ -78,7 +80,35 @@ export function TransactionClient({
               <Printer className="h-4 w-4" />
             </Link>
           </Button>
-          {row.original.status !== "Batal" ? (
+          <Button asChild variant="outline" size="icon" title={`Detail ${row.original.kodeTransaksi}`}>
+            <Link href={`/transactions/${row.original.id}`}>
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
+          {row.original.status === "Pending" ? (
+            <ConfirmDialog
+              title="Selesaikan transaksi?"
+              description="Status transaksi menjadi berhasil dan pemasukan akan dibuat di keuangan."
+              confirmLabel="Selesaikan"
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await completePendingTransaction(row.original.id);
+                    toast.success("Transaksi diselesaikan");
+                    router.refresh();
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Gagal menyelesaikan transaksi");
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon" title="Selesaikan transaksi">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                </Button>
+              }
+            />
+          ) : null}
+          {role === "admin" && row.original.status !== "Batal" ? (
             <ConfirmDialog
               title="Batalkan transaksi?"
               description="Stok item akan dikembalikan dan pemasukan transaksi ini akan dikoreksi."

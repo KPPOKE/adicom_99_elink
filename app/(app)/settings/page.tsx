@@ -1,15 +1,18 @@
 import { Save } from "lucide-react";
 import { updateSettings } from "@/app/actions/settings";
 import { PageHeader } from "@/components/shared/page-header";
+import { UserManagementClient } from "@/components/user-management-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
+  const currentUser = await requireAdmin();
   const [setting, users] = await Promise.all([
     prisma.setting.findFirst(),
     prisma.user.findMany({ include: { role: true }, orderBy: { name: "asc" } })
@@ -62,14 +65,16 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>Data User</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {users.map((user) => (
-              <div key={user.id} className="rounded-lg border border-slate-200 p-3">
-                <p className="font-medium">{user.name}</p>
-                <p className="text-sm text-slate-500">{user.email}</p>
-                <p className="mt-1 text-xs capitalize text-blue-700">{user.role.name}</p>
-              </div>
-            ))}
+          <CardContent>
+            <UserManagementClient
+              currentUserId={currentUser.id}
+              users={users.map((user) => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role.name
+              }))}
+            />
           </CardContent>
         </Card>
       </div>
