@@ -102,7 +102,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
       <div className="mt-6">
         <ReportChart data={chartData} />
       </div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-2">
         <ReportTable title="Laporan Penjualan" rows={transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), item.status, formatCurrency(toNumber(item.grandTotal))])} />
         <ReportTable title="Laporan Service" rows={services.map((item) => [item.kodeService, item.customerName, item.status.replace("_", " "), item.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar", formatCurrency(toNumber(item.finalCost))])} />
         <ReportTable title="Laporan Stok" rows={items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, `${item.stok} ${item.satuan}`])} />

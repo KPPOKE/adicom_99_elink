@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" description="Pengaturan toko, invoice, logo, dan user." />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
           <CardHeader>
             <CardTitle>Profil Toko</CardTitle>

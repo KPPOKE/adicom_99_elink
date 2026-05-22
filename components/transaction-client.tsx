@@ -184,8 +184,8 @@ export function TransactionClient({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <Card className="xl:order-2">
+    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <Card className="min-w-0 xl:order-2">
         <CardHeader>
           <CardTitle>Transaksi Baru</CardTitle>
         </CardHeader>
@@ -312,7 +312,7 @@ export function TransactionClient({
           </Button>
         </CardContent>
       </Card>
-      <div className="xl:order-1">
+      <div className="min-w-0 xl:order-1">
         <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." />
       </div>
     </div>
