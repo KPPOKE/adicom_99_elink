@@ -22,7 +22,7 @@ export function ConfirmDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-red-500/25 bg-red-500/15 text-red-300">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <DialogTitle>{title}</DialogTitle>

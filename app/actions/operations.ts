@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { dateCode, toNumber } from "@/lib/utils";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
+import { handleActionError } from "@/lib/errors";
 
 async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service") {
   const code = `${prefix}-${dateCode()}`;
@@ -25,10 +26,19 @@ export async function createTransaction(payload: unknown) {
     const stock = stocks.find((item) => item.id === line.itemId);
     if (!stock) throw new Error("Barang tidak ditemukan");
     if (stock.stok < line.qty) throw new Error(`Stok ${stock.namaBarang} tidak cukup`);
+    
+    // Keamanan: Timpa harga dari frontend dengan harga asli dari database
+    // untuk mencegah manipulasi harga dari client-side
+    line.price = Number(stock.hargaJual);
   }
 
   const total = parsed.items.reduce((sum, item) => sum + item.qty * item.price, 0);
   const grandTotal = Math.max(0, total - parsed.diskon);
+
+  if (parsed.paymentMethod === "Cash" && parsed.paidAmount < grandTotal) {
+    throw new Error("Uang dibayar tidak boleh kurang dari grand total yang sebenarnya");
+  }
+
   const changeAmount = parsed.paymentMethod === "Cash" ? Math.max(0, parsed.paidAmount - grandTotal) : 0;
   const kodeTransaksi = await nextCode("TRX", "transaction");
   const status = parsed.status ?? "Berhasil";
@@ -261,11 +271,15 @@ export async function updateServiceStatus(id: number, status: string) {
 }
 
 export async function deleteService(id: number) {
-  await requireAdmin();
-  const recordCount = await prisma.financeRecord.count({ where: { serviceId: id } });
-  if (recordCount > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
-  await prisma.service.delete({ where: { id } });
-  revalidatePath("/services");
+  try {
+    await requireAdmin();
+    const recordCount = await prisma.financeRecord.count({ where: { serviceId: id } });
+    if (recordCount > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
+    await prisma.service.delete({ where: { id } });
+    revalidatePath("/services");
+  } catch (error) {
+    handleActionError(error);
+  }
 }
 
 export async function upsertFinanceRecord(formData: FormData) {
@@ -287,7 +301,11 @@ export async function upsertFinanceRecord(formData: FormData) {
 }
 
 export async function deleteFinanceRecord(id: number) {
-  await requireAdmin();
-  await prisma.financeRecord.delete({ where: { id } });
-  revalidatePath("/finance");
+  try {
+    await requireAdmin();
+    await prisma.financeRecord.delete({ where: { id } });
+    revalidatePath("/finance");
+  } catch (error) {
+    handleActionError(error);
+  }
 }

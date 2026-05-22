@@ -80,7 +80,7 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
               }
               trigger={
                 <Button variant="outline" size="icon">
-                  <Trash2 className="h-4 w-4 text-red-600" />
+                  <Trash2 className="h-4 w-4 text-red-300" />
                 </Button>
               }
             />
@@ -172,9 +172,9 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
 
 function Summary({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
+    <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-5 shadow-[0_18px_45px_rgba(2,6,23,0.18)]">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-slate-950">{formatCurrency(value)}</p>
+      <p className="mt-2 text-xl font-semibold text-slate-100">{formatCurrency(value)}</p>
     </div>
   );
 }

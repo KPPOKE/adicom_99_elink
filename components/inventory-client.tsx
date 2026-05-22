@@ -67,11 +67,11 @@ export function InventoryClient({
       header: "Barang",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <div className="relative h-11 w-11 overflow-hidden rounded-md bg-slate-100">
+          <div className="relative h-11 w-11 overflow-hidden rounded-md border border-slate-700 bg-slate-800">
             {row.original.gambar ? <Image src={row.original.gambar} alt="" fill className="object-cover" /> : null}
           </div>
           <div>
-            <p className="font-medium text-slate-950">{row.original.namaBarang}</p>
+            <p className="font-medium text-slate-100">{row.original.namaBarang}</p>
             <p className="text-xs text-slate-500">{row.original.kodeBarang}</p>
           </div>
         </div>
@@ -103,16 +103,22 @@ export function InventoryClient({
                   startTransition(async () => {
                     try {
                       await deleteItem(row.original.id);
-                      toast.success("Barang dihapus");
+                      toast.success("Barang dihapus", {
+                        description: `Data ${row.original.namaBarang} telah dihapus.`,
+                        action: { label: "Tutup", onClick: () => console.log("Closed") }
+                      });
                       router.refresh();
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Gagal menghapus barang");
+                      toast.error("Gagal menghapus barang", {
+                        description: error instanceof Error ? error.message : "Terjadi kesalahan sistem.",
+                        action: { label: "Tutup", onClick: () => console.log("Closed") }
+                      });
                     }
                   })
                 }
                 trigger={
                   <Button variant="outline" size="icon">
-                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <Trash2 className="h-4 w-4 text-red-300" />
                   </Button>
                 }
               />
@@ -143,12 +149,18 @@ export function InventoryClient({
                 startTransition(async () => {
                   try {
                     await upsertItem(formData);
-                    toast.success("Barang disimpan");
+                    toast.success("Barang disimpan", {
+                      description: "Data barang telah berhasil diperbarui di sistem.",
+                      action: { label: "Tutup", onClick: () => console.log("Closed") }
+                    });
                     setOpen(false);
                     setEditing(null);
                     router.refresh();
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menyimpan barang");
+                    toast.error("Gagal menyimpan barang", {
+                      description: error instanceof Error ? error.message : "Terjadi kesalahan sistem.",
+                      action: { label: "Tutup", onClick: () => console.log("Closed") }
+                    });
                   }
                 })
               }

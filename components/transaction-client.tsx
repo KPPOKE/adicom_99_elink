@@ -126,7 +126,7 @@ export function TransactionClient({
               }
               trigger={
                 <Button variant="outline" size="icon" title={`Batalkan ${row.original.kodeTransaksi}`}>
-                  <Ban className="h-4 w-4 text-red-600" />
+                  <Ban className="h-4 w-4 text-red-300" />
                 </Button>
               }
             />
@@ -217,7 +217,7 @@ export function TransactionClient({
           </div>
           <div className="space-y-3">
             {lines.map((line, index) => (
-              <div key={index} className="grid gap-2 rounded-lg border border-slate-200 p-3">
+              <div key={index} className="grid gap-2 rounded-lg border border-slate-700 bg-slate-950/30 p-3">
                 <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
                   {items.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -264,7 +264,7 @@ export function TransactionClient({
               <Label>Dibayar</Label>
               <Input type="number" value={paidAmount} onChange={(event) => setPaidAmount(Number(event.target.value))} />
             </div>
-            <div className="rounded-lg bg-slate-50 p-3">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
               <p className="text-xs text-slate-500">Kembalian</p>
               <p className="font-semibold">{formatCurrency(change)}</p>
             </div>
@@ -297,12 +297,12 @@ export function TransactionClient({
               </div>
             </div>
           ) : null}
-          <div className="rounded-lg bg-blue-50 p-4">
-            <div className="flex justify-between text-sm text-slate-600">
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+            <div className="flex justify-between text-sm text-slate-400">
               <span>Subtotal</span>
               <span>{formatCurrency(total)}</span>
             </div>
-            <div className="mt-2 flex justify-between text-lg font-semibold text-blue-700">
+            <div className="mt-2 flex justify-between text-lg font-semibold text-blue-300">
               <span>Grand Total</span>
               <span>{formatCurrency(grandTotal)}</span>
             </div>

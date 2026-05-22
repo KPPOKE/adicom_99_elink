@@ -1,6 +1,5 @@
 import { CircleDollarSign, ClipboardCheck, PackageSearch, Receipt, TrendingDown, TrendingUp, Wrench } from "lucide-react";
 import { DashboardCharts } from "@/components/dashboard-charts";
-import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { ServiceStatusBadge, StockBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,16 +45,16 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Ringkasan operasional harian Adicom99." />
+      <h1 className="sr-only">Dashboard</h1>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Pemasukan Hari Ini" value={formatCurrency(income)} icon={TrendingUp} tone="green" />
-        <StatCard title="Pengeluaran Hari Ini" value={formatCurrency(expense)} icon={TrendingDown} tone="red" />
-        <StatCard title="Laba Bersih Hari Ini" value={formatCurrency(income - expense)} icon={CircleDollarSign} tone="blue" />
-        <StatCard title="Transaksi Hari Ini" value={String(todayTransactions)} icon={Receipt} tone="cyan" />
-        <StatCard title="Service Masuk" value={String(services.length)} icon={Wrench} tone="orange" />
-        <StatCard title="Service Selesai" value={String(statusCount("Selesai") + statusCount("Diambil"))} icon={ClipboardCheck} tone="green" />
-        <StatCard title="Service Proses" value={String(statusCount("Dicek") + statusCount("Diproses") + statusCount("Menunggu_Konfirmasi"))} icon={Wrench} tone="blue" />
-        <StatCard title="Stok Hampir Habis" value={String(lowStock.length)} icon={PackageSearch} tone="orange" />
+        <StatCard title="Pemasukan Hari Ini" value={formatCurrency(income)} icon={TrendingUp} tone="green" helper="Total transaksi masuk" />
+        <StatCard title="Pengeluaran Hari Ini" value={formatCurrency(expense)} icon={TrendingDown} tone="red" helper="Biaya operasional" />
+        <StatCard title="Laba Bersih Hari Ini" value={formatCurrency(income - expense)} icon={CircleDollarSign} tone="blue" helper="Income - expense" />
+        <StatCard title="Transaksi Hari Ini" value={String(todayTransactions)} icon={Receipt} tone="cyan" helper="Penjualan valid" />
+        <StatCard title="Service Masuk" value={String(services.length)} icon={Wrench} tone="orange" helper="Total hari ini" />
+        <StatCard title="Service Selesai" value={String(statusCount("Selesai") + statusCount("Diambil"))} icon={ClipboardCheck} tone="green" helper="Siap diambil" />
+        <StatCard title="Service Proses" value={String(statusCount("Dicek") + statusCount("Diproses") + statusCount("Menunggu_Konfirmasi"))} icon={Wrench} tone="blue" helper="Sedang dikerjakan" />
+        <StatCard title="Stok Hampir Habis" value={String(lowStock.length)} icon={PackageSearch} tone="orange" helper="Butuh perhatian" />
       </div>
       <div className="mt-6">
         <DashboardCharts
@@ -70,12 +69,12 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
+              <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3">
                 <div>
-                  <p className="font-medium">{transaction.kodeTransaksi}</p>
+                  <p className="font-medium text-slate-100">{transaction.kodeTransaksi}</p>
                   <p className="text-xs text-slate-500">{formatDateTime(transaction.createdAt)}</p>
                 </div>
-                <p className="font-semibold text-blue-700">{formatCurrency(toNumber(transaction.grandTotal))}</p>
+                <p className="font-semibold text-blue-400">{formatCurrency(toNumber(transaction.grandTotal))}</p>
               </div>
             ))}
           </CardContent>
@@ -86,9 +85,9 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {recentServices.map((service) => (
-              <div key={service.id} className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
+              <div key={service.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3">
                 <div>
-                  <p className="font-medium">{service.kodeService}</p>
+                  <p className="font-medium text-slate-100">{service.kodeService}</p>
                   <p className="text-xs text-slate-500">{service.customerName}</p>
                 </div>
                 <ServiceStatusBadge status={service.status} />
@@ -103,11 +102,11 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {lowStock.map((item) => (
-            <div key={item.id} className="rounded-lg border border-slate-200 p-3">
-              <p className="font-medium">{item.namaBarang}</p>
+            <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
+              <p className="font-medium text-slate-100">{item.namaBarang}</p>
               <p className="text-xs text-slate-500">{item.category.name}</p>
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-sm">{item.stok} {item.satuan}</span>
+                <span className="text-sm text-slate-300">{item.stok} {item.satuan}</span>
                 <StockBadge stok={item.stok} minimum={item.stokMinimum} />
               </div>
             </div>

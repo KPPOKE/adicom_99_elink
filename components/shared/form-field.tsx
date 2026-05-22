@@ -15,7 +15,7 @@ export function FormInput({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <Input {...props} />
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-red-300">{error}</p> : null}
     </div>
   );
 }
@@ -32,7 +32,7 @@ export function FormTextarea({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <Textarea {...props} />
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-red-300">{error}</p> : null}
     </div>
   );
 }

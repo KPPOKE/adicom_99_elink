@@ -52,7 +52,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b text-left text-xs uppercase text-slate-500">
+                <thead className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">
                   <tr>
                     <th className="py-2">Barang</th>
                     <th className="py-2">Kategori</th>
@@ -61,11 +61,11 @@ export default async function TransactionDetailPage({ params }: { params: Promis
                     <th className="py-2 text-right">Subtotal</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-800 text-slate-300">
                   {transaction.items.map((line) => (
                     <tr key={line.id}>
                       <td className="py-3 pr-3">
-                        <p className="font-medium text-slate-950">{line.item.namaBarang}</p>
+                        <p className="font-medium text-slate-100">{line.item.namaBarang}</p>
                         <p className="text-xs text-slate-500">{line.item.kodeBarang}</p>
                       </td>
                       <td className="py-3 pr-3">{line.item.category.name}</td>
@@ -120,7 +120,7 @@ function Info({ label, value, strong }: { label: string; value: ReactNode; stron
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-slate-500">{label}</span>
-      <span className={strong ? "font-semibold text-blue-700" : "text-right font-medium text-slate-900"}>{value}</span>
+      <span className={strong ? "font-semibold text-blue-300" : "text-right font-medium text-slate-200"}>{value}</span>
     </div>
   );
 }

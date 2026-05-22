@@ -40,14 +40,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent className="space-y-3">
             {customer.transactions.length ? customer.transactions.map((transaction) => (
-              <Link key={transaction.id} href={`/transactions/${transaction.id}`} className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+              <Link key={transaction.id} href={`/transactions/${transaction.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3 hover:bg-blue-950/20">
                 <div>
-                  <p className="font-medium text-slate-950">{transaction.kodeTransaksi}</p>
+                  <p className="font-medium text-slate-100">{transaction.kodeTransaksi}</p>
                   <p className="text-xs text-slate-500">{formatDateTime(transaction.createdAt)}</p>
                 </div>
                 <div className="text-right">
                   <TransactionStatusBadge status={transaction.status} />
-                  <p className="mt-1 font-semibold text-blue-700">{formatCurrency(toNumber(transaction.grandTotal))}</p>
+                  <p className="mt-1 font-semibold text-blue-300">{formatCurrency(toNumber(transaction.grandTotal))}</p>
                 </div>
               </Link>
             )) : <p className="text-sm text-slate-500">Belum ada transaksi.</p>}
@@ -59,9 +59,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent className="space-y-3">
             {customer.services.length ? customer.services.map((service) => (
-              <Link key={service.id} href={`/services/${service.id}`} className="flex items-center justify-between rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+              <Link key={service.id} href={`/services/${service.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3 hover:bg-blue-950/20">
                 <div>
-                  <p className="font-medium text-slate-950">{service.kodeService}</p>
+                  <p className="font-medium text-slate-100">{service.kodeService}</p>
                   <p className="text-xs text-slate-500">{[service.deviceType, service.deviceBrand, service.deviceModel].filter(Boolean).join(" ")}</p>
                 </div>
                 <ServiceStatusBadge status={service.status} />

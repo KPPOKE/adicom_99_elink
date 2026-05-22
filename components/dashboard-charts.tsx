@@ -12,7 +12,7 @@ export function DashboardCharts({
   incomeData: { date: string; income: number }[];
   categoryData: { name: string; value: number }[];
 }) {
-  const colors = ["#2563eb", "#06b6d4", "#f97316", "#10b981", "#64748b"];
+  const colors = ["#0ea5e9", "#6366f1", "#a855f7", "#ec4899", "#f43f5e", "#f59e0b"];
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
       <Card className="min-w-0">
@@ -23,11 +23,20 @@ export function DashboardCharts({
           <ChartFrame>
             {(width) => (
               <LineChart data={incomeData} width={width} height={300}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Line type="monotone" dataKey="income" stroke="#2563eb" strokeWidth={3} dot={{ r: 4 }} />
+                <defs>
+                  <linearGradient id="incomeLine" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stopColor="#0ea5e9" />
+                    <stop offset="100%" stopColor="#6366f1" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
+                <Tooltip
+                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  formatter={(value) => formatCurrency(Number(value))}
+                />
+                <Line type="monotone" dataKey="income" stroke="url(#incomeLine)" strokeWidth={4} dot={{ r: 4, fill: "#0ea5e9", stroke: "#6366f1", strokeWidth: 2 }} activeDot={{ r: 6, fill: "#fff", stroke: "#6366f1" }} />
               </LineChart>
             )}
           </ChartFrame>
@@ -46,7 +55,10 @@ export function DashboardCharts({
                     <Cell key={index} fill={colors[index % colors.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => Number(value)} />
+                <Tooltip
+                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  formatter={(value) => Number(value)}
+                />
               </PieChart>
             )}
           </ChartFrame>
@@ -66,12 +78,15 @@ export function ReportChart({ data }: { data: { name: string; income: number; ex
         <ChartFrame>
           {(width) => (
             <BarChart data={data} width={width} height={300}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-              <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
-              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-              <Bar dataKey="income" fill="#2563eb" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" fill="#f97316" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+              <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
+              <Tooltip
+                contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                formatter={(value) => formatCurrency(Number(value))}
+              />
+              <Bar dataKey="income" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="expense" fill="#f43f5e" radius={[6, 6, 0, 0]} />
             </BarChart>
           )}
         </ChartFrame>
@@ -102,5 +117,5 @@ function ChartFrame({ children }: { children: (width: number) => React.ReactNode
 }
 
 function ChartSkeleton() {
-  return <div className="h-full w-full animate-pulse rounded-md bg-slate-100" />;
+  return <div className="h-full w-full animate-pulse rounded-md bg-slate-800" />;
 }

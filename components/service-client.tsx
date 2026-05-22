@@ -67,7 +67,7 @@ export function ServiceClient({
       header: "Customer",
       cell: ({ row }) => (
         <div>
-          <p className="font-medium text-slate-950">{row.original.customerName}</p>
+          <p className="font-medium text-slate-100">{row.original.customerName}</p>
           <p className="text-xs text-slate-500">{row.original.customerPhone || "-"}</p>
         </div>
       )
@@ -166,7 +166,7 @@ export function ServiceClient({
               }
               trigger={
                 <Button variant="outline" size="icon">
-                  <Trash2 className="h-4 w-4 text-red-600" />
+                  <Trash2 className="h-4 w-4 text-red-300" />
                 </Button>
               }
             />

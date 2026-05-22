@@ -82,7 +82,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
       <p className="text-sm font-medium text-slate-500">{title}</p>
-      <p className="mt-1 whitespace-pre-wrap text-slate-900">{children}</p>
+      <p className="mt-1 whitespace-pre-wrap text-slate-200">{children}</p>
     </div>
   );
 }
@@ -91,7 +91,7 @@ function Info({ label, value, strong }: { label: string; value: ReactNode; stron
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-slate-500">{label}</span>
-      <span className={strong ? "font-semibold text-blue-700" : "text-right font-medium text-slate-900"}>{value}</span>
+      <span className={strong ? "font-semibold text-blue-300" : "text-right font-medium text-slate-200"}>{value}</span>
     </div>
   );
 }

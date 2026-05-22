@@ -46,10 +46,10 @@ export function DataTable<TData, TValue>({
         </div>
         {filters ? <div className="flex flex-wrap gap-2">{filters}</div> : null}
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="relative overflow-hidden rounded-xl border border-slate-700/60 bg-slate-900/60 shadow-lg">
         <div className="min-w-0 overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-900/80 text-left text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -60,12 +60,12 @@ export function DataTable<TData, TValue>({
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-800/60">
               {table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50">
+                  <tr key={row.id} className="transition-colors hover:bg-slate-800/50 group">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3 align-middle text-slate-700">
+                      <td key={cell.id} className="px-4 py-3 align-middle text-slate-300">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -82,7 +82,7 @@ export function DataTable<TData, TValue>({
           </table>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 text-sm text-slate-500">
+      <div className="flex items-center justify-between gap-2 text-sm text-slate-400">
         <span>
           {table.getFilteredRowModel().rows.length} data, halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount() || 1}
         </span>

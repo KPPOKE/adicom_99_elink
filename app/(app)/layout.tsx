@@ -10,11 +10,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Sidebar role={user.role.name} />
+    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(37,99,235,0.20),transparent_34rem),linear-gradient(135deg,#070b14_0%,#0b1220_48%,#111827_100%)] text-slate-100">
+      <Sidebar userName={user.name} role={user.role.name} />
       <div className="lg:pl-64">
         <Topbar userName={user.name} role={user.role.name} />
-        <main className="p-4 lg:p-8">{children}</main>
+        <main className="min-w-0 p-4 lg:p-6 xl:p-8">{children}</main>
       </div>
     </div>
   );
