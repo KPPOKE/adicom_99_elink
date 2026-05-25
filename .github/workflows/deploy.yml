@@ -1,38 +1,70 @@
-name: Deploy to aaPanel Server
+name: Deploy Production
 
 on:
   push:
     branches:
       - main
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 jobs:
-  deploy:
+  ci:
+    name: CI
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
+      AUTH_SECRET: ${{ secrets.CI_AUTH_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Audit dependencies
+        run: npm audit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to aaPanel VPS
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }} # Biasanya 22
+          port: ${{ secrets.SERVER_PORT }}
+          script_stop: true
           script: |
-            # Pindah ke direktori project di aaPanel
-            cd /www/wwwroot/${{ secrets.DOMAIN_NAME }}
-            
-            # Tarik kode terbaru dari GitHub
-            git pull origin main
-            
-            # Install dependensi
-            npm install
-            
-            # Generate Prisma Client & Run Migrations
+            set -e
+            cd "${{ secrets.SERVER_PROJECT_PATH }}"
+            git fetch origin main
+            git reset --hard origin/main
+            npm ci --include=dev
             npx prisma generate
             npx prisma migrate deploy
-            
-            # Build project Next.js
             npm run build
-            
-            # Restart aplikasi menggunakan PM2 (Sesuaikan nama PM2 dengan yang Anda buat di aaPanel)
             pm2 restart adicom99
+            pm2 save

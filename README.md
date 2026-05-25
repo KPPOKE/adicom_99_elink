@@ -135,6 +135,35 @@ npm run start
 - Backup folder `public/uploads` karena gambar barang/logo disimpan lokal.
 - Simpan `.env` production di luar git.
 
+## CI/CD GitHub Actions
+
+Workflow `.github/workflows/deploy.yml` otomatis berjalan saat ada push ke branch `main`.
+
+GitHub Actions akan:
+
+- menjalankan `npm ci --include=dev`, `npm audit`, lint, unit test, dan build;
+- deploy ke VPS via SSH hanya jika CI sukses;
+- menjalankan `git reset --hard origin/main`, `npm ci --include=dev`, `npx prisma generate`, `npx prisma migrate deploy`, `npm run build`, lalu `pm2 restart adicom99`.
+
+Tambahkan repository secrets berikut di GitHub:
+
+```text
+SERVER_HOST=IP_ATAU_DOMAIN_VPS
+SERVER_USERNAME=root_atau_user_deploy
+SERVER_PORT=22
+SERVER_SSH_KEY=PRIVATE_KEY_SSH
+SERVER_PROJECT_PATH=/www/wwwroot/adicom99
+CI_DATABASE_URL=mysql://ci:ci@localhost:3306/adicom99_ci
+CI_AUTH_SECRET=random-secret-minimal-32-karakter
+```
+
+Catatan:
+
+- `.env` production tetap disimpan di VPS, bukan di GitHub.
+- Workflow tidak menjalankan `prisma db seed` otomatis agar data production tidak berubah.
+- PM2 process name harus `adicom99`.
+- Config Nginx `/uploads/` di aaPanel tetap dikelola manual di server.
+
 ## Catatan Produksi
 
 - Ganti `AUTH_SECRET` sebelum deploy.
