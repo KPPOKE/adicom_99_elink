@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit";
+import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
@@ -18,6 +20,7 @@ async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service")
 }
 
 export async function createTransaction(payload: unknown) {
+  await assertTrustedOrigin();
   const user = await requireUser();
   const parsed = transactionSchema.parse(payload);
   const itemIds = parsed.items.map((item) => item.itemId);
@@ -40,73 +43,95 @@ export async function createTransaction(payload: unknown) {
   }
 
   const changeAmount = parsed.paymentMethod === "Cash" ? Math.max(0, parsed.paidAmount - grandTotal) : 0;
-  const kodeTransaksi = await nextCode("TRX", "transaction");
   const status = parsed.status ?? "Berhasil";
   if (parsed.digitalStatus === "Gagal" && status === "Berhasil") {
     throw new Error("Produk digital gagal tidak bisa disimpan sebagai transaksi berhasil");
   }
 
-  await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.create({
-      data: {
-        kodeTransaksi,
-        customerId: parsed.customerId || null,
-        customerName: parsed.customerName || null,
-        total,
-        diskon: parsed.diskon,
-        grandTotal,
-        paymentMethod: parsed.paymentMethod,
-        paidAmount: parsed.paidAmount,
-        changeAmount,
-        nomorTujuan: parsed.nomorTujuan || null,
-        provider: parsed.provider || null,
-        jenisProduk: parsed.jenisProduk || null,
-        serialNumber: parsed.serialNumber || null,
-        digitalStatus: parsed.digitalStatus || null,
-        status,
-        userId: user.id,
-        items: {
-          create: parsed.items.map((item) => ({
-            itemId: item.itemId,
-            qty: item.qty,
-            price: item.price,
-            subtotal: item.qty * item.price
-          }))
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const kodeTransaksi = await nextCode("TRX", "transaction");
+    try {
+      await prisma.$transaction(async (tx) => {
+        const transaction = await tx.transaction.create({
+          data: {
+            kodeTransaksi,
+            customerId: parsed.customerId || null,
+            customerName: parsed.customerName || null,
+            total,
+            diskon: parsed.diskon,
+            grandTotal,
+            paymentMethod: parsed.paymentMethod,
+            paidAmount: parsed.paidAmount,
+            changeAmount,
+            nomorTujuan: parsed.nomorTujuan || null,
+            provider: parsed.provider || null,
+            jenisProduk: parsed.jenisProduk || null,
+            serialNumber: parsed.serialNumber || null,
+            digitalStatus: parsed.digitalStatus || null,
+            status,
+            userId: user.id,
+            items: {
+              create: parsed.items.map((item) => ({
+                itemId: item.itemId,
+                qty: item.qty,
+                price: item.price,
+                subtotal: item.qty * item.price
+              }))
+            }
+          }
+        });
+
+        for (const item of parsed.items) {
+          const updated = await tx.item.updateMany({
+            where: { id: item.itemId, stok: { gte: item.qty } },
+            data: { stok: { decrement: item.qty } }
+          });
+          if (updated.count !== 1) throw new Error("Stok barang tidak cukup atau sudah berubah");
         }
-      }
-    });
 
-    for (const item of parsed.items) {
-      await tx.item.update({
-        where: { id: item.itemId },
-        data: { stok: { decrement: item.qty } }
-      });
-    }
-
-    if (status === "Berhasil") {
-      await tx.financeRecord.create({
-        data: {
-          type: "income",
-          category: "Penjualan",
-          amount: grandTotal,
-          description: `Transaksi ${kodeTransaksi}`,
-          referenceType: "transaction",
-          referenceId: transaction.id,
-          transactionId: transaction.id,
-          userId: user.id
+        if (status === "Berhasil") {
+          await tx.financeRecord.create({
+            data: {
+              type: "income",
+              category: "Penjualan",
+              amount: grandTotal,
+              description: `Transaksi ${kodeTransaksi}`,
+              referenceType: "transaction",
+              referenceId: transaction.id,
+              transactionId: transaction.id,
+              userId: user.id
+            }
+          });
         }
-      });
-    }
-  });
 
-  revalidatePath("/transactions");
-  revalidatePath("/inventory");
-  revalidatePath("/finance");
-  revalidatePath("/dashboard");
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            userEmail: user.email,
+            action: "create",
+            entity: "transaction",
+            entityId: transaction.id,
+            metadata: { kodeTransaksi, grandTotal, status }
+          }
+        });
+      });
+      revalidatePath("/transactions");
+      revalidatePath("/inventory");
+      revalidatePath("/finance");
+      revalidatePath("/dashboard");
+      return;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && attempt < 4) continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Gagal membuat kode transaksi unik");
 }
 
 export async function cancelTransaction(id: number) {
-  await requireAdmin();
+  await assertTrustedOrigin();
+  const user = await requireAdmin();
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
       where: { id },
@@ -124,6 +149,16 @@ export async function cancelTransaction(id: number) {
 
     await tx.financeRecord.deleteMany({ where: { transactionId: id } });
     await tx.transaction.update({ where: { id }, data: { status: "Batal" } });
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        action: "cancel",
+        entity: "transaction",
+        entityId: id,
+        metadata: { kodeTransaksi: transaction.kodeTransaksi }
+      }
+    });
   });
   revalidatePath("/transactions");
   revalidatePath("/inventory");
@@ -132,6 +167,7 @@ export async function cancelTransaction(id: number) {
 }
 
 export async function completePendingTransaction(id: number) {
+  await assertTrustedOrigin();
   const user = await requireUser();
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
@@ -161,6 +197,16 @@ export async function completePendingTransaction(id: number) {
         }
       });
     }
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        action: "complete_pending",
+        entity: "transaction",
+        entityId: id,
+        metadata: { kodeTransaksi: transaction.kodeTransaksi }
+      }
+    });
   });
 
   revalidatePath("/transactions");
@@ -169,6 +215,7 @@ export async function completePendingTransaction(id: number) {
 }
 
 export async function upsertService(formData: FormData) {
+  await assertTrustedOrigin();
   const user = await requireUser();
   const parsed = serviceSchema.parse(Object.fromEntries(formData));
 
@@ -193,19 +240,52 @@ export async function upsertService(formData: FormData) {
           }
         });
       }
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          userEmail: user.email,
+          action: "update",
+          entity: "service",
+          entityId: parsed.id,
+          metadata: { kodeService: existing.kodeService, status: parsed.status }
+        }
+      });
     });
   } else {
-    const kodeService = await nextCode("SRV", "service");
-    await prisma.service.create({
-      data: {
-        ...parsed,
-        kodeService,
-        customerId: parsed.customerId || null,
-        userId: user.id,
-        completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? new Date() : null,
-        pickedUpDate: parsed.status === "Diambil" ? new Date() : null
+    let created = false;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const kodeService = await nextCode("SRV", "service");
+      try {
+        await prisma.$transaction(async (tx) => {
+          const service = await tx.service.create({
+            data: {
+              ...parsed,
+              kodeService,
+              customerId: parsed.customerId || null,
+              userId: user.id,
+              completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? new Date() : null,
+              pickedUpDate: parsed.status === "Diambil" ? new Date() : null
+            }
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: user.id,
+              userEmail: user.email,
+              action: "create",
+              entity: "service",
+              entityId: service.id,
+              metadata: { kodeService, status: service.status }
+            }
+          });
+        });
+        created = true;
+        break;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && attempt < 4) continue;
+        throw error;
       }
-    });
+    }
+    if (!created) throw new Error("Gagal membuat kode service unik");
   }
 
   revalidatePath("/services");
@@ -214,6 +294,7 @@ export async function upsertService(formData: FormData) {
 }
 
 export async function markServicePaid(id: number) {
+  await assertTrustedOrigin();
   const user = await requireUser();
   await prisma.$transaction(async (tx) => {
     const service = await tx.service.findUnique({
@@ -243,6 +324,16 @@ export async function markServicePaid(id: number) {
         }
       });
     }
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        action: "mark_paid",
+        entity: "service",
+        entityId: id,
+        metadata: { kodeService: service.kodeService, finalCost: toNumber(service.finalCost) }
+      }
+    });
   });
   revalidatePath("/services");
   revalidatePath("/finance");
@@ -250,6 +341,8 @@ export async function markServicePaid(id: number) {
 }
 
 export async function updateServiceStatus(id: number, status: string) {
+  await assertTrustedOrigin();
+  await requireUser();
   const form = new FormData();
   const service = await prisma.service.findUniqueOrThrow({ where: { id } });
   Object.entries({
@@ -272,10 +365,12 @@ export async function updateServiceStatus(id: number, status: string) {
 
 export async function deleteService(id: number) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     const recordCount = await prisma.financeRecord.count({ where: { serviceId: id } });
     if (recordCount > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
-    await prisma.service.delete({ where: { id } });
+    const service = await prisma.service.delete({ where: { id } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "service", entityId: id, metadata: { kodeService: service.kodeService } });
     revalidatePath("/services");
   } catch (error) {
     handleActionError(error);
@@ -283,8 +378,9 @@ export async function deleteService(id: number) {
 }
 
 export async function upsertFinanceRecord(formData: FormData) {
+  await assertTrustedOrigin();
   const parsed = financeSchema.parse(Object.fromEntries(formData));
-  const user = parsed.id ? await requireAdmin() : await requireUser();
+  const user = await requireAdmin();
   const data: Prisma.FinanceRecordUncheckedCreateInput = {
     type: parsed.type,
     category: parsed.category,
@@ -296,14 +392,17 @@ export async function upsertFinanceRecord(formData: FormData) {
   };
   if (parsed.id) await prisma.financeRecord.update({ where: { id: parsed.id }, data });
   else await prisma.financeRecord.create({ data });
+  await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "finance_record", entityId: parsed.id ?? null });
   revalidatePath("/finance");
   revalidatePath("/dashboard");
 }
 
 export async function deleteFinanceRecord(id: number) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     await prisma.financeRecord.delete({ where: { id } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "finance_record", entityId: id });
     revalidatePath("/finance");
   } catch (error) {
     handleActionError(error);

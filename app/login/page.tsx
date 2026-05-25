@@ -60,7 +60,7 @@ export default function LoginPage() {
                 <Label>Email</Label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="pl-10 h-11" name="email" type="email" placeholder="admin@adicom99.com" required />
+                  <Input className="pl-10 h-11" name="email" type="email" placeholder="email@adicom99.com" required />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -82,7 +82,6 @@ export default function LoginPage() {
                 {pending ? "Memeriksa..." : "Login"}
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
-              <p className="text-xs text-slate-500">Seed awal: admin@adicom99.com / password123</p>
             </form>
           </div>
         </section>

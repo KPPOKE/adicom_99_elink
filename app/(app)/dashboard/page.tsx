@@ -8,11 +8,19 @@ import { formatCurrency, formatDateTime, toNumber, todayRange } from "@/lib/util
 
 export default async function DashboardPage() {
   const { start, end } = todayRange();
-  const [todayFinance, todayTransactions, services, lowStock, recentTransactions, recentServices, finance7Days, transactionItems] =
+  const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems] =
     await Promise.all([
-      prisma.financeRecord.findMany({ where: { date: { gte: start, lt: end } } }),
+      prisma.financeRecord.groupBy({
+        by: ["type"],
+        where: { date: { gte: start, lt: end } },
+        _sum: { amount: true }
+      }),
       prisma.transaction.count({ where: { createdAt: { gte: start, lt: end }, status: { not: "Batal" } } }),
-      prisma.service.findMany({ where: { createdAt: { gte: start, lt: end } } }),
+      prisma.service.groupBy({
+        by: ["status"],
+        where: { createdAt: { gte: start, lt: end } },
+        _count: { _all: true }
+      }),
       prisma.item.findMany({ where: { stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true }, take: 8 }),
       prisma.transaction.findMany({ include: { items: true }, orderBy: { createdAt: "desc" }, take: 5 }),
       prisma.service.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
@@ -20,12 +28,14 @@ export default async function DashboardPage() {
         where: { type: "income", date: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } },
         orderBy: { date: "asc" }
       }),
-      prisma.transactionItem.findMany({ where: { transaction: { status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, take: 200 })
+      prisma.transactionItem.findMany({ where: { transaction: { status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, orderBy: { createdAt: "desc" }, take: 200 })
     ]);
 
-  const income = todayFinance.filter((item) => item.type === "income").reduce((sum, item) => sum + toNumber(item.amount), 0);
-  const expense = todayFinance.filter((item) => item.type === "expense").reduce((sum, item) => sum + toNumber(item.amount), 0);
-  const statusCount = (status: string) => services.filter((item) => item.status === status).length;
+  const income = toNumber(todayFinance.find((item) => item.type === "income")?._sum.amount);
+  const expense = toNumber(todayFinance.find((item) => item.type === "expense")?._sum.amount);
+  const serviceStatusMap = new Map<string, number>(serviceStatusCounts.map((item) => [item.status, item._count._all]));
+  const statusCount = (status: string) => serviceStatusMap.get(status) ?? 0;
+  const serviceTotal = serviceStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
   const dayLabels = Array.from({ length: 7 }).map((_, index) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
@@ -51,7 +61,7 @@ export default async function DashboardPage() {
         <StatCard title="Pengeluaran Hari Ini" value={formatCurrency(expense)} icon={TrendingDown} tone="red" helper="Biaya operasional" />
         <StatCard title="Laba Bersih Hari Ini" value={formatCurrency(income - expense)} icon={CircleDollarSign} tone="blue" helper="Income - expense" />
         <StatCard title="Transaksi Hari Ini" value={String(todayTransactions)} icon={Receipt} tone="cyan" helper="Penjualan valid" />
-        <StatCard title="Service Masuk" value={String(services.length)} icon={Wrench} tone="orange" helper="Total hari ini" />
+        <StatCard title="Service Masuk" value={String(serviceTotal)} icon={Wrench} tone="orange" helper="Total hari ini" />
         <StatCard title="Service Selesai" value={String(statusCount("Selesai") + statusCount("Diambil"))} icon={ClipboardCheck} tone="green" helper="Siap diambil" />
         <StatCard title="Service Proses" value={String(statusCount("Dicek") + statusCount("Diproses") + statusCount("Menunggu_Konfirmasi"))} icon={Wrench} tone="blue" helper="Sedang dikerjakan" />
         <StatCard title="Stok Hampir Habis" value={String(lowStock.length)} icon={PackageSearch} tone="orange" helper="Butuh perhatian" />

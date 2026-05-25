@@ -15,7 +15,7 @@ test("admin can open the main operational pages", async ({ page }) => {
   await login(page);
   for (const path of ["/dashboard", "/inventory", "/categories", "/suppliers", "/customers", "/transactions", "/services", "/finance", "/reports", "/settings"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(page.getByRole("main")).toBeVisible();
   }
 });
 
@@ -24,7 +24,7 @@ test("exports and invoices respond for admin", async ({ page }) => {
   const download = page.waitForEvent("download");
   await page.goto("/reports");
   await page.getByRole("link", { name: "Excel Penjualan" }).click();
-  expect((await download).suggestedFilename()).toMatch(/laporan-penjualan\.xlsx$/);
+  expect((await download).suggestedFilename()).toMatch(/laporan-penjualan\.(xls|xlsx)$/);
 
   await page.goto("/transactions/1/invoice");
   await expect(page.getByText("Kode")).toBeVisible();

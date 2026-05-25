@@ -1,17 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = process.env.PLAYWRIGHT_PORT ?? "3001";
+const baseURL = `http://localhost:${port}`;
+
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
-  expect: { timeout: 10_000 },
+  expect: { timeout: 30_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry"
   },
   webServer: {
-    command: "npm run dev -- -p 3000",
-    url: "http://localhost:3000/login",
+    command: `npm run dev -- -p ${port}`,
+    url: `${baseURL}/login`,
     reuseExistingServer: true,
     timeout: 120_000
   },

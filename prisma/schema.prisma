@@ -97,6 +97,7 @@ model Supplier {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([name])
   @@map("suppliers")
 }
 
@@ -111,6 +112,8 @@ model Customer {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
+  @@index([name])
+  @@index([phone])
   @@map("customers")
 }
 
@@ -135,6 +138,8 @@ model Item {
 
   @@index([categoryId])
   @@index([supplierId])
+  @@index([stok])
+  @@index([createdAt])
   @@map("items")
 }
 
@@ -166,6 +171,11 @@ model Transaction {
 
   @@index([customerId])
   @@index([userId])
+  @@index([createdAt])
+  @@index([tanggal])
+  @@index([status])
+  @@index([createdAt, status])
+  @@index([customerId, createdAt])
   @@map("transactions")
 }
 
@@ -215,6 +225,11 @@ model Service {
 
   @@index([customerId])
   @@index([userId])
+  @@index([createdAt])
+  @@index([receivedDate])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([status, paymentStatus, receivedDate])
   @@map("services")
 }
 
@@ -239,7 +254,28 @@ model FinanceRecord {
   @@index([userId])
   @@index([transactionId])
   @@index([serviceId])
+  @@index([date])
+  @@index([type])
+  @@index([date, type])
+  @@index([category])
   @@map("finance_records")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  userEmail String?  @map("user_email")
+  action    String
+  entity    String
+  entityId  Int?     @map("entity_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model Setting {

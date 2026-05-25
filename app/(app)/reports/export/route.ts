@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
-import ExcelJS from "exceljs";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { loadReportData, parseReportFilters, reportCsv, reportDataset, reportTitle } from "@/lib/reporting";
+import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  await requireUser();
+  await requireAdmin();
   const params = Object.fromEntries(request.nextUrl.searchParams.entries());
   const filters = parseReportFilters(params);
   const kind = request.nextUrl.searchParams.get("kind") ?? "sales";
@@ -35,26 +35,50 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Adicom99 Management System";
-  const sheet = workbook.addWorksheet(dataset.title);
-  sheet.addRow([dataset.title]);
-  sheet.addRow([`Periode: ${reportTitle(filters)}`]);
-  sheet.addRow([]);
-  sheet.addRow(dataset.headers);
-  dataset.rows.forEach((row) => sheet.addRow(row));
-  sheet.getRow(1).font = { bold: true, size: 16 };
-  sheet.getRow(4).font = { bold: true };
-  sheet.columns.forEach((column) => {
-    column.width = 18;
-  });
-  const xlsx = await workbook.xlsx.writeBuffer();
-  return new Response(new Uint8Array(xlsx as ArrayBuffer), {
+  const workbook = createExcelXml(dataset.title, reportTitle(filters), dataset.headers, dataset.rows);
+  return new Response(workbook, {
     headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${filenameBase}.xlsx"`
+      "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filenameBase}.xls"`
     }
   });
+}
+
+function escapeXml(value: unknown) {
+  return safeSpreadsheetValue(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function excelCell(value: unknown) {
+  const isNumber = typeof value === "number" && Number.isFinite(value);
+  return `<Cell><Data ss:Type="${isNumber ? "Number" : "String"}">${escapeXml(value)}</Data></Cell>`;
+}
+
+function createExcelXml(title: string, period: string, headers: string[], rows: unknown[][]) {
+  const tableRows = [
+    [title],
+    [`Periode: ${period}`],
+    [],
+    headers,
+    ...rows
+  ].map((row) => `<Row>${row.map(excelCell).join("")}</Row>`).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>Adicom99 Management System</Author>
+ </DocumentProperties>
+ <Worksheet ss:Name="Laporan">
+  <Table>${tableRows}</Table>
+ </Worksheet>
+</Workbook>`;
 }
 
 async function createPdf(title: string, period: string, headers: string[], rows: unknown[][]) {

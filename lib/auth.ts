@@ -15,7 +15,12 @@ type SessionPayload = {
 };
 
 function secret() {
-  return process.env.AUTH_SECRET || "dev-secret-change-me-for-production-32";
+  const value = process.env.AUTH_SECRET;
+  if (value && value.length >= 32) return value;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET minimal 32 karakter wajib diset untuk production");
+  }
+  return "dev-secret-change-me-for-production-32";
 }
 
 function sign(payload: string) {
@@ -28,17 +33,21 @@ export function createSessionToken(payload: Omit<SessionPayload, "exp">) {
 }
 
 export function verifySessionToken(token?: string): SessionPayload | null {
-  if (!token) return null;
-  const [body, signature] = token.split(".");
-  if (!body || !signature) return null;
-  const expected = sign(body);
-  const valid =
-    expected.length === signature.length &&
-    timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-  if (!valid) return null;
-  const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
-  if (payload.exp < Date.now()) return null;
-  return payload;
+  try {
+    if (!token) return null;
+    const [body, signature] = token.split(".");
+    if (!body || !signature) return null;
+    const expected = sign(body);
+    const valid =
+      expected.length === signature.length &&
+      timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+    if (!valid) return null;
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionPayload;
+    if (!payload.userId || !["admin", "staff"].includes(payload.role) || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 export async function setSession(userId: number, role: "admin" | "staff") {

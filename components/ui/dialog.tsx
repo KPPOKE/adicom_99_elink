@@ -9,15 +9,17 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 export function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  const { "aria-describedby": ariaDescribedBy = undefined, ...contentProps } = props;
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm" />
       <DialogPrimitive.Content
+        aria-describedby={ariaDescribedBy}
         className={cn(
           "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-2xl shadow-black/40",
           className
         )}
-        {...props}
+        {...contentProps}
       >
         {children}
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-white">

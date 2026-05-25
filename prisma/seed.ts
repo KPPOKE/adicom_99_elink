@@ -16,7 +16,22 @@ function adapter() {
 
 const prisma = new PrismaClient({ adapter: adapter() });
 
+const DEV_DEFAULT_PASSWORD = "password123";
+
+function seedCredential(name: string, fallback: string) {
+  const value = process.env[name] || fallback;
+  if (process.env.NODE_ENV === "production" && value === fallback) {
+    throw new Error(`${name} wajib diset untuk production`);
+  }
+  return value;
+}
+
 async function main() {
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@adicom99.com";
+  const staffEmail = process.env.SEED_STAFF_EMAIL || "staff@adicom99.com";
+  const adminPassword = seedCredential("SEED_ADMIN_PASSWORD", DEV_DEFAULT_PASSWORD);
+  const staffPassword = seedCredential("SEED_STAFF_PASSWORD", DEV_DEFAULT_PASSWORD);
+
   const adminRole = await prisma.role.upsert({
     where: { name: "admin" },
     update: {},
@@ -29,23 +44,23 @@ async function main() {
   });
 
   await prisma.user.upsert({
-    where: { email: "admin@adicom99.com" },
+    where: { email: adminEmail },
     update: {},
     create: {
       name: "Admin Adicom99",
-      email: "admin@adicom99.com",
-      passwordHash: await hash("password123", 10),
+      email: adminEmail,
+      passwordHash: await hash(adminPassword, 10),
       roleId: adminRole.id
     }
   });
 
   await prisma.user.upsert({
-    where: { email: "staff@adicom99.com" },
+    where: { email: staffEmail },
     update: {},
     create: {
       name: "Staff Counter",
-      email: "staff@adicom99.com",
-      passwordHash: await hash("password123", 10),
+      email: staffEmail,
+      passwordHash: await hash(staffPassword, 10),
       roleId: staffRole.id
     }
   });
@@ -120,7 +135,7 @@ async function main() {
     }
   });
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { email: "admin@adicom99.com" } });
+  const user = await prisma.user.findUniqueOrThrow({ where: { email: adminEmail } });
   const sampleItem = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: "SSD-SATA-256" } });
   const trxCode = `TRX-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`;
   const transaction = await prisma.transaction.upsert({

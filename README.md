@@ -16,7 +16,7 @@ Web app internal untuk Adicom99.com: inventory, stok, transaksi penjualan, servi
 1. Install dependency:
 
 ```bash
-npm install
+npm ci
 ```
 
 2. Buat database MySQL:
@@ -48,8 +48,8 @@ npm run dev
 
 Login seed:
 
-- `admin@adicom99.com`
-- `password123`
+- Development default: `admin@adicom99.com` / `password123`
+- Production: set `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_STAFF_EMAIL`, dan `SEED_STAFF_PASSWORD` sebelum seed.
 
 ## Fitur MVP
 
@@ -62,7 +62,7 @@ Login seed:
 - Manajemen service dengan update status cepat
 - Pemasukan service dibuat saat service ditandai lunas
 - Keuangan manual income/expense, filter, edit manual, dan summary laba bersih
-- Laporan penjualan, service, stok, keuangan, dan laba/rugi dengan export XLSX/PDF
+- Laporan penjualan, service, stok, keuangan, dan laba/rugi dengan export XLS/PDF
 - Settings toko, invoice, logo, dan manajemen user admin/staff
 - Role admin/staff: admin mengelola settings, user, delete/cancel; staff fokus transaksi, service, customer, finance input
 
@@ -76,9 +76,68 @@ npm run build
 ```
 
 `npm run test:e2e` memakai Playwright dan dev server lokal `http://localhost:3000`.
+Jika port tersebut sedang dipakai, gunakan port lain:
+
+```bash
+PLAYWRIGHT_PORT=3004 npm run test:e2e
+```
+
+## Deploy ke VPS aaPanel
+
+Rekomendasi production untuk VPS sendiri:
+
+- Node.js `>=20.9.0`
+- MySQL/MariaDB via aaPanel
+- Nginx reverse proxy dengan SSL Let's Encrypt
+- Process manager aaPanel atau PM2 untuk menjalankan Next.js
+
+1. Buat database dan user khusus aplikasi:
+
+```sql
+CREATE DATABASE adicom99_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'adicom99_user'@'localhost' IDENTIFIED BY 'password-kuat';
+GRANT ALL PRIVILEGES ON adicom99_management.* TO 'adicom99_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+2. Set environment production di aaPanel:
+
+```env
+NODE_ENV=production
+DATABASE_URL="mysql://adicom99_user:password-kuat@localhost:3306/adicom99_management"
+AUTH_SECRET="random-secret-minimal-32-karakter-panjang"
+SEED_ADMIN_EMAIL="admin@adicom99.com"
+SEED_ADMIN_PASSWORD="password-admin-kuat"
+SEED_STAFF_EMAIL="staff@adicom99.com"
+SEED_STAFF_PASSWORD="password-staff-kuat"
+```
+
+3. Install, migrate, build, dan seed jika database masih kosong:
+
+```bash
+npm ci
+npx prisma migrate deploy
+npx prisma db seed
+npm run build
+npm run start
+```
+
+4. Reverse proxy aaPanel/Nginx:
+
+- Jalankan app Next.js di port internal, misalnya `3000`.
+- Proxy domain ke `http://127.0.0.1:3000`.
+- Aktifkan SSL Let's Encrypt.
+- Jangan expose port Node langsung ke publik; publik cukup `80/443`.
+
+5. Backup production:
+
+- Backup MySQL harian.
+- Backup folder `public/uploads` karena gambar barang/logo disimpan lokal.
+- Simpan `.env` production di luar git.
 
 ## Catatan Produksi
 
 - Ganti `AUTH_SECRET` sebelum deploy.
-- Untuk upload produksi, pindahkan storage ke object storage seperti S3/R2.
+- Untuk VPS single-server, upload lokal `public/uploads` bisa dipakai selama ikut backup.
+- Untuk multi-server/serverless, pindahkan storage ke object storage seperti S3/R2.
 - Review hasil `npm audit` sebelum deploy production.

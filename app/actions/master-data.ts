@@ -1,38 +1,28 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/auth";
+import { writeAuditLog } from "@/lib/audit";
 import { categorySchema, customerSchema, itemSchema, supplierSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
+import { assertTrustedOrigin } from "@/lib/security";
+import { deletePublicUpload, saveImageUpload } from "@/lib/upload";
 
 function cleanNullable(value: unknown) {
   if (value === "" || value === "0" || value === 0) return null;
   return value;
 }
 
-async function saveUpload(file: File | null) {
-  if (!file || file.size === 0) return undefined;
-  if (!file.type.startsWith("image/")) throw new Error("File upload harus berupa gambar");
-  if (file.size > 2 * 1024 * 1024) throw new Error("Ukuran gambar maksimal 2MB");
-  const bytes = await file.arrayBuffer();
-  const ext = path.extname(file.name) || ".jpg";
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), Buffer.from(bytes));
-  return `/uploads/${filename}`;
-}
-
 export async function upsertCategory(formData: FormData) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     const parsed = categorySchema.parse(Object.fromEntries(formData));
     const data = { name: parsed.name, description: parsed.description || null };
     if (parsed.id) await prisma.category.update({ where: { id: parsed.id }, data });
     else await prisma.category.create({ data });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "category", entityId: parsed.id ?? null });
     revalidatePath("/categories");
   } catch (error) {
     handleActionError(error);
@@ -41,8 +31,10 @@ export async function upsertCategory(formData: FormData) {
 
 export async function deleteCategory(id: number) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     await prisma.category.delete({ where: { id } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "category", entityId: id });
     revalidatePath("/categories");
   } catch (error) {
     handleActionError(error);
@@ -51,7 +43,8 @@ export async function deleteCategory(id: number) {
 
 export async function upsertSupplier(formData: FormData) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     const parsed = supplierSchema.parse(Object.fromEntries(formData));
     const data = {
       name: parsed.name,
@@ -61,6 +54,7 @@ export async function upsertSupplier(formData: FormData) {
     };
     if (parsed.id) await prisma.supplier.update({ where: { id: parsed.id }, data });
     else await prisma.supplier.create({ data });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "supplier", entityId: parsed.id ?? null });
     revalidatePath("/suppliers");
   } catch (error) {
     handleActionError(error);
@@ -69,8 +63,10 @@ export async function upsertSupplier(formData: FormData) {
 
 export async function deleteSupplier(id: number) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     await prisma.supplier.delete({ where: { id } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "supplier", entityId: id });
     revalidatePath("/suppliers");
   } catch (error) {
     handleActionError(error);
@@ -79,7 +75,8 @@ export async function deleteSupplier(id: number) {
 
 export async function upsertCustomer(formData: FormData) {
   try {
-    await requireUser();
+    await assertTrustedOrigin();
+    const user = await requireUser();
     const parsed = customerSchema.parse(Object.fromEntries(formData));
     const data = {
       name: parsed.name,
@@ -89,6 +86,7 @@ export async function upsertCustomer(formData: FormData) {
     };
     if (parsed.id) await prisma.customer.update({ where: { id: parsed.id }, data });
     else await prisma.customer.create({ data });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "customer", entityId: parsed.id ?? null });
     revalidatePath("/customers");
   } catch (error) {
     handleActionError(error);
@@ -97,8 +95,10 @@ export async function upsertCustomer(formData: FormData) {
 
 export async function deleteCustomer(id: number) {
   try {
-    await requireAdmin();
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
     await prisma.customer.delete({ where: { id } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "customer", entityId: id });
     revalidatePath("/customers");
   } catch (error) {
     handleActionError(error);
@@ -107,8 +107,9 @@ export async function deleteCustomer(id: number) {
 
 export async function upsertItem(formData: FormData) {
   try {
-    await requireAdmin();
-    const image = await saveUpload(formData.get("image") as File | null);
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
+    const image = await saveImageUpload(formData.get("image") as File | null, "item");
     const values = Object.fromEntries(formData);
     delete values.image;
     const parsed = itemSchema.parse({
@@ -132,6 +133,8 @@ export async function upsertItem(formData: FormData) {
     };
     if (parsed.id) await prisma.item.update({ where: { id: parsed.id }, data });
     else await prisma.item.create({ data });
+    if (image) await deletePublicUpload(typeof values.gambar === "string" ? values.gambar : null);
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "item", entityId: parsed.id ?? null });
     revalidatePath("/inventory");
     revalidatePath("/dashboard");
   } catch (error) {
@@ -141,8 +144,11 @@ export async function upsertItem(formData: FormData) {
 
 export async function deleteItem(id: number) {
   try {
-    await requireAdmin();
-    await prisma.item.delete({ where: { id } });
+    await assertTrustedOrigin();
+    const user = await requireAdmin();
+    const item = await prisma.item.delete({ where: { id } });
+    await deletePublicUpload(item.gambar);
+    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "item", entityId: id });
     revalidatePath("/inventory");
   } catch (error) {
     handleActionError(error);

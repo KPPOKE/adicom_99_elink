@@ -96,7 +96,7 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
         <Summary label="Pengeluaran" value={expense} />
         <Summary label="Laba Bersih" value={income - expense} />
       </div>
-      <div className="flex justify-end">
+      {role === "admin" ? <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEditing(null)}>
@@ -143,7 +143,7 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </div> : null}
       <DataTable
         columns={columns}
         data={filteredRecords}

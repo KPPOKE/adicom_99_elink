@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export type ReportPeriod = "today" | "week" | "month" | "custom" | "all";
@@ -88,7 +89,7 @@ export async function loadReportData(filters: ReportFilters) {
 }
 
 function csvCell(value: unknown) {
-  const text = String(value ?? "");
+  const text = safeSpreadsheetValue(value);
   return `"${text.replaceAll('"', '""')}"`;
 }
 

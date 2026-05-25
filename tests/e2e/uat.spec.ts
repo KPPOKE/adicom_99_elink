@@ -171,7 +171,7 @@ test.describe("UAT operational workflow", () => {
       expect(href).toBeTruthy();
       const response = await page.request.get(href!);
       expect(response.ok()).toBe(true);
-      expect(response.headers()["content-disposition"]).toMatch(/\.(xlsx|pdf)"/);
+      expect(response.headers()["content-disposition"]).toMatch(/\.(xls|xlsx|pdf)"/);
     }
 
     await page.goto("/settings");
