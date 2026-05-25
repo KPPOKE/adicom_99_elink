@@ -153,13 +153,12 @@ SERVER_USERNAME=root_atau_user_deploy
 SERVER_PORT=22
 SERVER_SSH_KEY=PRIVATE_KEY_SSH
 SERVER_PROJECT_PATH=/www/wwwroot/adicom99
-CI_DATABASE_URL=mysql://ci:ci@localhost:3306/adicom99_ci
-CI_AUTH_SECRET=random-secret-minimal-32-karakter
 ```
 
 Catatan:
 
 - `.env` production tetap disimpan di VPS, bukan di GitHub.
+- CI memakai MySQL service sementara di GitHub Actions, jadi tidak perlu secret database CI.
 - Workflow tidak menjalankan `prisma db seed` otomatis agar data production tidak berubah.
 - PM2 process name harus `adicom99`.
 - Config Nginx `/uploads/` di aaPanel tetap dikelola manual di server.

@@ -14,8 +14,21 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
-      AUTH_SECRET: ${{ secrets.CI_AUTH_SECRET }}
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/adicom99_ci
+      AUTH_SECRET: ci-auth-secret-change-me-at-least-32-characters
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: adicom99_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: Checkout
@@ -38,6 +51,9 @@ jobs:
 
       - name: Unit tests
         run: npm run test
+
+      - name: Apply CI database migrations
+        run: npx prisma migrate deploy
 
       - name: Build
         run: npm run build
