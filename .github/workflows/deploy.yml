@@ -65,6 +65,21 @@ jobs:
     environment: production
 
     steps:
+      - name: Validate deploy secrets
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_PROJECT_PATH: ${{ secrets.SERVER_PROJECT_PATH }}
+        run: |
+          set -e
+          test -n "$SERVER_HOST" || (echo "SERVER_HOST secret is missing" && exit 1)
+          test -n "$SERVER_USERNAME" || (echo "SERVER_USERNAME secret is missing" && exit 1)
+          test -n "$SERVER_PASSWORD" || (echo "SERVER_PASSWORD secret is missing" && exit 1)
+          test -n "$SERVER_PORT" || (echo "SERVER_PORT secret is missing" && exit 1)
+          test -n "$SERVER_PROJECT_PATH" || (echo "SERVER_PROJECT_PATH secret is missing" && exit 1)
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
