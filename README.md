@@ -151,7 +151,7 @@ Tambahkan repository secrets berikut di GitHub:
 SERVER_HOST=IP_ATAU_DOMAIN_VPS
 SERVER_USERNAME=root_atau_user_deploy
 SERVER_PORT=22
-SERVER_SSH_KEY=PRIVATE_KEY_SSH
+SERVER_PASSWORD=PASSWORD_SSH_VPS
 SERVER_PROJECT_PATH=/www/wwwroot/adicom99
 ```
 
