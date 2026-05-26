@@ -50,7 +50,7 @@ export function DashboardCharts({
           <ChartFrame>
             {(width) => (
               <PieChart width={width} height={300}>
-                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={4}>
+                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={4} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: '11px', fill: '#94a3b8' }}>
                   {categoryData.map((_, index) => (
                     <Cell key={index} fill={colors[index % colors.length]} />
                   ))}
@@ -84,6 +84,7 @@ export function ReportChart({ data }: { data: { name: string; income: number; ex
               <Tooltip
                 contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
                 formatter={(value) => formatCurrency(Number(value))}
+                cursor={{ fill: "transparent" }}
               />
               <Bar dataKey="income" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
               <Bar dataKey="expense" fill="#f43f5e" radius={[6, 6, 0, 0]} />

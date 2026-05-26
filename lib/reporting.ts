@@ -79,10 +79,14 @@ export async function loadReportData(filters: ReportFilters) {
 
   const income = finance.filter((item) => item.type === "income").reduce((sum, item) => sum + toNumber(item.amount), 0);
   const expense = finance.filter((item) => item.type === "expense").reduce((sum, item) => sum + toNumber(item.amount), 0);
-  const chartData = ["Penjualan", "Service", "Manual"].map((name) => ({
+  const chartData = [
+    { name: "Penjualan", ref: "transaction" },
+    { name: "Service", ref: "service" },
+    { name: "Manual", ref: "manual" }
+  ].map(({ name, ref }) => ({
     name,
-    income: finance.filter((item) => item.type === "income" && item.category === name).reduce((sum, item) => sum + toNumber(item.amount), 0),
-    expense: finance.filter((item) => item.type === "expense" && item.category === name).reduce((sum, item) => sum + toNumber(item.amount), 0)
+    income: finance.filter((item) => item.type === "income" && (item.referenceType === ref || (!item.referenceType && ref === "manual"))).reduce((sum, item) => sum + toNumber(item.amount), 0),
+    expense: finance.filter((item) => item.type === "expense" && (item.referenceType === ref || (!item.referenceType && ref === "manual"))).reduce((sum, item) => sum + toNumber(item.amount), 0)
   }));
 
   return { transactions, services, items, finance, income, expense, chartData, range };

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StockBadge } from "@/components/shared/status-badge";
@@ -192,10 +193,10 @@ export function InventoryClient({
                   ))}
                 </Select>
               </div>
-              <Field type="number" name="hargaModal" label="Harga Modal" value={editing?.hargaModal} />
-              <Field type="number" name="hargaJual" label="Harga Jual" value={editing?.hargaJual} />
-              <Field type="number" name="stok" label="Stok" value={editing?.stok} />
-              <Field type="number" name="stokMinimum" label="Stok Minimum" value={editing?.stokMinimum} />
+              <CurrencyField name="hargaModal" label="Harga Modal" initialValue={editing?.hargaModal} />
+              <CurrencyField name="hargaJual" label="Harga Jual" initialValue={editing?.hargaJual} />
+              <CurrencyField name="stok" label="Stok" initialValue={editing?.stok} prefix="" decimalScale={0} />
+              <CurrencyField name="stokMinimum" label="Stok Minimum" initialValue={editing?.stokMinimum} prefix="" decimalScale={0} />
               <Field name="satuan" label="Satuan" value={editing?.satuan ?? "pcs"} />
               <div className="space-y-1.5">
                 <Label>Gambar</Label>
@@ -264,6 +265,17 @@ function Field({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <Input type={type} name={name} defaultValue={value ?? ""} required />
+    </div>
+  );
+}
+
+function CurrencyField({ label, name, initialValue, prefix, decimalScale }: { label: string; name: string; initialValue?: number; prefix?: string; decimalScale?: number }) {
+  const [val, setVal] = useState(initialValue ?? 0);
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <input type="hidden" name={name} value={val} />
+      <CurrencyInput value={val} onChange={setVal} required prefix={prefix} decimalScale={decimalScale} />
     </div>
   );
 }

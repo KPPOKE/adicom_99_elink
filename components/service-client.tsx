@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
@@ -233,8 +234,8 @@ export function ServiceClient({
               <Field name="deviceType" label="Jenis Perangkat" value={editing?.deviceType} />
               <Field name="deviceBrand" label="Brand" value={editing?.deviceBrand} />
               <Field name="deviceModel" label="Model" value={editing?.deviceModel} />
-              <Field type="number" name="estimatedCost" label="Estimasi Biaya" value={editing?.estimatedCost ?? 0} />
-              <Field type="number" name="finalCost" label="Biaya Final" value={editing?.finalCost ?? 0} />
+              <CurrencyField name="estimatedCost" label="Estimasi Biaya" initialValue={editing?.estimatedCost ?? 0} />
+              <CurrencyField name="finalCost" label="Biaya Final" initialValue={editing?.finalCost ?? 0} />
               <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select name="status" defaultValue={editing?.status ?? "Masuk"}>
@@ -295,6 +296,17 @@ function Field({ label, name, value, type = "text" }: { label: string; name: str
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <Input type={type} name={name} defaultValue={value ?? ""} required={["customerName", "deviceType"].includes(name)} />
+    </div>
+  );
+}
+
+function CurrencyField({ label, name, initialValue, prefix, decimalScale }: { label: string; name: string; initialValue?: number; prefix?: string; decimalScale?: number }) {
+  const [val, setVal] = useState(initialValue ?? 0);
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <input type="hidden" name={name} value={val} />
+      <CurrencyInput value={val} onChange={setVal} required prefix={prefix} decimalScale={decimalScale} />
     </div>
   );
 }

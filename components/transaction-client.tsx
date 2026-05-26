@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
@@ -226,8 +227,8 @@ export function TransactionClient({
                   ))}
                 </Select>
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <Input type="number" min={1} value={line.qty} onChange={(event) => updateLine(index, { qty: Number(event.target.value) })} />
-                  <Input type="number" min={0} value={line.price} onChange={(event) => updateLine(index, { price: Number(event.target.value) })} />
+                  <CurrencyInput prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => updateLine(index, { qty: value })} />
+                  <CurrencyInput min={0} value={line.price} onChange={(value) => updateLine(index, { price: value })} />
                   <Button variant="outline" size="icon" onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -242,7 +243,7 @@ export function TransactionClient({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Diskon</Label>
-              <Input type="number" value={diskon} onChange={(event) => setDiskon(Number(event.target.value))} />
+              <CurrencyInput value={diskon} onChange={setDiskon} />
             </div>
             <div className="space-y-1.5">
               <Label>Metode</Label>
@@ -262,7 +263,7 @@ export function TransactionClient({
             </div>
             <div className="space-y-1.5">
               <Label>Dibayar</Label>
-              <Input type="number" value={paidAmount} onChange={(event) => setPaidAmount(Number(event.target.value))} />
+              <CurrencyInput value={paidAmount} onChange={setPaidAmount} />
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
               <p className="text-xs text-slate-500">Kembalian</p>

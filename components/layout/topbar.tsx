@@ -35,20 +35,19 @@ export function Topbar({ userName, role }: { userName: string; role: "admin" | "
           <div className="hidden min-w-0 lg:block">
             <h1 className="text-xl font-bold tracking-tight text-slate-100">{activeItem?.label ?? "Adicom99"}</h1>
           </div>
-          <div className="relative hidden w-full max-w-xl lg:block group">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-            <Input className="border-slate-800 bg-slate-900/50 pl-9 hover:bg-slate-900/70 transition-all" placeholder="Cari transaksi, service, barang..." />
-          </div>
-          <div className="hidden shrink-0 items-center gap-3 lg:flex">
-            <Button variant="outline" size="icon" title="Notifikasi">
+          <div className="hidden shrink-0 items-center gap-3 lg:flex ml-auto">
+            <Button variant="outline" size="icon" title="Notifikasi" onClick={() => alert("Tidak ada notifikasi baru saat ini.")}>
               <Bell className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" title="Dark mode">
-              <Moon className="h-4 w-4" />
             </Button>
             <div className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
               <CalendarDays className="h-4 w-4" />
-              <span>22 Mei 2026</span>
+              <span>
+                {new Date().toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric"
+                })}
+              </span>
             </div>
           </div>
         </div>

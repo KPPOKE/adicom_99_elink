@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { deleteFinanceRecord, upsertFinanceRecord } from "@/app/actions/operations";
@@ -133,7 +134,7 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
                 </Select>
               </div>
               <Field name="category" label="Kategori" value={editing?.category} />
-              <Field type="number" name="amount" label="Nominal" value={editing ? String(editing.amount) : ""} />
+              <CurrencyField name="amount" label="Nominal" initialValue={editing?.amount} />
               <Field type="date" name="date" label="Tanggal" value={editing ? new Date(editing.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)} />
               <div className="space-y-1.5">
                 <Label>Deskripsi</Label>
@@ -184,6 +185,17 @@ function Field({ label, name, value, type = "text" }: { label: string; name: str
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <Input type={type} name={name} defaultValue={value ?? ""} required />
+    </div>
+  );
+}
+
+function CurrencyField({ label, name, initialValue }: { label: string; name: string; initialValue?: number }) {
+  const [val, setVal] = useState(initialValue ?? 0);
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <input type="hidden" name={name} value={val} />
+      <CurrencyInput value={val} onChange={setVal} required />
     </div>
   );
 }
