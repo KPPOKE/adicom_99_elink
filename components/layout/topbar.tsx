@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, CalendarDays, Menu, Moon, ReceiptText, Search, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { nav, SidebarFooter } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export function Topbar({ userName, role }: { userName: string; role: "admin" | "
             <h1 className="text-xl font-bold tracking-tight text-slate-100">{activeItem?.label ?? "Adicom99"}</h1>
           </div>
           <div className="hidden shrink-0 items-center gap-3 lg:flex ml-auto">
-            <Button variant="outline" size="icon" title="Notifikasi" onClick={() => alert("Tidak ada notifikasi baru saat ini.")}>
+            <Button variant="outline" size="icon" title="Notifikasi" onClick={() => toast.info("Tidak ada notifikasi baru saat ini.")}>
               <Bell className="h-4 w-4" />
             </Button>
             <div className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
