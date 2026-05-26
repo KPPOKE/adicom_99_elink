@@ -81,7 +81,15 @@ jobs:
           script_stop: true
           script: |
             set -e
-            cd /www/wwwroot/adicom99
+            # Muat environment variable agar perintah npm dan pm2 dikenali
+            source ~/.bashrc || true
+            source ~/.bash_profile || true
+            export PATH=$PATH:/usr/local/bin:/www/server/nodejs/v22/bin:/www/server/nodejs/v20/bin:/www/server/nodejs/v18/bin
+
+            # GANTI NAMA FOLDER INI SESUAI DENGAN FOLDER WEBSITE ANDA DI AAPANEL
+            # aaPanel biasanya membuat folder sesuai nama domain
+            cd /www/wwwroot/pos.pospintar.id
+            
             git fetch origin main
             git reset --hard origin/main
             npm ci --include=dev
