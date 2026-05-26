@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 
@@ -50,7 +50,7 @@ export function DashboardCharts({
           <ChartFrame>
             {(width) => (
               <PieChart width={width} height={300}>
-                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={4} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: '11px', fill: '#94a3b8' }}>
+                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} paddingAngle={4}>
                   {categoryData.map((_, index) => (
                     <Cell key={index} fill={colors[index % colors.length]} />
                   ))}
@@ -58,6 +58,12 @@ export function DashboardCharts({
                 <Tooltip
                   contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
                   formatter={(value) => Number(value)}
+                  itemStyle={{ color: "#e2e8f0" }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36} 
+                  wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }}
                 />
               </PieChart>
             )}
