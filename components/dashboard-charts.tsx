@@ -50,7 +50,7 @@ export function DashboardCharts({
           <ChartFrame>
             {(width) => (
               <PieChart width={width} height={300}>
-                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={4} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: '11px', fill: '#94a3b8' }}>
+                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={4} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false} style={{ fontSize: '11px', fill: '#94a3b8' }}>
                   {categoryData.map((_, index) => (
                     <Cell key={index} fill={colors[index % colors.length]} />
                   ))}
