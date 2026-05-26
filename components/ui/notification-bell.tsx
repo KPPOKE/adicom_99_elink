@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bell, CheckCircle, Hammer, PackageWarning } from "lucide-react";
+import { Bell, CheckCircle, Hammer, AlertTriangle } from "lucide-react";
 import { AppNotification, getNotifications } from "@/app/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,7 @@ export function NotificationBell() {
   const getIcon = (type: AppNotification["type"]) => {
     switch (type) {
       case "warning":
-        return <PackageWarning className="h-5 w-5 text-amber-500" />;
+        return <AlertTriangle className="h-5 w-5 text-amber-500" />;
       case "info":
         return <Hammer className="h-5 w-5 text-blue-400" />;
       case "success":
