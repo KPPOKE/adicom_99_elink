@@ -18,9 +18,11 @@ import { TransactionStatusBadge } from "@/components/shared/status-badge";
 import { cancelTransaction, completePendingTransaction, createTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
+import { useCartStore } from "@/lib/store/useCartStore";
+import { transactionSchema } from "@/lib/schema";
+
 type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string };
 type CustomerOption = { id: number; name: string; phone: string | null };
-type Line = { itemId: number; qty: number; price: number };
 type TransactionRow = {
   id: number;
   kodeTransaksi: string;
@@ -44,24 +46,22 @@ export function TransactionClient({
   role: "admin" | "staff";
 }) {
   const router = useRouter();
-  const [lines, setLines] = useState<Line[]>([{ itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }]);
-  const [diskon, setDiskon] = useState(0);
-  const [paidAmount, setPaidAmount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("Cash");
-  const [status, setStatus] = useState("Berhasil");
-  const [customerId, setCustomerId] = useState<number | null>(null);
-  const [customerName, setCustomerName] = useState("");
-  const [nomorTujuan, setNomorTujuan] = useState("");
-  const [provider, setProvider] = useState("");
-  const [jenisProduk, setJenisProduk] = useState("");
-  const [serialNumber, setSerialNumber] = useState("");
-  const [digitalStatus, setDigitalStatus] = useState("Berhasil");
+  
+  // Zustand State
+  const cart = useCartStore();
+  
+  // Local state for UI only
   const [isPending, startTransition] = useTransition();
 
-  const total = useMemo(() => lines.reduce((sum, line) => sum + line.qty * line.price, 0), [lines]);
-  const grandTotal = Math.max(0, total - diskon);
-  const change = paymentMethod === "Cash" ? Math.max(0, paidAmount - grandTotal) : 0;
-  const hasDigitalItem = lines.some((line) => items.find((item) => item.id === line.itemId)?.categoryName === "Produk Digital");
+  // Initialize store if empty
+  if (cart.lines.length === 0 && items.length > 0) {
+    cart.setLines([{ itemId: items[0].id, qty: 1, price: items[0].hargaJual }]);
+  }
+
+  const total = useMemo(() => cart.lines.reduce((sum, line) => sum + line.qty * line.price, 0), [cart.lines]);
+  const grandTotal = Math.max(0, total - cart.diskon);
+  const change = cart.paymentMethod === "Cash" ? Math.max(0, cart.paidAmount - grandTotal) : 0;
+  const hasDigitalItem = cart.lines.some((line) => items.find((item) => item.id === line.itemId)?.categoryName === "Produk Digital");
 
   const columns: ColumnDef<TransactionRow>[] = [
     { accessorKey: "kodeTransaksi", header: "Kode" },
@@ -137,46 +137,37 @@ export function TransactionClient({
     }
   ];
 
-  function updateLine(index: number, patch: Partial<Line>) {
-    setLines((current) =>
-      current.map((line, i) => {
-        if (i !== index) return line;
-        const next = { ...line, ...patch };
-        if (patch.itemId) {
-          const item = items.find((option) => option.id === patch.itemId);
-          if (item) next.price = item.hargaJual;
-        }
-        return next;
-      })
-    );
+  function handleLineItemChange(index: number, itemId: number) {
+    const item = items.find((option) => option.id === itemId);
+    cart.updateLine(index, { itemId, price: item?.hargaJual ?? 0 });
   }
 
   function submit() {
     startTransition(async () => {
       try {
-        await createTransaction({
-          customerId,
-          customerName,
-          diskon,
-          paymentMethod,
-          paidAmount,
-          status,
-          nomorTujuan,
-          provider,
-          jenisProduk,
-          serialNumber,
-          items: lines.filter((line) => line.itemId),
-          digitalStatus: hasDigitalItem ? digitalStatus : undefined
-        });
+        const payload = {
+          customerId: cart.customerId,
+          customerName: cart.customerName,
+          diskon: cart.diskon,
+          paymentMethod: cart.paymentMethod,
+          paidAmount: cart.paidAmount,
+          status: cart.status,
+          nomorTujuan: cart.nomorTujuan,
+          provider: cart.provider,
+          jenisProduk: cart.jenisProduk,
+          serialNumber: cart.serialNumber,
+          digitalStatus: cart.digitalStatus,
+          items: cart.lines.filter((line) => line.itemId)
+        };
+
+        const parsed = transactionSchema.safeParse(payload);
+        if (!parsed.success) {
+          throw new Error(parsed.error.issues[0].message);
+        }
+
+        await createTransaction(parsed.data);
         toast.success("Transaksi berhasil disimpan");
-        setLines([{ itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }]);
-        setDiskon(0);
-        setPaidAmount(0);
-        setStatus("Berhasil");
-        setNomorTujuan("");
-        setProvider("");
-        setJenisProduk("");
-        setSerialNumber("");
+        cart.resetCart(items[0]?.id, items[0]?.hargaJual);
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Transaksi gagal");
@@ -195,12 +186,11 @@ export function TransactionClient({
             <div className="space-y-1.5">
               <Label>Customer</Label>
               <Select
-                value={customerId ?? ""}
+                value={cart.customerId ?? ""}
                 onChange={(event) => {
                   const id = Number(event.target.value) || null;
-                  setCustomerId(id);
                   const customer = customers.find((item) => item.id === id);
-                  setCustomerName(customer?.name ?? "");
+                  cart.setCustomer(id, customer?.name ?? "");
                 }}
               >
                 <option value="">Umum</option>
@@ -213,13 +203,13 @@ export function TransactionClient({
             </div>
             <div className="space-y-1.5">
               <Label>Nama Manual</Label>
-              <Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Opsional" />
+              <Input value={cart.customerName} onChange={(event) => cart.setCustomerName(event.target.value)} placeholder="Opsional" />
             </div>
           </div>
           <div className="space-y-3">
-            {lines.map((line, index) => (
+            {cart.lines.map((line, index) => (
               <div key={index} className="grid gap-2 rounded-lg border border-slate-700 bg-slate-950/30 p-3">
-                <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
+                <Select value={line.itemId} onChange={(event) => handleLineItemChange(index, Number(event.target.value))}>
                   {items.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.namaBarang} ({item.stok})
@@ -227,15 +217,15 @@ export function TransactionClient({
                   ))}
                 </Select>
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <CurrencyInput prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => updateLine(index, { qty: value })} />
-                  <CurrencyInput min={0} value={line.price} onChange={(value) => updateLine(index, { price: value })} />
-                  <Button variant="outline" size="icon" onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>
+                  <CurrencyInput prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => cart.updateLine(index, { qty: value })} />
+                  <CurrencyInput min={0} value={line.price} onChange={(value) => cart.updateLine(index, { price: value })} />
+                  <Button variant="outline" size="icon" onClick={() => cart.setLines((current) => current.filter((_, i) => i !== index))}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             ))}
-            <Button variant="outline" onClick={() => setLines((current) => [...current, { itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }])}>
+            <Button variant="outline" onClick={() => cart.setLines((current) => [...current, { itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }])}>
               <Plus className="h-4 w-4" />
               Tambah Item
             </Button>
@@ -243,11 +233,11 @@ export function TransactionClient({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Diskon</Label>
-              <CurrencyInput value={diskon} onChange={setDiskon} />
+              <CurrencyInput value={cart.diskon} onChange={cart.setDiskon} />
             </div>
             <div className="space-y-1.5">
               <Label>Metode</Label>
-              <Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+              <Select value={cart.paymentMethod} onChange={(event) => cart.setPaymentMethod(event.target.value)}>
                 <option value="Cash">Cash</option>
                 <option value="Transfer">Transfer</option>
                 <option value="QRIS">QRIS</option>
@@ -256,14 +246,14 @@ export function TransactionClient({
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <Select value={cart.status} onChange={(event) => cart.setStatus(event.target.value)}>
                 <option value="Berhasil">Berhasil</option>
                 <option value="Pending">Pending</option>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Dibayar</Label>
-              <CurrencyInput value={paidAmount} onChange={setPaidAmount} />
+              <CurrencyInput value={cart.paidAmount} onChange={cart.setPaidAmount} />
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
               <p className="text-xs text-slate-500">Kembalian</p>
@@ -274,19 +264,19 @@ export function TransactionClient({
             <div className="grid gap-3 rounded-lg border border-cyan-100 bg-cyan-50/60 p-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Nomor Tujuan</Label>
-                <Input value={nomorTujuan} onChange={(event) => setNomorTujuan(event.target.value)} placeholder="08xxxxxxxxxx" />
+                <Input value={cart.nomorTujuan} onChange={(event) => cart.setDigitalFields({ nomorTujuan: event.target.value })} placeholder="08xxxxxxxxxx" />
               </div>
               <div className="space-y-1.5">
                 <Label>Provider</Label>
-                <Input value={provider} onChange={(event) => setProvider(event.target.value)} placeholder="Telkomsel, PLN, DANA" />
+                <Input value={cart.provider} onChange={(event) => cart.setDigitalFields({ provider: event.target.value })} placeholder="Telkomsel, PLN, DANA" />
               </div>
               <div className="space-y-1.5">
                 <Label>Jenis Produk</Label>
-                <Input value={jenisProduk} onChange={(event) => setJenisProduk(event.target.value)} placeholder="Pulsa, token, paket data" />
+                <Input value={cart.jenisProduk} onChange={(event) => cart.setDigitalFields({ jenisProduk: event.target.value })} placeholder="Pulsa, token, paket data" />
               </div>
               <div className="space-y-1.5">
                 <Label>Status Digital</Label>
-                <Select value={digitalStatus} onChange={(event) => setDigitalStatus(event.target.value)}>
+                <Select value={cart.digitalStatus} onChange={(event) => cart.setDigitalFields({ digitalStatus: event.target.value })}>
                   <option value="Berhasil">Berhasil</option>
                   <option value="Pending">Pending</option>
                   <option value="Gagal">Gagal</option>
@@ -294,7 +284,7 @@ export function TransactionClient({
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Serial Number / Token</Label>
-                <Input value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} />
+                <Input value={cart.serialNumber} onChange={(event) => cart.setDigitalFields({ serialNumber: event.target.value })} />
               </div>
             </div>
           ) : null}
@@ -308,7 +298,7 @@ export function TransactionClient({
               <span>{formatCurrency(grandTotal)}</span>
             </div>
           </div>
-          <Button className="w-full" onClick={submit} disabled={isPending || !lines.length}>
+          <Button className="w-full" onClick={submit} disabled={isPending || !cart.lines.length}>
             {isPending ? "Menyimpan..." : "Simpan Transaksi"}
           </Button>
         </CardContent>

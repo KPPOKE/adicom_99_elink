@@ -45,3 +45,26 @@ export const financeSchema = z.object({
 });
 
 export type FinanceFormValues = z.infer<typeof financeSchema>;
+
+export const transactionSchema = z.object({
+  customerId: z.number().nullable(),
+  customerName: z.string().optional(),
+  diskon: z.coerce.number().min(0),
+  paymentMethod: z.string(),
+  paidAmount: z.coerce.number().min(0),
+  status: z.string(),
+  nomorTujuan: z.string().optional(),
+  provider: z.string().optional(),
+  jenisProduk: z.string().optional(),
+  serialNumber: z.string().optional(),
+  digitalStatus: z.string().optional(),
+  items: z.array(
+    z.object({
+      itemId: z.number().min(1, "Item tidak valid"),
+      qty: z.coerce.number().min(1, "Kuantitas minimal 1"),
+      price: z.coerce.number().min(0, "Harga tidak valid")
+    })
+  ).min(1, "Pilih minimal 1 item")
+});
+
+export type TransactionPayload = z.infer<typeof transactionSchema>;
