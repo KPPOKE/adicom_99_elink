@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Bell, CheckCircle, Hammer, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { AppNotification, getNotifications } from "@/app/actions/notifications";
+import { AppNotification } from "@/app/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,17 +12,10 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const fetchNotifications = async () => {
-    const data = await getNotifications();
-    setNotifications(data);
-  };
+  const initialized = useRef(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchNotifications();
-    
-    // SSE Real-time Listener
+    // SSE Real-time Listener (DB Polling via Server)
     const eventSource = new EventSource("/api/events");
 
     eventSource.onmessage = (event) => {
@@ -30,13 +23,23 @@ export function NotificationBell() {
         const payload = JSON.parse(event.data);
         if (payload.status === "ok") return; // Initial ping
 
-        // payload is { type, data: { title, message } }
-        if (payload.data?.title && payload.data?.message) {
-          toast(payload.data.title, { description: payload.data.message });
+        if (payload.type === "SYNC") {
+          const newNotifications = payload.data as AppNotification[];
+          
+          setNotifications((prev) => {
+            // Hanya toast jika bukan initial load
+            if (initialized.current) {
+              const prevIds = new Set(prev.map(n => n.id));
+              newNotifications.forEach(notif => {
+                if (!prevIds.has(notif.id)) {
+                  toast.info(notif.title, { description: notif.description });
+                }
+              });
+            }
+            initialized.current = true;
+            return newNotifications;
+          });
         }
-        
-        // Refresh notifications list to reflect the new state
-        fetchNotifications();
       } catch (e) {
         // Parse error or non-JSON data
       }
