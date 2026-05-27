@@ -39,7 +39,7 @@ export default async function TransactionInvoicePage({
         </Button>
         <PrintControls defaultFormat={setting?.defaultPrintFormat ?? "thermal_80"} />
       </div>
-      <article className={cn("mx-auto rounded-lg bg-white p-6 text-sm text-slate-900 shadow-sm print:shadow-none", formatClass)}>
+      <article id="invoice-content" className={cn("mx-auto rounded-lg bg-white p-6 text-sm text-slate-900 shadow-sm print:shadow-none", formatClass)}>
         <header className="border-b border-slate-200 pb-4 text-center">
           {setting?.logo ? <img src={setting.logo} alt="" className="mx-auto mb-2 h-12 w-12 object-contain" /> : null}
           <h1 className="text-lg font-bold">{setting?.storeName ?? "Adicom99"}</h1>
