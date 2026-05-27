@@ -19,6 +19,11 @@ import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/stat
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { serviceSchema, type ServiceFormValues } from "@/lib/schema";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
 const statuses = ["Masuk", "Dicek", "Menunggu_Konfirmasi", "Diproses", "Selesai", "Diambil", "Batal"];
 
 type ServiceRow = {
@@ -56,6 +61,94 @@ export function ServiceClient({
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
+
+  const form = useForm<ServiceFormValues>({
+    resolver: zodResolver(serviceSchema) as any,
+    defaultValues: {
+      customerId: 0,
+      customerName: "",
+      customerPhone: "",
+      deviceType: "",
+      deviceBrand: "",
+      deviceModel: "",
+      problemDescription: "",
+      diagnosis: "",
+      estimatedCost: 0,
+      finalCost: 0,
+      status: "Masuk",
+      technicianNote: ""
+    }
+  });
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setEditing(null);
+      form.reset({
+        customerId: 0,
+        customerName: "",
+        customerPhone: "",
+        deviceType: "",
+        deviceBrand: "",
+        deviceModel: "",
+        problemDescription: "",
+        diagnosis: "",
+        estimatedCost: 0,
+        finalCost: 0,
+        status: "Masuk",
+        technicianNote: ""
+      });
+    }
+    setOpen(newOpen);
+  };
+
+  const handleEdit = (service: ServiceRow) => {
+    setEditing(service);
+    form.reset({
+      id: service.id,
+      customerId: service.customerId ?? 0,
+      customerName: service.customerName,
+      customerPhone: service.customerPhone ?? "",
+      deviceType: service.deviceType,
+      deviceBrand: service.deviceBrand ?? "",
+      deviceModel: service.deviceModel ?? "",
+      problemDescription: service.problemDescription,
+      diagnosis: service.diagnosis ?? "",
+      estimatedCost: service.estimatedCost,
+      finalCost: service.finalCost,
+      status: service.status,
+      technicianNote: service.technicianNote ?? ""
+    });
+    setOpen(true);
+  };
+
+  const onSubmit = (values: ServiceFormValues) => {
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        if (values.id) formData.append("id", String(values.id));
+        if (values.customerId) formData.append("customerId", String(values.customerId));
+        formData.append("customerName", values.customerName);
+        formData.append("customerPhone", values.customerPhone ?? "");
+        formData.append("deviceType", values.deviceType);
+        formData.append("deviceBrand", values.deviceBrand ?? "");
+        formData.append("deviceModel", values.deviceModel ?? "");
+        formData.append("problemDescription", values.problemDescription);
+        formData.append("diagnosis", values.diagnosis ?? "");
+        formData.append("estimatedCost", String(values.estimatedCost));
+        formData.append("finalCost", String(values.finalCost));
+        formData.append("status", values.status);
+        formData.append("technicianNote", values.technicianNote ?? "");
+        
+        await upsertService(formData);
+        toast.success("Service disimpan");
+        handleOpenChange(false);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal menyimpan service");
+      }
+    });
+  };
+
   const filteredServices = services.filter((service) => {
     const statusMatch = statusFilter === "all" || service.status === statusFilter;
     const paymentMatch = paymentFilter === "all" || service.paymentStatus === paymentFilter;
@@ -112,10 +205,7 @@ export function ServiceClient({
           <Button
             variant="outline"
             size="icon"
-            onClick={() => {
-              setEditing(row.original);
-              setOpen(true);
-            }}
+            onClick={() => handleEdit(row.original)}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -180,88 +270,211 @@ export function ServiceClient({
   return (
     <>
       <div className="mb-4 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditing(null)}>
+            <Button onClick={() => handleOpenChange(true)}>
               <Plus className="h-4 w-4" />
               Service Masuk
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Service" : "Input Service Masuk"}</DialogTitle>
             </DialogHeader>
-            <form
-              action={(formData) =>
-                startTransition(async () => {
-                  try {
-                    await upsertService(formData);
-                    toast.success("Service disimpan");
-                    setOpen(false);
-                    setEditing(null);
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menyimpan service");
-                  }
-                })
-              }
-              className="grid gap-4 sm:grid-cols-2"
-            >
-              {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
-              <div className="space-y-1.5">
-                <Label>Customer Terdaftar</Label>
-                <Select
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
                   name="customerId"
-                  defaultValue={String(editing?.customerId ?? "")}
-                  onChange={(event) => {
-                    const customer = customers.find((item) => item.id === Number(event.target.value));
-                    const form = event.currentTarget.form;
-                    if (customer && form) {
-                      (form.elements.namedItem("customerName") as HTMLInputElement).value = customer.name;
-                      (form.elements.namedItem("customerPhone") as HTMLInputElement).value = customer.phone ?? "";
-                    }
-                  }}
-                >
-                  <option value="">Customer baru/manual</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <Field name="customerName" label="Nama Customer" value={editing?.customerName} />
-              <Field name="customerPhone" label="No. HP" value={editing?.customerPhone} />
-              <Field name="deviceType" label="Jenis Perangkat" value={editing?.deviceType} />
-              <Field name="deviceBrand" label="Brand" value={editing?.deviceBrand} />
-              <Field name="deviceModel" label="Model" value={editing?.deviceModel} />
-              <CurrencyField name="estimatedCost" label="Estimasi Biaya" initialValue={editing?.estimatedCost ?? 0} />
-              <CurrencyField name="finalCost" label="Biaya Final" initialValue={editing?.finalCost ?? 0} />
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select name="status" defaultValue={editing?.status ?? "Masuk"}>
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status.replace("_", " ")}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Keluhan</Label>
-                <Textarea name="problemDescription" defaultValue={editing?.problemDescription ?? ""} required />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Diagnosa</Label>
-                <Textarea name="diagnosis" defaultValue={editing?.diagnosis ?? ""} />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Catatan Teknisi</Label>
-                <Textarea name="technicianNote" defaultValue={editing?.technicianNote ?? ""} />
-              </div>
-              <Button className="sm:col-span-2" disabled={isPending}>
-                {isPending ? "Menyimpan..." : "Simpan Service"}
-              </Button>
-            </form>
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Terdaftar</FormLabel>
+                      <Select 
+                        onChange={(event) => {
+                          field.onChange(Number(event.target.value) || undefined);
+                          const customer = customers.find((item) => item.id === Number(event.target.value));
+                          if (customer) {
+                            form.setValue("customerName", customer.name);
+                            form.setValue("customerPhone", customer.phone ?? "");
+                          }
+                        }}
+                        value={String(field.value || "")}
+                      >
+                        <option value="">Customer baru/manual</option>
+                        {customers.map((customer) => (
+                          <option key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Customer</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: Budi" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="customerPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>No. HP</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: 08123456789" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="deviceType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jenis Perangkat</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: Laptop, HP, Printer" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="deviceBrand"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Brand</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: Asus" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="deviceModel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Model</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: ROG Strix" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="estimatedCost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estimasi Biaya</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="finalCost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Biaya Final</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onChange={(e) => field.onChange(e.target.value)} value={field.value}>
+                        {statuses.map((status) => (
+                          <option key={status} value={status}>
+                            {status.replace("_", " ")}
+                          </option>
+                        ))}
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="problemDescription"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Keluhan</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Keluhan..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="diagnosis"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Diagnosa</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Hasil diagnosa teknisi..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="technicianNote"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Catatan Teknisi</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Catatan internal teknisi..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit" className="sm:col-span-2" disabled={isPending}>
+                  {isPending ? "Menyimpan..." : "Simpan Service"}
+                </Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -291,22 +504,4 @@ export function ServiceClient({
   );
 }
 
-function Field({ label, name, value, type = "text" }: { label: string; name: string; value?: string | number | null; type?: string }) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input type={type} name={name} defaultValue={value ?? ""} required={["customerName", "deviceType"].includes(name)} />
-    </div>
-  );
-}
 
-function CurrencyField({ label, name, initialValue, prefix, decimalScale }: { label: string; name: string; initialValue?: number; prefix?: string; decimalScale?: number }) {
-  const [val, setVal] = useState(initialValue ?? 0);
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <input type="hidden" name={name} value={val} />
-      <CurrencyInput value={val} onChange={setVal} required prefix={prefix} decimalScale={decimalScale} />
-    </div>
-  );
-}

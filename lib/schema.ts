@@ -16,3 +16,21 @@ export const itemSchema = z.object({
 });
 
 export type ItemFormValues = z.infer<typeof itemSchema>;
+
+export const serviceSchema = z.object({
+  id: z.number().optional(),
+  customerId: z.coerce.number().optional(),
+  customerName: z.string().min(3, "Nama customer minimal 3 karakter"),
+  customerPhone: z.string().optional(),
+  deviceType: z.string().min(2, "Jenis perangkat wajib diisi"),
+  deviceBrand: z.string().optional(),
+  deviceModel: z.string().optional(),
+  problemDescription: z.string().min(5, "Keluhan minimal 5 karakter"),
+  diagnosis: z.string().optional(),
+  estimatedCost: z.coerce.number().min(0),
+  finalCost: z.coerce.number().min(0),
+  status: z.string(),
+  technicianNote: z.string().optional()
+});
+
+export type ServiceFormValues = z.infer<typeof serviceSchema>;
