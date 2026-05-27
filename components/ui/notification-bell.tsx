@@ -19,6 +19,7 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
     
     // SSE Real-time Listener

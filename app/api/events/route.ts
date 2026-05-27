@@ -10,7 +10,7 @@ export async function GET(req: Request) {
       // Send initial connection event
       controller.enqueue(encoder.encode(`event: connected\ndata: {"status": "ok"}\n\n`));
       
-      const onNotification = (data: any) => {
+      const onNotification = (data: unknown) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
