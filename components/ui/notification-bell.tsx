@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Bell, CheckCircle, Hammer, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { AppNotification, getNotifications } from "@/app/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,9 +20,30 @@ export function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    // Poll setiap 5 menit
-    const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    
+    // SSE Real-time Listener
+    const eventSource = new EventSource("/api/events");
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.status === "ok") return; // Initial ping
+
+        // payload is { type, data: { title, message } }
+        if (payload.data?.title && payload.data?.message) {
+          toast(payload.data.title, { description: payload.data.message });
+        }
+        
+        // Refresh notifications list to reflect the new state
+        fetchNotifications();
+      } catch (e) {
+        // Parse error or non-JSON data
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   useEffect(() => {

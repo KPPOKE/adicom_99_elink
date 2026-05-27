@@ -9,6 +9,7 @@ import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
+import { triggerEvent } from "@/lib/sse-emitter";
 
 async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service") {
   const code = `${prefix}-${dateCode()}`;
@@ -87,6 +88,14 @@ export async function createTransaction(payload: unknown) {
             data: { stok: { decrement: item.qty } }
           });
           if (updated.count !== 1) throw new Error("Stok barang tidak cukup atau sudah berubah");
+          
+          const currentItem = await tx.item.findUnique({ where: { id: item.itemId } });
+          if (currentItem && currentItem.stok <= currentItem.stokMinimum) {
+            triggerEvent("STOCK_LOW", {
+              title: "Stok Menipis!",
+              message: `Stok ${currentItem.namaBarang} tersisa ${currentItem.stok}.`,
+            });
+          }
         }
 
         if (status === "Berhasil") {
@@ -250,6 +259,10 @@ export async function upsertService(formData: FormData) {
           metadata: { kodeService: existing.kodeService, status: parsed.status }
         }
       });
+      triggerEvent("SERVICE_UPDATE", {
+        title: "Status Servis Berubah",
+        message: `Servis ${existing.kodeService} sekarang berstatus ${parsed.status}.`,
+      });
     });
   } else {
     let created = false;
@@ -277,6 +290,10 @@ export async function upsertService(formData: FormData) {
               metadata: { kodeService, status: service.status }
             }
           });
+        });
+        triggerEvent("NEW_SERVICE", {
+          title: "Servis Baru!",
+          message: `Servis baru ditambahkan dengan kode ${kodeService}.`,
         });
         created = true;
         break;
