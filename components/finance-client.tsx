@@ -18,6 +18,11 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { deleteFinanceRecord, upsertFinanceRecord } from "@/app/actions/operations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { financeSchema, type FinanceFormValues } from "@/lib/schema";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
 type FinanceRow = {
   id: number;
   type: "income" | "expense";
@@ -36,6 +41,66 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
   const categories = Array.from(new Set(records.map((record) => record.category))).sort();
+  
+  const form = useForm<FinanceFormValues>({
+    resolver: zodResolver(financeSchema) as any,
+    defaultValues: {
+      type: "expense",
+      category: "",
+      amount: 0,
+      date: new Date().toISOString().slice(0, 10),
+      description: ""
+    }
+  });
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setEditing(null);
+      form.reset({
+        type: "expense",
+        category: "",
+        amount: 0,
+        date: new Date().toISOString().slice(0, 10),
+        description: ""
+      });
+    }
+    setOpen(newOpen);
+  };
+
+  const handleEdit = (record: FinanceRow) => {
+    setEditing(record);
+    form.reset({
+      id: record.id,
+      type: record.type,
+      category: record.category,
+      amount: record.amount,
+      date: new Date(record.date).toISOString().slice(0, 10),
+      description: record.description ?? ""
+    });
+    setOpen(true);
+  };
+
+  const onSubmit = (values: FinanceFormValues) => {
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        if (values.id) formData.append("id", String(values.id));
+        formData.append("type", values.type);
+        formData.append("category", values.category);
+        formData.append("amount", String(values.amount));
+        formData.append("date", values.date);
+        formData.append("description", values.description ?? "");
+        
+        await upsertFinanceRecord(formData);
+        toast.success("Catatan keuangan disimpan");
+        handleOpenChange(false);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal menyimpan catatan");
+      }
+    });
+  };
+
   const filteredRecords = records.filter((record) => {
     const typeMatch = typeFilter === "all" || record.type === typeFilter;
     const categoryMatch = categoryFilter === "all" || record.category === categoryFilter;
@@ -60,10 +125,7 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
             <Button
               variant="outline"
               size="icon"
-              onClick={() => {
-                setEditing(row.original);
-                setOpen(true);
-              }}
+              onClick={() => handleEdit(row.original)}
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -98,9 +160,9 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
         <Summary label="Laba Bersih" value={income - expense} />
       </div>
       {role === "admin" ? <div className="flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditing(null)}>
+            <Button onClick={() => handleOpenChange(true)}>
               <Plus className="h-4 w-4" />
               Catat Manual
             </Button>
@@ -109,39 +171,82 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Catatan Keuangan" : "Catatan Keuangan Manual"}</DialogTitle>
             </DialogHeader>
-            <form
-              action={(formData) =>
-                startTransition(async () => {
-                  try {
-                    await upsertFinanceRecord(formData);
-                    toast.success("Catatan keuangan disimpan");
-                    setOpen(false);
-                    setEditing(null);
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menyimpan catatan");
-                  }
-                })
-              }
-              className="grid gap-4"
-            >
-              {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
-              <div className="space-y-1.5">
-                <Label>Tipe</Label>
-                <Select name="type" defaultValue={editing?.type ?? "expense"}>
-                  <option value="income">Pemasukan</option>
-                  <option value="expense">Pengeluaran</option>
-                </Select>
-              </div>
-              <Field name="category" label="Kategori" value={editing?.category} />
-              <CurrencyField name="amount" label="Nominal" initialValue={editing?.amount} />
-              <Field type="date" name="date" label="Tanggal" value={editing ? new Date(editing.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)} />
-              <div className="space-y-1.5">
-                <Label>Deskripsi</Label>
-                <Textarea name="description" defaultValue={editing?.description ?? ""} />
-              </div>
-              <Button disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
-            </form>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipe</FormLabel>
+                      <Select onChange={(e) => field.onChange(e.target.value)} value={field.value}>
+                        <option value="income">Pemasukan</option>
+                        <option value="expense">Pengeluaran</option>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kategori</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: Listrik, Gaji, dll" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nominal</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tanggal</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deskripsi</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Keterangan..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit" disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div> : null}
@@ -180,22 +285,4 @@ function Summary({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Field({ label, name, value, type = "text" }: { label: string; name: string; value?: string; type?: string }) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input type={type} name={name} defaultValue={value ?? ""} required />
-    </div>
-  );
-}
 
-function CurrencyField({ label, name, initialValue }: { label: string; name: string; initialValue?: number }) {
-  const [val, setVal] = useState(initialValue ?? 0);
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <input type="hidden" name={name} value={val} />
-      <CurrencyInput value={val} onChange={setVal} required />
-    </div>
-  );
-}

@@ -34,3 +34,14 @@ export const serviceSchema = z.object({
 });
 
 export type ServiceFormValues = z.infer<typeof serviceSchema>;
+
+export const financeSchema = z.object({
+  id: z.number().optional(),
+  type: z.enum(["income", "expense"]),
+  category: z.string().min(2, "Kategori wajib diisi"),
+  amount: z.coerce.number().min(1, "Nominal wajib diisi"),
+  description: z.string().optional(),
+  date: z.string()
+});
+
+export type FinanceFormValues = z.infer<typeof financeSchema>;
