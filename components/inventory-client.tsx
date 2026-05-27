@@ -19,6 +19,11 @@ import { StockBadge } from "@/components/shared/status-badge";
 import { deleteItem, upsertItem } from "@/app/actions/master-data";
 import { formatCurrency } from "@/lib/utils";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { itemSchema, type ItemFormValues } from "@/lib/schema";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
 type ItemRow = {
   id: number;
   namaBarang: string;
@@ -54,6 +59,94 @@ export function InventoryClient({
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
+
+  const form = useForm<ItemFormValues>({
+    resolver: zodResolver(itemSchema) as any,
+    defaultValues: {
+      namaBarang: "",
+      kodeBarang: "",
+      categoryId: 0,
+      supplierId: 0,
+      hargaModal: 0,
+      hargaJual: 0,
+      stok: 0,
+      stokMinimum: 0,
+      satuan: "pcs",
+      deskripsi: "",
+      gambar: ""
+    }
+  });
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setEditing(null);
+      form.reset({
+        namaBarang: "",
+        kodeBarang: "",
+        categoryId: 0,
+        supplierId: 0,
+        hargaModal: 0,
+        hargaJual: 0,
+        stok: 0,
+        stokMinimum: 0,
+        satuan: "pcs",
+        deskripsi: "",
+        gambar: ""
+      });
+    }
+    setOpen(newOpen);
+  };
+
+  const handleEdit = (item: ItemRow) => {
+    setEditing(item);
+    form.reset({
+      id: item.id,
+      namaBarang: item.namaBarang,
+      kodeBarang: item.kodeBarang,
+      categoryId: item.categoryId,
+      supplierId: item.supplierId ?? 0,
+      hargaModal: item.hargaModal,
+      hargaJual: item.hargaJual,
+      stok: item.stok,
+      stokMinimum: item.stokMinimum,
+      satuan: item.satuan,
+      deskripsi: item.deskripsi ?? "",
+      gambar: item.gambar ?? ""
+    });
+    setOpen(true);
+  };
+
+  const onSubmit = (values: ItemFormValues) => {
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        if (values.id) formData.append("id", String(values.id));
+        formData.append("namaBarang", values.namaBarang);
+        formData.append("kodeBarang", values.kodeBarang);
+        formData.append("categoryId", String(values.categoryId));
+        if (values.supplierId) formData.append("supplierId", String(values.supplierId));
+        formData.append("hargaModal", String(values.hargaModal));
+        formData.append("hargaJual", String(values.hargaJual));
+        formData.append("stok", String(values.stok));
+        formData.append("stokMinimum", String(values.stokMinimum));
+        formData.append("satuan", values.satuan);
+        formData.append("deskripsi", values.deskripsi ?? "");
+        formData.append("gambar", values.gambar ?? "");
+        
+        await upsertItem(formData);
+        toast.success("Barang disimpan", {
+          description: "Data barang telah berhasil diperbarui di sistem."
+        });
+        handleOpenChange(false);
+        router.refresh();
+      } catch (error) {
+        toast.error("Gagal menyimpan barang", {
+          description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
+        });
+      }
+    });
+  };
+
   const filteredItems = items.filter((item) => {
     const categoryMatch = categoryFilter === "all" || String(item.categoryId) === categoryFilter;
     const supplierMatch = supplierFilter === "all" || String(item.supplierId ?? "none") === supplierFilter;
@@ -92,10 +185,7 @@ export function InventoryClient({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => {
-                  setEditing(row.original);
-                  setOpen(true);
-                }}
+                onClick={() => handleEdit(row.original)}
               >
                 <Edit className="h-4 w-4" />
               </Button>
@@ -105,14 +195,12 @@ export function InventoryClient({
                     try {
                       await deleteItem(row.original.id);
                       toast.success("Barang dihapus", {
-                        description: `Data ${row.original.namaBarang} telah dihapus.`,
-                        action: { label: "Tutup", onClick: () => console.log("Closed") }
+                        description: `Data ${row.original.namaBarang} telah dihapus.`
                       });
                       router.refresh();
                     } catch (error) {
                       toast.error("Gagal menghapus barang", {
-                        description: error instanceof Error ? error.message : "Terjadi kesalahan sistem.",
-                        action: { label: "Tutup", onClick: () => console.log("Closed") }
+                        description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
                       });
                     }
                   })
@@ -134,82 +222,169 @@ export function InventoryClient({
     <>
       {role === "admin" ? (
       <div className="mb-4 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditing(null)}>
+            <Button onClick={() => handleOpenChange(true)}>
               <Plus className="h-4 w-4" />
               Tambah Barang
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Barang" : "Tambah Barang"}</DialogTitle>
             </DialogHeader>
-            <form
-              action={(formData) =>
-                startTransition(async () => {
-                  try {
-                    await upsertItem(formData);
-                    toast.success("Barang disimpan", {
-                      description: "Data barang telah berhasil diperbarui di sistem.",
-                      action: { label: "Tutup", onClick: () => console.log("Closed") }
-                    });
-                    setOpen(false);
-                    setEditing(null);
-                    router.refresh();
-                  } catch (error) {
-                    toast.error("Gagal menyimpan barang", {
-                      description: error instanceof Error ? error.message : "Terjadi kesalahan sistem.",
-                      action: { label: "Tutup", onClick: () => console.log("Closed") }
-                    });
-                  }
-                })
-              }
-              className="grid gap-4 sm:grid-cols-2"
-            >
-              {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
-              <input type="hidden" name="gambar" value={editing?.gambar ?? ""} />
-              <Field name="namaBarang" label="Nama Barang" value={editing?.namaBarang} />
-              <Field name="kodeBarang" label="Kode Barang" value={editing?.kodeBarang} />
-              <div className="space-y-1.5">
-                <Label>Kategori</Label>
-                <Select name="categoryId" defaultValue={String(editing?.categoryId ?? "")} required>
-                  <option value="">Pilih kategori</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Supplier</Label>
-                <Select name="supplierId" defaultValue={String(editing?.supplierId ?? "")}>
-                  <option value="">Tanpa supplier</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <CurrencyField name="hargaModal" label="Harga Modal" initialValue={editing?.hargaModal} />
-              <CurrencyField name="hargaJual" label="Harga Jual" initialValue={editing?.hargaJual} />
-              <CurrencyField name="stok" label="Stok" initialValue={editing?.stok} prefix="" decimalScale={0} />
-              <CurrencyField name="stokMinimum" label="Stok Minimum" initialValue={editing?.stokMinimum} prefix="" decimalScale={0} />
-              <Field name="satuan" label="Satuan" value={editing?.satuan ?? "pcs"} />
-              <div className="space-y-1.5">
-                <Label>Gambar</Label>
-                <Input type="file" name="image" accept="image/*" />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Deskripsi</Label>
-                <Textarea name="deskripsi" defaultValue={editing?.deskripsi ?? ""} />
-              </div>
-              <Button className="sm:col-span-2" disabled={isPending}>
-                {isPending ? "Menyimpan..." : "Simpan Barang"}
-              </Button>
-            </form>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="namaBarang"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Barang</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: RAM 8GB DDR4" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kodeBarang"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kode Barang</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: BRG-001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kategori</FormLabel>
+                      <Select onChange={(e) => field.onChange(Number(e.target.value))} value={String(field.value || "")}>
+                        <option value="" disabled hidden>Pilih kategori</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="supplierId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier</FormLabel>
+                      <Select onChange={(e) => field.onChange(Number(e.target.value) || undefined)} value={String(field.value || "")}>
+                        <option value="">Tanpa supplier</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hargaModal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Harga Modal</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hargaJual"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Harga Jual</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="stok"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stok Awal / Saat Ini</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} prefix="" decimalScale={0} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="stokMinimum"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stok Minimum (Peringatan)</FormLabel>
+                      <FormControl>
+                        <CurrencyInput value={field.value} onChange={field.onChange} prefix="" decimalScale={0} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="satuan"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Satuan</FormLabel>
+                      <FormControl>
+                        <Input placeholder="cth: pcs, unit, meter" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="deskripsi"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Deskripsi</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Keterangan tambahan..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit" className="sm:col-span-2" disabled={isPending}>
+                  {isPending ? "Menyimpan..." : "Simpan Barang"}
+                </Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -250,32 +425,4 @@ export function InventoryClient({
   );
 }
 
-function Field({
-  label,
-  name,
-  value,
-  type = "text"
-}: {
-  label: string;
-  name: string;
-  value?: string | number | null;
-  type?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input type={type} name={name} defaultValue={value ?? ""} required />
-    </div>
-  );
-}
 
-function CurrencyField({ label, name, initialValue, prefix, decimalScale }: { label: string; name: string; initialValue?: number; prefix?: string; decimalScale?: number }) {
-  const [val, setVal] = useState(initialValue ?? 0);
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <input type="hidden" name={name} value={val} />
-      <CurrencyInput value={val} onChange={setVal} required prefix={prefix} decimalScale={decimalScale} />
-    </div>
-  );
-}
