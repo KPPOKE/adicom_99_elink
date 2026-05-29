@@ -18,9 +18,19 @@ describe("utils", () => {
     expect(toNumber({ toNumber: () => 42 })).toBe(42);
   });
 
+  it("normalizes string to number accurately (Fix: Presisi Data Ribuan)", () => {
+    expect(toNumber("1.0000")).toBe(10000); // Typo kelebihan nol
+    expect(toNumber("1.500,50")).toBe(1500.5); // Koma sebagai desimal
+  });
+
   it("escapes spreadsheet formula values", () => {
     expect(safeSpreadsheetValue("=HYPERLINK(\"http://bad\")")).toBe("'=HYPERLINK(\"http://bad\")");
     expect(safeSpreadsheetValue("+SUM(1,2)")).toBe("'+SUM(1,2)");
     expect(safeSpreadsheetValue("normal text")).toBe("normal text");
+  });
+
+  it("escapes spreadsheet formula values against CSV Injection (Fix: Advanced XSS)", () => {
+    expect(safeSpreadsheetValue("\t=cmd|' /C calc'!A0")).toBe("'\t=cmd|' /C calc'!A0");
+    expect(safeSpreadsheetValue("   -1+1")).toBe("'   -1+1");
   });
 });

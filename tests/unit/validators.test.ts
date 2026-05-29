@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { financeSchema, transactionSchema, userSchema } from "@/lib/validators";
+import { financeSchema, serviceSchema, transactionSchema, userSchema } from "@/lib/validators";
 
 describe("validators", () => {
   it("rejects cash transaction when paid amount is lower than grand total", () => {
@@ -39,5 +39,25 @@ describe("validators", () => {
   it("requires positive amount for finance records", () => {
     expect(financeSchema.safeParse({ type: "expense", category: "Operasional", amount: 0, date: new Date() }).success).toBe(false);
     expect(financeSchema.safeParse({ type: "income", category: "Manual", amount: 1000, date: new Date() }).success).toBe(true);
+  });
+
+  it("rejects empty strings for required money fields (Fix: Uang Siluman)", () => {
+    const resultFinance = financeSchema.safeParse({
+      type: "income",
+      category: "Test",
+      amount: "",
+      date: new Date()
+    });
+    expect(resultFinance.success).toBe(false);
+
+    const resultService = serviceSchema.safeParse({
+      customerName: "Budi",
+      deviceType: "HP",
+      problemDescription: "Mati Total",
+      estimatedCost: 0,
+      finalCost: "",
+      status: "Dicek"
+    });
+    expect(resultService.success).toBe(false);
   });
 });
