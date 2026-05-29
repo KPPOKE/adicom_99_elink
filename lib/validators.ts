@@ -71,7 +71,7 @@ export const financeSchema = z.object({
   id: z.coerce.number().optional(),
   type: z.enum(["income", "expense"]),
   category: z.string().min(2, "Kategori wajib diisi"),
-  amount: money.min(1, "Nominal wajib diisi"),
+  amount: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(1, "Nominal wajib diisi")),
   description: z.string().optional(),
   date: z.coerce.date()
 });
