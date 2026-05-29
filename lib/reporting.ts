@@ -61,19 +61,16 @@ export async function loadReportData(filters: ReportFilters) {
     prisma.transaction.findMany({
       where: dateWhere ? { createdAt: dateWhere } : undefined,
       include: { items: { include: { item: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 300
+      orderBy: { createdAt: "desc" }
     }),
     prisma.service.findMany({
       where: dateWhere ? { receivedDate: dateWhere } : undefined,
-      orderBy: { receivedDate: "desc" },
-      take: 300
+      orderBy: { receivedDate: "desc" }
     }),
-    prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 300 }),
+    prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
     prisma.financeRecord.findMany({
       where: dateWhere ? { date: dateWhere } : undefined,
-      orderBy: { date: "desc" },
-      take: 500
+      orderBy: { date: "desc" }
     })
   ]);
 

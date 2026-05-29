@@ -13,11 +13,23 @@ import { handleActionError } from "@/lib/errors";
 
 async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service") {
   const code = `${prefix}-${dateCode()}`;
-  const count =
-    model === "transaction"
-      ? await prisma.transaction.count({ where: { kodeTransaksi: { startsWith: code } } })
-      : await prisma.service.count({ where: { kodeService: { startsWith: code } } });
-  return `${code}-${String(count + 1).padStart(3, "0")}`;
+  if (model === "transaction") {
+    const lastRecord = await prisma.transaction.findFirst({
+      where: { kodeTransaksi: { startsWith: code } },
+      orderBy: { kodeTransaksi: "desc" },
+      select: { kodeTransaksi: true }
+    });
+    const lastSeq = lastRecord ? parseInt(lastRecord.kodeTransaksi.split("-").pop() || "0", 10) : 0;
+    return `${code}-${String(lastSeq + 1).padStart(3, "0")}`;
+  } else {
+    const lastRecord = await prisma.service.findFirst({
+      where: { kodeService: { startsWith: code } },
+      orderBy: { kodeService: "desc" },
+      select: { kodeService: true }
+    });
+    const lastSeq = lastRecord ? parseInt(lastRecord.kodeService.split("-").pop() || "0", 10) : 0;
+    return `${code}-${String(lastSeq + 1).padStart(3, "0")}`;
+  }
 }
 
 export async function createTransaction(payload: unknown) {
@@ -226,16 +238,27 @@ export async function upsertService(formData: FormData) {
   if (parsed.id) {
     await prisma.$transaction(async (tx) => {
       const existing = await tx.service.findUniqueOrThrow({ where: { id: parsed.id } });
+      const isBatal = parsed.status === "Batal";
+      const paymentStatusToSet = isBatal ? "unpaid" : existing.paymentStatus;
+      const paidAtToSet = isBatal ? null : existing.paidAt;
+
       await tx.service.update({
         where: { id: parsed.id },
         data: {
           ...parsed,
           customerId: parsed.customerId || null,
+          paymentStatus: paymentStatusToSet,
+          paidAt: paidAtToSet,
           completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? existing.completedDate ?? new Date() : undefined,
           pickedUpDate: parsed.status === "Diambil" ? existing.pickedUpDate ?? new Date() : undefined
         }
       });
-      if (existing.paymentStatus === "paid") {
+
+      if (isBatal) {
+        await tx.financeRecord.deleteMany({
+          where: { serviceId: parsed.id }
+        });
+      } else if (existing.paymentStatus === "paid") {
         await tx.financeRecord.updateMany({
           where: { serviceId: parsed.id, type: "income" },
           data: {

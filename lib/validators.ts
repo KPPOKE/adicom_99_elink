@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const money = z.coerce.number().min(0, "Nominal tidak boleh negatif");
+const money = z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().min(0, "Nominal tidak boleh negatif"));
 
 export const loginSchema = z.object({
   email: z.string().email("Email tidak valid"),

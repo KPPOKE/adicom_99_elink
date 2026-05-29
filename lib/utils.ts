@@ -50,9 +50,7 @@ export function toNumber(value: unknown) {
     const normalized = value.replace(/[^\d,.-]/g, "");
     const decimalAware = normalized.includes(",")
       ? normalized.replaceAll(".", "").replace(",", ".")
-      : /^-?\d{1,3}(\.\d{3})+$/.test(normalized)
-        ? normalized.replaceAll(".", "")
-        : normalized;
+      : normalized.replaceAll(".", "");
     return Number(decimalAware) || 0;
   }
   if (value && typeof value === "object" && "toNumber" in value && typeof value.toNumber === "function") {

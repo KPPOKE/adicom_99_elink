@@ -1,4 +1,4 @@
 export function safeSpreadsheetValue(value: unknown) {
   const text = String(value ?? "");
-  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return /^[\s\u200B]*[=+\-@]/.test(text) ? `'${text}` : text;
 }
