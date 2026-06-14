@@ -1,6 +1,6 @@
-# Adicom99 Management System
+# PosPintar Management System
 
-Web app internal untuk Adicom99.com: inventory, stok, transaksi penjualan, service hardware, produk digital, keuangan, laporan, dan settings toko.
+Web app internal untuk PosPintar.com: inventory, stok, transaksi penjualan, service hardware, produk digital, keuangan, laporan, dan settings toko.
 
 ## Stack
 
@@ -22,7 +22,7 @@ npm ci
 2. Buat database MySQL:
 
 ```sql
-CREATE DATABASE adicom99_management;
+CREATE DATABASE pospintar_management;
 ```
 
 3. Salin env:
@@ -48,7 +48,7 @@ npm run dev
 
 Login seed:
 
-- Development default: `admin@adicom99.com` / `password123`
+- Development default: `admin@pospintar.com` / `password123`
 - Production: set `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_STAFF_EMAIL`, dan `SEED_STAFF_PASSWORD` sebelum seed.
 
 ## Fitur MVP
@@ -94,9 +94,9 @@ Rekomendasi production untuk VPS sendiri:
 1. Buat database dan user khusus aplikasi:
 
 ```sql
-CREATE DATABASE adicom99_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'adicom99_user'@'localhost' IDENTIFIED BY 'password-kuat';
-GRANT ALL PRIVILEGES ON adicom99_management.* TO 'adicom99_user'@'localhost';
+CREATE DATABASE pospintar_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'pospintar_user'@'localhost' IDENTIFIED BY 'password-kuat';
+GRANT ALL PRIVILEGES ON pospintar_management.* TO 'pospintar_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
@@ -104,11 +104,11 @@ FLUSH PRIVILEGES;
 
 ```env
 NODE_ENV=production
-DATABASE_URL="mysql://adicom99_user:password-kuat@localhost:3306/adicom99_management"
+DATABASE_URL="mysql://pospintar_user:password-kuat@localhost:3306/pospintar_management"
 AUTH_SECRET="random-secret-minimal-32-karakter-panjang"
-SEED_ADMIN_EMAIL="admin@adicom99.com"
+SEED_ADMIN_EMAIL="admin@pospintar.com"
 SEED_ADMIN_PASSWORD="password-admin-kuat"
-SEED_STAFF_EMAIL="staff@adicom99.com"
+SEED_STAFF_EMAIL="staff@pospintar.com"
 SEED_STAFF_PASSWORD="password-staff-kuat"
 ```
 
@@ -143,7 +143,7 @@ GitHub Actions akan:
 
 - menjalankan `npm ci --include=dev`, `npm audit`, lint, unit test, dan build;
 - deploy ke VPS via SSH hanya jika CI sukses;
-- menjalankan `git reset --hard origin/main`, `npm ci --include=dev`, `npx prisma generate`, `npx prisma migrate deploy`, `npm run build`, lalu `pm2 restart adicom99`.
+- menjalankan `git reset --hard origin/main`, `npm ci --include=dev`, `npx prisma generate`, `npx prisma migrate deploy`, `npm run build`, lalu `pm2 restart pospintar`.
 
 Tambahkan repository secrets berikut di GitHub:
 
@@ -152,7 +152,7 @@ SERVER_HOST=IP_ATAU_DOMAIN_VPS
 SERVER_USERNAME=root_atau_user_deploy
 SERVER_PORT=22
 SERVER_PASSWORD=PASSWORD_SSH_VPS
-SERVER_PROJECT_PATH=/www/wwwroot/adicom99
+SERVER_PROJECT_PATH=/www/wwwroot/pospintar
 ```
 
 Catatan:
@@ -160,7 +160,7 @@ Catatan:
 - `.env` production tetap disimpan di VPS, bukan di GitHub.
 - CI memakai MySQL service sementara di GitHub Actions, jadi tidak perlu secret database CI.
 - Workflow tidak menjalankan `prisma db seed` otomatis agar data production tidak berubah.
-- PM2 process name harus `adicom99`.
+- PM2 process name harus `pospintar`.
 - Config Nginx `/uploads/` di aaPanel tetap dikelola manual di server.
 
 ## Catatan Produksi

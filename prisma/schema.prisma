@@ -280,7 +280,7 @@ model AuditLog {
 
 model Setting {
   id              Int      @id @default(autoincrement())
-  storeName       String   @default("Adicom99") @map("store_name")
+  storeName       String   @default("PosPintar") @map("store_name")
   logo            String?
   address         String?  @db.Text
   whatsapp        String?

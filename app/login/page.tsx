@@ -60,7 +60,7 @@ export default function LoginPage() {
                 <Label>Email</Label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="pl-10 h-11" name="email" type="email" placeholder="email@adicom99.com" required />
+                  <Input className="pl-10 h-11" name="email" type="email" placeholder="email@pospintar.com" required />
                 </div>
               </div>
               <div className="space-y-1.5">

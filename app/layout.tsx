@@ -7,8 +7,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
-  title: "Adicom99 Management System",
-  description: "Sistem internal Adicom99 untuk inventory, transaksi, service, dan keuangan.",
+  title: "PosPintar Management System",
+  description: "Sistem internal PosPintar untuk inventory, transaksi, service, dan keuangan.",
   icons: {
     icon: "/icon.svg"
   }

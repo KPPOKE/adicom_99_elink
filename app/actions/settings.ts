@@ -16,7 +16,7 @@ export async function updateSettings(formData: FormData) {
     const existingLogo = String(formData.get("logo") || "");
     const id = Number(formData.get("id"));
     const data = {
-      storeName: String(formData.get("storeName") || "Adicom99"),
+      storeName: String(formData.get("storeName") || "PosPintar"),
       logo: logo || existingLogo || null,
       address: String(formData.get("address") || "") || null,
       whatsapp: String(formData.get("whatsapp") || "") || null,

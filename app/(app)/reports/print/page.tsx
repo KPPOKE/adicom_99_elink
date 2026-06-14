@@ -26,7 +26,7 @@ export default async function ReportPrintPage({ searchParams }: { searchParams?:
       </div>
       <article className="mx-auto max-w-4xl rounded-lg bg-white p-8 text-sm text-slate-900 shadow-sm print:shadow-none">
         <header className="border-b border-slate-200 pb-4">
-          <h1 className="text-xl font-bold">{setting?.storeName ?? "Adicom99"} - Laporan Operasional</h1>
+          <h1 className="text-xl font-bold">{setting?.storeName ?? "PosPintar"} - Laporan Operasional</h1>
           <p className="text-slate-500">{reportTitle(filters)}</p>
         </header>
 

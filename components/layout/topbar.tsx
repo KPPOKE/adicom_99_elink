@@ -32,10 +32,14 @@ export function Topbar({ userName, role }: { userName: string; role: "admin" | "
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <span className="truncate font-semibold text-slate-100">Adicom99</span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 font-bold text-white shadow-sm md:hidden">P</div>
+            <div className="md:hidden">
+              <span className="truncate font-semibold text-slate-100">PosPintar</span>
+              <span className="block text-[10px] text-slate-400">Management</span>
+            </div>
           </div>
           <div className="hidden min-w-0 lg:block">
-            <h1 className="text-xl font-bold tracking-tight text-slate-100">{activeItem?.label ?? "Adicom99"}</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-100">{activeItem?.label ?? "PosPintar"}</h1>
           </div>
           <div className="hidden shrink-0 items-center gap-3 lg:flex ml-auto">
             <NotificationBell />
@@ -80,9 +84,9 @@ export function Topbar({ userName, role }: { userName: string; role: "admin" | "
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-400/30 bg-blue-600/20 text-blue-300">
                 <ReceiptText className="h-5 w-5" />
               </div>
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-100">Adicom99</p>
-                <p className="truncate text-xs text-slate-500">Management System</p>
+              <div className="flex flex-col space-y-0.5 leading-none">
+                <p className="truncate font-semibold text-slate-100">PosPintar</p>
+                <p className="truncate text-xs text-slate-400">Management System</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" type="button" aria-label="Tutup menu" onClick={() => setMobileOpen(false)}>

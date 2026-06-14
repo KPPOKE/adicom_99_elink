@@ -29,7 +29,7 @@ export default async function SettingsPage() {
             <form action={updateSettings} className="grid gap-4 sm:grid-cols-2">
               {setting ? <input type="hidden" name="id" value={setting.id} /> : null}
               <input type="hidden" name="logo" value={setting?.logo ?? ""} />
-              <Field name="storeName" label="Nama Toko" value={setting?.storeName ?? "Adicom99"} />
+              <Field name="storeName" label="Nama Toko" value={setting?.storeName ?? "PosPintar"} />
               <Field name="whatsapp" label="Nomor WhatsApp" value={setting?.whatsapp ?? ""} />
               <Field name="email" label="Email" value={setting?.email ?? ""} />
               <Field name="invoicePrefix" label="Prefix Invoice" value={setting?.invoicePrefix ?? "INV"} />

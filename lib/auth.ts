@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
-const COOKIE_NAME = "adicom99_session";
+const COOKIE_NAME = "pospintar_session";
 const DAY = 24 * 60 * 60 * 1000;
 
 type SessionPayload = {

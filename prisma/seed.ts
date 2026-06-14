@@ -4,7 +4,7 @@ import { hash } from "bcryptjs";
 import "dotenv/config";
 
 function adapter() {
-  const url = new URL(process.env.DATABASE_URL || "mysql://root:@localhost:3306/adicom99_management");
+  const url = new URL(process.env.DATABASE_URL || "mysql://root:@localhost:3306/pospintar_management");
   return new PrismaMariaDb({
     host: url.hostname,
     port: Number(url.port || 3306),
@@ -27,8 +27,8 @@ function seedCredential(name: string, fallback: string) {
 }
 
 async function main() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@adicom99.com";
-  const staffEmail = process.env.SEED_STAFF_EMAIL || "staff@adicom99.com";
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@pospintar.com";
+  const staffEmail = process.env.SEED_STAFF_EMAIL || "staff@pospintar.com";
   const adminPassword = seedCredential("SEED_ADMIN_PASSWORD", DEV_DEFAULT_PASSWORD);
   const staffPassword = seedCredential("SEED_STAFF_PASSWORD", DEV_DEFAULT_PASSWORD);
 
@@ -47,7 +47,7 @@ async function main() {
     where: { email: adminEmail },
     update: {},
     create: {
-      name: "Admin Adicom99",
+      name: "Admin PosPintar",
       email: adminEmail,
       passwordHash: await hash(adminPassword, 10),
       roleId: adminRole.id
@@ -87,7 +87,7 @@ async function main() {
     where: { id: 1 },
     update: {},
     create: {
-      name: "Adicom99 Main Supplier",
+      name: "PosPintar Main Supplier",
       phone: "081234567899",
       address: "Jakarta",
       note: "Supplier contoh untuk seed awal"
@@ -203,12 +203,12 @@ async function main() {
     where: { id: 1 },
     update: {},
     create: {
-      storeName: "Adicom99",
+      storeName: "PosPintar",
       address: "Service hardware, laptop, PC, HP, pulsa, token listrik, dan produk digital.",
       whatsapp: "081234567899",
-      email: "support@adicom99.com",
+      email: "support@pospintar.com",
       invoicePrefix: "INV",
-      invoiceFooter: "Terima kasih sudah mempercayakan kebutuhan service dan produk digital ke Adicom99.",
+      invoiceFooter: "Terima kasih sudah mempercayakan kebutuhan service dan produk digital ke PosPintar.",
       defaultPrintFormat: "thermal_80"
     }
   });
