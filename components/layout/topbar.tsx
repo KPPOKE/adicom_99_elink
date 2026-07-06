@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, CalendarDays, Menu, Moon, ReceiptText, Search, X } from "lucide-react";
+import { CalendarDays, Menu, ReceiptText, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { nav, SidebarFooter } from "@/components/layout/sidebar";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export function Topbar({ userName, role }: { userName: string; role: "admin" | "staff" }) {

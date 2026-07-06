@@ -89,6 +89,31 @@ export async function loadReportData(filters: ReportFilters) {
   return { transactions, services, items, finance, income, expense, chartData, range };
 }
 
+export async function loadReportPreview(filters: ReportFilters) {
+  const range = reportDateRange(filters);
+  const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
+  const financeWhere = dateWhere ? { date: dateWhere } : undefined;
+  const [transactions, services, items, finance, totals, grouped] = await Promise.all([
+    prisma.transaction.findMany({ where: dateWhere ? { createdAt: dateWhere } : undefined, orderBy: { createdAt: "desc" }, take: 8 }),
+    prisma.service.findMany({ where: dateWhere ? { receivedDate: dateWhere } : undefined, orderBy: { receivedDate: "desc" }, take: 8 }),
+    prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
+    prisma.financeRecord.findMany({ where: financeWhere, orderBy: { date: "desc" }, take: 8 }),
+    prisma.financeRecord.groupBy({ by: ["type"], where: financeWhere, _sum: { amount: true } }),
+    prisma.financeRecord.groupBy({ by: ["type", "referenceType"], where: financeWhere, _sum: { amount: true } })
+  ]);
+  const total = (type: "income" | "expense") => toNumber(totals.find((item) => item.type === type)?._sum.amount);
+  const chartData = [
+    { name: "Penjualan", ref: "transaction" },
+    { name: "Service", ref: "service" },
+    { name: "Manual", ref: "manual" }
+  ].map(({ name, ref }) => ({
+    name,
+    income: toNumber(grouped.find((item) => item.type === "income" && (item.referenceType === ref || (!item.referenceType && ref === "manual")))?._sum.amount),
+    expense: toNumber(grouped.find((item) => item.type === "expense" && (item.referenceType === ref || (!item.referenceType && ref === "manual")))?._sum.amount)
+  }));
+  return { transactions, services, items, finance, income: total("income"), expense: total("expense"), chartData, range };
+}
+
 function csvCell(value: unknown) {
   const text = safeSpreadsheetValue(value);
   return `"${text.replaceAll('"', '""')}"`;

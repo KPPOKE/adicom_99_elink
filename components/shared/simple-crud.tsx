@@ -31,7 +31,8 @@ export function SimpleCrud({
   deleteAction,
   canManage = true,
   canDelete = canManage,
-  detailHrefPrefix
+  detailHrefPrefix,
+  pagination
 }: {
   title: string;
   data: Row[];
@@ -41,6 +42,7 @@ export function SimpleCrud({
   canManage?: boolean;
   canDelete?: boolean;
   detailHrefPrefix?: string;
+  pagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -158,7 +160,7 @@ export function SimpleCrud({
         </Dialog>
       </div>
       ) : null}
-      <DataTable columns={columns} data={data} searchPlaceholder={`Cari ${title.toLowerCase()}...`} />
+      <DataTable columns={columns} data={data} searchPlaceholder={`Cari ${title.toLowerCase()}...`} serverPagination={pagination} />
     </>
   );
 }

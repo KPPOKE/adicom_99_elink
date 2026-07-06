@@ -101,8 +101,6 @@ export async function createTransaction(payload: unknown) {
           });
           if (updated.count !== 1) throw new Error("Stok barang tidak cukup atau sudah berubah");
           
-          const currentItem = await tx.item.findUnique({ where: { id: item.itemId } });
-
         }
 
         if (status === "Berhasil") {

@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { cancelTransaction, completePendingTransaction, createTransaction } from
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 import { useCartStore } from "@/lib/store/useCartStore";
-import { transactionSchema } from "@/lib/schema";
+import { transactionSchema } from "@/lib/validators";
 
 type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string };
 type CustomerOption = { id: number; name: string; phone: string | null };
@@ -38,12 +38,14 @@ export function TransactionClient({
   items,
   customers,
   transactions,
-  role
+  role,
+  pagination
 }: {
   items: ItemOption[];
   customers: CustomerOption[];
   transactions: TransactionRow[];
   role: "admin" | "staff";
+  pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
 }) {
   const router = useRouter();
   
@@ -304,7 +306,7 @@ export function TransactionClient({
         </CardContent>
       </Card>
       <div className="min-w-0 xl:order-1">
-        <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." />
+        <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
       </div>
     </div>
   );

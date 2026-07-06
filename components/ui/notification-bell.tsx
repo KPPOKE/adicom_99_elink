@@ -6,7 +6,6 @@ import { Bell, CheckCircle, Hammer, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { AppNotification } from "@/app/actions/notifications";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -40,7 +39,7 @@ export function NotificationBell() {
             return newNotifications;
           });
         }
-      } catch (e) {
+      } catch {
         // Parse error or non-JSON data
       }
     };

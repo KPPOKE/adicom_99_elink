@@ -3,11 +3,16 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SimpleCrud } from "@/components/shared/simple-crud";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
-export default async function CustomersPage() {
-  const [user, data] = await Promise.all([
+export default async function CustomersPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
+  const params = (await searchParams) ?? {};
+  const { page, q } = parseListParams(params);
+  const where = q ? { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { email: { contains: q } }] } : undefined;
+  const [user, data, total] = await Promise.all([
     getCurrentUser(),
-    prisma.customer.findMany({ orderBy: { createdAt: "desc" } })
+    prisma.customer.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    prisma.customer.count({ where })
   ]);
   return (
     <>
@@ -26,6 +31,7 @@ export default async function CustomersPage() {
         canManage
         canDelete={user?.role.name === "admin"}
         detailHrefPrefix="/customers"
+        pagination={{ page, pageSize: PAGE_SIZE, total, query: queryValues(params) }}
       />
     </>
   );

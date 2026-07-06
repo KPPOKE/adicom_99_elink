@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -21,7 +20,7 @@ import { formatCurrency } from "@/lib/utils";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { itemSchema, type ItemFormValues } from "@/lib/schema";
+import { itemSchema, type ItemFormValues } from "@/lib/validators";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 type ItemRow = {
@@ -45,23 +44,24 @@ export function InventoryClient({
   items,
   categories,
   suppliers,
-  role
+  role,
+  pagination,
+  filterValues
 }: {
   items: ItemRow[];
   categories: { id: number; name: string }[];
   suppliers: { id: number; name: string }[];
   role: "admin" | "staff";
+  pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
+  filterValues: { category: string; supplier: string; stock: string };
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ItemRow | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [supplierFilter, setSupplierFilter] = useState("all");
-  const [stockFilter, setStockFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
 
-  const form = useForm<ItemFormValues>({
-    resolver: zodResolver(itemSchema) as any,
+  const form = useForm({
+    resolver: zodResolver(itemSchema),
     defaultValues: {
       namaBarang: "",
       kodeBarang: "",
@@ -146,14 +146,6 @@ export function InventoryClient({
       }
     });
   };
-
-  const filteredItems = items.filter((item) => {
-    const categoryMatch = categoryFilter === "all" || String(item.categoryId) === categoryFilter;
-    const supplierMatch = supplierFilter === "all" || String(item.supplierId ?? "none") === supplierFilter;
-    const stockStatus = item.stok <= 0 ? "empty" : item.stok <= item.stokMinimum ? "low" : "safe";
-    const stockMatch = stockFilter === "all" || stockFilter === stockStatus;
-    return categoryMatch && supplierMatch && stockMatch;
-  });
 
   const columns: ColumnDef<ItemRow>[] = [
     {
@@ -391,11 +383,12 @@ export function InventoryClient({
       ) : null}
       <DataTable
         columns={columns}
-        data={filteredItems}
+        data={items}
+        serverPagination={pagination}
         searchPlaceholder="Cari barang, kode, kategori..."
         filters={
           <>
-            <Select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="w-[170px]">
+            <Select name="category" defaultValue={filterValues.category} className="w-[170px]">
               <option value="all">Semua kategori</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
@@ -403,7 +396,7 @@ export function InventoryClient({
                 </option>
               ))}
             </Select>
-            <Select value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} className="w-[170px]">
+            <Select name="supplier" defaultValue={filterValues.supplier} className="w-[170px]">
               <option value="all">Semua supplier</option>
               <option value="none">Tanpa supplier</option>
               {suppliers.map((supplier) => (
@@ -412,7 +405,7 @@ export function InventoryClient({
                 </option>
               ))}
             </Select>
-            <Select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)} className="w-[150px]">
+            <Select name="stock" defaultValue={filterValues.stock} className="w-[150px]">
               <option value="all">Semua stok</option>
               <option value="safe">Aman</option>
               <option value="low">Hampir habis</option>
@@ -424,5 +417,3 @@ export function InventoryClient({
     </>
   );
 }
-
-

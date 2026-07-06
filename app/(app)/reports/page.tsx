@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { loadReportData, parseReportFilters, reportCurrency, reportTitle } from "@/lib/reporting";
+import { loadReportPreview, parseReportFilters, reportCurrency, reportTitle } from "@/lib/reporting";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export default async function ReportsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
@@ -18,7 +18,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
   Object.entries(filters).forEach(([key, value]) => {
     if (value) query.set(key, value);
   });
-  const { transactions, services, items, finance, income, expense, chartData } = await loadReportData(filters);
+  const { transactions, services, items, finance, income, expense, chartData } = await loadReportPreview(filters);
 
   return (
     <>

@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -21,7 +20,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { serviceSchema, type ServiceFormValues } from "@/lib/schema";
+import { serviceSchema, type ServiceFormValues } from "@/lib/validators";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const statuses = ["Masuk", "Dicek", "Menunggu_Konfirmasi", "Diproses", "Selesai", "Diambil", "Batal"];
@@ -39,7 +38,7 @@ type ServiceRow = {
   diagnosis: string | null;
   estimatedCost: number;
   finalCost: number;
-  status: string;
+  status: ServiceFormValues["status"];
   paymentStatus: string;
   paidAt: string | Date | null;
   technicianNote: string | null;
@@ -49,21 +48,23 @@ type ServiceRow = {
 export function ServiceClient({
   services,
   customers,
-  role
+  role,
+  pagination,
+  filterValues
 }: {
   services: ServiceRow[];
   customers: { id: number; name: string; phone: string | null }[];
   role: "admin" | "staff";
+  pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
+  filterValues: { status: string; payment: string };
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [paymentFilter, setPaymentFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
 
-  const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceSchema) as any,
+  const form = useForm({
+    resolver: zodResolver(serviceSchema),
     defaultValues: {
       customerId: 0,
       customerName: "",
@@ -148,12 +149,6 @@ export function ServiceClient({
       }
     });
   };
-
-  const filteredServices = services.filter((service) => {
-    const statusMatch = statusFilter === "all" || service.status === statusFilter;
-    const paymentMatch = paymentFilter === "all" || service.paymentStatus === paymentFilter;
-    return statusMatch && paymentMatch;
-  });
 
   const columns: ColumnDef<ServiceRow>[] = [
     { accessorKey: "kodeService", header: "Kode" },
@@ -480,20 +475,21 @@ export function ServiceClient({
       </div>
       <DataTable
         columns={columns}
-        data={filteredServices}
+        data={services}
+        serverPagination={pagination}
         searchPlaceholder="Cari kode service, customer, nomor HP..."
         filters={
           <>
-            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-[180px]">
-              <option value="all">Semua status</option>
+            <Select name="status" defaultValue={filterValues.status} className="w-[180px]">
+              <option value="">Semua status</option>
               {statuses.map((status) => (
                 <option key={status} value={status}>
                   {status.replace("_", " ")}
                 </option>
               ))}
             </Select>
-            <Select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="w-[170px]">
-              <option value="all">Semua pembayaran</option>
+            <Select name="payment" defaultValue={filterValues.payment} className="w-[170px]">
+              <option value="">Semua pembayaran</option>
               <option value="unpaid">Belum dibayar</option>
               <option value="paid">Lunas</option>
             </Select>
@@ -503,5 +499,3 @@ export function ServiceClient({
     </>
   );
 }
-
-

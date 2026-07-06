@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { safeSpreadsheetValue } from "@/lib/spreadsheet";
+import { parseListParams, queryValues } from "@/lib/pagination";
 import { dateCode, formatCurrency, toNumber } from "@/lib/utils";
 
 describe("utils", () => {
@@ -32,5 +33,12 @@ describe("utils", () => {
   it("escapes spreadsheet formula values against CSV Injection (Fix: Advanced XSS)", () => {
     expect(safeSpreadsheetValue("\t=cmd|' /C calc'!A0")).toBe("'\t=cmd|' /C calc'!A0");
     expect(safeSpreadsheetValue("   -1+1")).toBe("'   -1+1");
+  });
+});
+
+describe("pagination", () => {
+  it("normalizes invalid pages and preserves active query values", () => {
+    expect(parseListParams({ page: "-4", q: "  ram  " })).toEqual({ page: 1, q: "ram" });
+    expect(queryValues({ page: "2", q: "ssd", status: "", category: ["3", "4"] })).toEqual({ page: "2", q: "ssd", category: "3" });
   });
 });

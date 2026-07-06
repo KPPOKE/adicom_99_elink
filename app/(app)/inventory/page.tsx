@@ -1,13 +1,28 @@
+import { Prisma } from "@prisma/client";
 import { InventoryClient } from "@/components/inventory-client";
 import { PageHeader } from "@/components/shared/page-header";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
+import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
-export default async function InventoryPage() {
-  const [user, items, categories, suppliers] = await Promise.all([
+export default async function InventoryPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
+  const params = (await searchParams) ?? {};
+  const { page, q } = parseListParams(params);
+  const query = queryValues(params);
+  const categoryId = Number(query.category) || undefined;
+  const supplier = query.supplier;
+  const stock = query.stock;
+  const where: Prisma.ItemWhereInput = { AND: [
+    q ? { OR: [{ namaBarang: { contains: q } }, { kodeBarang: { contains: q } }, { category: { name: { contains: q } } }] } : {},
+    categoryId ? { categoryId } : {},
+    supplier === "none" ? { supplierId: null } : supplier ? { supplierId: Number(supplier) } : {},
+    stock === "empty" ? { stok: { lte: 0 } } : stock === "low" ? { stok: { gt: 0, lte: prisma.item.fields.stokMinimum } } : stock === "safe" ? { stok: { gt: prisma.item.fields.stokMinimum } } : {}
+  ] };
+  const [user, items, total, categories, suppliers] = await Promise.all([
     getCurrentUser(),
-    prisma.item.findMany({ include: { category: true, supplier: true }, orderBy: { createdAt: "desc" } }),
+    prisma.item.findMany({ where, include: { category: true, supplier: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    prisma.item.count({ where }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ orderBy: { name: "asc" } })
   ]);
@@ -23,6 +38,8 @@ export default async function InventoryPage() {
         categories={categories}
         suppliers={suppliers}
         role={user?.role.name ?? "staff"}
+        pagination={{ page, pageSize: PAGE_SIZE, total, query }}
+        filterValues={{ category: query.category ?? "all", supplier: query.supplier ?? "all", stock: query.stock ?? "all" }}
       />
     </>
   );

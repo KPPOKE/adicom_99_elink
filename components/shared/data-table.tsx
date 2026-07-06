@@ -9,6 +9,7 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import { Search } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -19,12 +20,14 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchPlaceholder = "Cari data...",
-  filters
+  filters,
+  serverPagination
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchPlaceholder?: string;
   filters?: ReactNode;
+  serverPagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
 }) {
   const [globalFilter, setGlobalFilter] = useState("");
   const table = useReactTable({
@@ -34,18 +37,29 @@ export function DataTable<TData, TValue>({
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel()
+    getPaginationRowModel: serverPagination ? undefined : getPaginationRowModel(),
+    manualPagination: Boolean(serverPagination)
   });
+
+  const pageCount = serverPagination ? Math.max(1, Math.ceil(serverPagination.total / serverPagination.pageSize)) : table.getPageCount() || 1;
+  const page = serverPagination?.page ?? table.getState().pagination.pageIndex + 1;
+  const pageHref = (nextPage: number) => {
+    const query = new URLSearchParams(serverPagination?.query);
+    query.set("page", String(nextPage));
+    return `?${query.toString()}`;
+  };
+  const Toolbar = serverPagination ? "form" : "div";
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <Toolbar className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input className="pl-9" placeholder={searchPlaceholder} value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} />
+          <Input className="pl-9" name={serverPagination ? "q" : undefined} placeholder={searchPlaceholder} defaultValue={serverPagination?.query.q} value={serverPagination ? undefined : globalFilter} onChange={serverPagination ? undefined : (event) => setGlobalFilter(event.target.value)} />
         </div>
         {filters ? <div className="flex flex-wrap gap-2">{filters}</div> : null}
-      </div>
+        {serverPagination ? <Button type="submit" variant="outline">Cari</Button> : null}
+      </Toolbar>
       <div className="relative overflow-hidden rounded-xl border border-slate-700/60 bg-slate-900/60 shadow-lg">
         <div className="min-w-0 overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
@@ -84,15 +98,20 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="flex items-center justify-between gap-2 text-sm text-slate-400">
         <span>
-          {table.getFilteredRowModel().rows.length} data, halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount() || 1}
+          {serverPagination?.total ?? table.getFilteredRowModel().rows.length} data, halaman {page} dari {pageCount}
         </span>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-            Sebelumnya
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-            Berikutnya
-          </Button>
+          {serverPagination ? (
+            <>
+              <Button asChild variant="outline" size="sm" disabled={page <= 1}><Link href={pageHref(Math.max(1, page - 1))}>Sebelumnya</Link></Button>
+              <Button asChild variant="outline" size="sm" disabled={page >= pageCount}><Link href={pageHref(Math.min(pageCount, page + 1))}>Berikutnya</Link></Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>Sebelumnya</Button>
+              <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Berikutnya</Button>
+            </>
+          )}
         </div>
       </div>
     </div>

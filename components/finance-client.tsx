@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { financeSchema, type FinanceFormValues } from "@/lib/schema";
+import { financeSchema, type FinanceFormValues } from "@/lib/validators";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 type FinanceRow = {
@@ -33,17 +32,21 @@ type FinanceRow = {
   referenceType: string | null;
 };
 
-export function FinanceClient({ records, role }: { records: FinanceRow[]; role: "admin" | "staff" }) {
+export function FinanceClient({ records, role, pagination, filterValues, categories, summary }: {
+  records: FinanceRow[];
+  role: "admin" | "staff";
+  pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
+  filterValues: { type: string; category: string };
+  categories: string[];
+  summary: { income: number; expense: number };
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FinanceRow | null>(null);
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
-  const categories = Array.from(new Set(records.map((record) => record.category))).sort();
   
-  const form = useForm<FinanceFormValues>({
-    resolver: zodResolver(financeSchema) as any,
+  const form = useForm({
+    resolver: zodResolver(financeSchema),
     defaultValues: {
       type: "expense",
       category: "",
@@ -101,13 +104,7 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
     });
   };
 
-  const filteredRecords = records.filter((record) => {
-    const typeMatch = typeFilter === "all" || record.type === typeFilter;
-    const categoryMatch = categoryFilter === "all" || record.category === categoryFilter;
-    return typeMatch && categoryMatch;
-  });
-  const income = filteredRecords.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-  const expense = filteredRecords.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
+  const { income, expense } = summary;
 
   const columns: ColumnDef<FinanceRow>[] = [
     { header: "Tanggal", cell: ({ row }) => formatDate(row.original.date) },
@@ -252,17 +249,18 @@ export function FinanceClient({ records, role }: { records: FinanceRow[]; role: 
       </div> : null}
       <DataTable
         columns={columns}
-        data={filteredRecords}
+        data={records}
+        serverPagination={pagination}
         searchPlaceholder="Cari catatan keuangan..."
         filters={
           <>
-            <Select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="w-[160px]">
-              <option value="all">Semua tipe</option>
+            <Select name="type" defaultValue={filterValues.type} className="w-[160px]">
+              <option value="">Semua tipe</option>
               <option value="income">Pemasukan</option>
               <option value="expense">Pengeluaran</option>
             </Select>
-            <Select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="w-[180px]">
-              <option value="all">Semua kategori</option>
+            <Select name="category" defaultValue={filterValues.category} className="w-[180px]">
+              <option value="">Semua kategori</option>
               {categories.map((category) => (
                 <option key={category} value={category}>
                   {category}
@@ -284,5 +282,3 @@ function Summary({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-
-
