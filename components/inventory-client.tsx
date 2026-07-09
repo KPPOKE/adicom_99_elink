@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -31,6 +32,7 @@ type ItemRow = {
   hargaModal: number;
   hargaJual: number;
   stok: number;
+  reservedStock: number;
   stokMinimum: number;
   satuan: string;
   deskripsi: string | null;
@@ -58,6 +60,7 @@ export function InventoryClient({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ItemRow | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const form = useForm({
@@ -80,6 +83,7 @@ export function InventoryClient({
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setEditing(null);
+      setImageFile(null);
       form.reset({
         namaBarang: "",
         kodeBarang: "",
@@ -132,6 +136,7 @@ export function InventoryClient({
         formData.append("satuan", values.satuan);
         formData.append("deskripsi", values.deskripsi ?? "");
         formData.append("gambar", values.gambar ?? "");
+        if (imageFile) formData.append("image", imageFile);
         
         await upsertItem(formData);
         toast.success("Barang disimpan", {
@@ -165,7 +170,9 @@ export function InventoryClient({
     },
     { header: "Kategori", cell: ({ row }) => row.original.category.name },
     { header: "Harga Jual", cell: ({ row }) => formatCurrency(row.original.hargaJual) },
-    { header: "Stok", cell: ({ row }) => `${row.original.stok} ${row.original.satuan}` },
+    { header: "Stok", cell: ({ row }) => (
+      <div><p>{row.original.stok} {row.original.satuan} tersedia</p>{row.original.reservedStock > 0 ? <p className="text-xs text-orange-300">{row.original.reservedStock} dipesan service</p> : null}</div>
+    ) },
     { header: "Status", cell: ({ row }) => <StockBadge stok={row.original.stok} minimum={row.original.stokMinimum} /> },
     {
       id: "actions",
@@ -260,7 +267,7 @@ export function InventoryClient({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Kategori</FormLabel>
-                      <Select onChange={(e) => field.onChange(Number(e.target.value))} value={String(field.value || "")}>
+                      <Select name="categoryId" onChange={(e) => field.onChange(Number(e.target.value))} value={String(field.value || "")}>
                         <option value="" disabled hidden>Pilih kategori</option>
                         {categories.map((c) => (
                           <option key={c.id} value={c.id}>{c.name}</option>
@@ -277,7 +284,7 @@ export function InventoryClient({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Supplier</FormLabel>
-                      <Select onChange={(e) => field.onChange(Number(e.target.value) || undefined)} value={String(field.value || "")}>
+                      <Select name="supplierId" onChange={(e) => field.onChange(Number(e.target.value) || undefined)} value={String(field.value || "")}>
                         <option value="">Tanpa supplier</option>
                         {suppliers.map((s) => (
                           <option key={s.id} value={s.id}>{s.name}</option>
@@ -295,7 +302,7 @@ export function InventoryClient({
                     <FormItem>
                       <FormLabel>Harga Modal</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                        <CurrencyInput name="hargaModal" value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -309,7 +316,7 @@ export function InventoryClient({
                     <FormItem>
                       <FormLabel>Harga Jual</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                        <CurrencyInput name="hargaJual" value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -323,7 +330,7 @@ export function InventoryClient({
                     <FormItem>
                       <FormLabel>Stok Awal / Saat Ini</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} prefix="" decimalScale={0} />
+                        <CurrencyInput name="stok" value={field.value} onChange={field.onChange} prefix="" decimalScale={0} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -337,7 +344,7 @@ export function InventoryClient({
                     <FormItem>
                       <FormLabel>Stok Minimum (Peringatan)</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} prefix="" decimalScale={0} />
+                        <CurrencyInput name="stokMinimum" value={field.value} onChange={field.onChange} prefix="" decimalScale={0} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -371,6 +378,12 @@ export function InventoryClient({
                     </FormItem>
                   )}
                 />
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Gambar Barang</Label>
+                  <Input name="image" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} />
+                  <p className="text-xs text-slate-500">JPG, PNG, atau WebP. Maksimal 2MB.</p>
+                </div>
 
                 <Button type="submit" className="sm:col-span-2" disabled={isPending}>
                   {isPending ? "Menyimpan..." : "Simpan Barang"}

@@ -32,6 +32,12 @@ async function main() {
   const adminPassword = seedCredential("SEED_ADMIN_PASSWORD", DEV_DEFAULT_PASSWORD);
   const staffPassword = seedCredential("SEED_STAFF_PASSWORD", DEV_DEFAULT_PASSWORD);
 
+  const outlet = await prisma.outlet.upsert({
+    where: { code: "ADICOM99_CIPUTAT" },
+    update: {},
+    create: { code: "ADICOM99_CIPUTAT", name: "ADICOM99_CIPUTAT", address: "Outlet default" }
+  });
+
   const adminRole = await prisma.role.upsert({
     where: { name: "admin" },
     update: {},
@@ -50,7 +56,8 @@ async function main() {
       name: "Admin PosPintar",
       email: adminEmail,
       passwordHash: await hash(adminPassword, 10),
-      roleId: adminRole.id
+      roleId: adminRole.id,
+      outletId: outlet.id
     }
   });
 
@@ -61,7 +68,8 @@ async function main() {
       name: "Staff Counter",
       email: staffEmail,
       passwordHash: await hash(staffPassword, 10),
-      roleId: staffRole.id
+      roleId: staffRole.id,
+      outletId: outlet.id
     }
   });
 
@@ -152,6 +160,7 @@ async function main() {
       paidAmount: 350000,
       changeAmount: 5000,
       userId: user.id,
+      outletId: outlet.id,
       items: {
         create: {
           itemId: sampleItem.id,
@@ -174,6 +183,7 @@ async function main() {
       referenceType: "transaction",
       referenceId: transaction.id,
       transactionId: transaction.id,
+      outletId: outlet.id,
       userId: user.id
     }
   });
@@ -195,7 +205,8 @@ async function main() {
       finalCost: 0,
       status: "Diproses",
       technicianNote: "Menunggu konfirmasi customer",
-      userId: user.id
+      userId: user.id,
+      outletId: outlet.id
     }
   });
 

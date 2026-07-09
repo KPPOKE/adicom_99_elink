@@ -18,7 +18,7 @@ import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/stat
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { serviceSchema, type ServiceFormValues } from "@/lib/validators";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -37,23 +37,29 @@ type ServiceRow = {
   problemDescription: string;
   diagnosis: string | null;
   estimatedCost: number;
+  laborCost: number;
   finalCost: number;
   status: ServiceFormValues["status"];
   paymentStatus: string;
   paidAt: string | Date | null;
   technicianNote: string | null;
   receivedDate: string | Date;
+  parts: { id: number; itemId: number; qty: number; price: number; subtotal: number }[];
 };
+
+type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number };
 
 export function ServiceClient({
   services,
   customers,
+  items,
   role,
   pagination,
   filterValues
 }: {
   services: ServiceRow[];
   customers: { id: number; name: string; phone: string | null }[];
+  items: SparePartOption[];
   role: "admin" | "staff";
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { status: string; payment: string };
@@ -75,11 +81,17 @@ export function ServiceClient({
       problemDescription: "",
       diagnosis: "",
       estimatedCost: 0,
-      finalCost: 0,
+      laborCost: 0,
       status: "Masuk",
-      technicianNote: ""
+      technicianNote: "",
+      parts: []
     }
   });
+  const { fields: partFields, append: appendPart, remove: removePart } = useFieldArray({ control: form.control, name: "parts" });
+  const watchedParts = form.watch("parts") ?? [];
+  const laborCost = form.watch("laborCost") || 0;
+  const partsTotal = watchedParts.reduce((sum, part) => sum + (Number(part.qty) || 0) * (Number(part.price) || 0), 0);
+  const costLocked = editing?.paymentStatus === "paid";
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -94,9 +106,10 @@ export function ServiceClient({
         problemDescription: "",
         diagnosis: "",
         estimatedCost: 0,
-        finalCost: 0,
+        laborCost: 0,
         status: "Masuk",
-        technicianNote: ""
+        technicianNote: "",
+        parts: []
       });
     }
     setOpen(newOpen);
@@ -115,9 +128,10 @@ export function ServiceClient({
       problemDescription: service.problemDescription,
       diagnosis: service.diagnosis ?? "",
       estimatedCost: service.estimatedCost,
-      finalCost: service.finalCost,
+      laborCost: service.laborCost,
       status: service.status,
-      technicianNote: service.technicianNote ?? ""
+      technicianNote: service.technicianNote ?? "",
+      parts: service.parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: part.price }))
     });
     setOpen(true);
   };
@@ -136,9 +150,10 @@ export function ServiceClient({
         formData.append("problemDescription", values.problemDescription);
         formData.append("diagnosis", values.diagnosis ?? "");
         formData.append("estimatedCost", String(values.estimatedCost));
-        formData.append("finalCost", String(values.finalCost));
+        formData.append("laborCost", String(values.laborCost));
         formData.append("status", values.status);
         formData.append("technicianNote", values.technicianNote ?? "");
+        formData.append("parts", JSON.stringify(values.parts));
         
         await upsertService(formData);
         toast.success("Service disimpan");
@@ -272,7 +287,7 @@ export function ServiceClient({
               Service Masuk
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Service" : "Input Service Masuk"}</DialogTitle>
             </DialogHeader>
@@ -284,7 +299,7 @@ export function ServiceClient({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Customer Terdaftar</FormLabel>
-                      <Select 
+                      <Select name="customerId"
                         onChange={(event) => {
                           field.onChange(Number(event.target.value) || undefined);
                           const customer = customers.find((item) => item.id === Number(event.target.value));
@@ -384,7 +399,7 @@ export function ServiceClient({
                     <FormItem>
                       <FormLabel>Estimasi Biaya</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                        <CurrencyInput name="estimatedCost" value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -393,17 +408,112 @@ export function ServiceClient({
 
                 <FormField
                   control={form.control}
-                  name="finalCost"
+                  name="laborCost"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Biaya Final</FormLabel>
+                      <FormLabel>Biaya Jasa</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                        <CurrencyInput name="laborCost" value={field.value} onChange={field.onChange} disabled={costLocked} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <section className="space-y-3 rounded-lg border border-slate-700/60 bg-slate-950/25 p-4 sm:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-100">Sparepart Inventory</h3>
+                      <p className="text-xs text-slate-500">Barang dicadangkan sampai service mulai diproses.</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={costLocked || !items.some((item) => item.stok > 0)}
+                      onClick={() => {
+                        const item = items.find((option) => option.stok > 0);
+                        if (item) appendPart({ itemId: item.id, qty: 1, price: item.hargaJual });
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Tambah
+                    </Button>
+                  </div>
+                  {partFields.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-slate-700 p-4 text-center text-sm text-slate-500">Belum ada sparepart.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {partFields.map((partField, index) => {
+                        const value = watchedParts[index];
+                        return (
+                          <div key={partField.id} className="grid gap-2 rounded-md border border-slate-800 p-3 sm:grid-cols-[minmax(180px,1fr)_90px_160px_140px_36px] sm:items-end">
+                            <FormField
+                              control={form.control}
+                              name={`parts.${index}.itemId`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Barang</FormLabel>
+                                  <Select
+                                    name="partItemId"
+                                    value={String(field.value || "")}
+                                    disabled={costLocked}
+                                    onChange={(event) => {
+                                      const itemId = Number(event.target.value);
+                                      const item = items.find((option) => option.id === itemId);
+                                      field.onChange(itemId);
+                                      form.setValue(`parts.${index}.price`, item?.hargaJual ?? 0);
+                                    }}
+                                  >
+                                    {items.map((item) => (
+                                      <option key={item.id} value={item.id} disabled={item.stok <= 0 && item.id !== field.value}>
+                                        {item.namaBarang} ({item.stok} tersedia)
+                                      </option>
+                                    ))}
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`parts.${index}.qty`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Qty</FormLabel>
+                                  <FormControl><CurrencyInput name="partQty" prefix="" decimalScale={0} value={field.value} onChange={field.onChange} disabled={costLocked} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`parts.${index}.price`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Harga</FormLabel>
+                                  <FormControl><CurrencyInput name="partPrice" value={field.value} onChange={field.onChange} disabled={costLocked} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <div className="pb-2">
+                              <p className="text-xs text-slate-500">Subtotal</p>
+                              <p className="mt-1 text-sm font-medium text-slate-200">{formatCurrency((Number(value?.qty) || 0) * (Number(value?.price) || 0))}</p>
+                            </div>
+                            <Button type="button" variant="outline" size="icon" disabled={costLocked} onClick={() => removePart(index)} title="Hapus sparepart">
+                              <Trash2 className="h-4 w-4 text-red-300" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1 border-t border-slate-800 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-slate-500">Sparepart: {formatCurrency(partsTotal)} | Jasa: {formatCurrency(Number(laborCost))}</span>
+                    <strong className="text-base text-cyan-300">Biaya Final: {formatCurrency(partsTotal + Number(laborCost))}</strong>
+                  </div>
+                </section>
 
                 <FormField
                   control={form.control}
@@ -411,7 +521,7 @@ export function ServiceClient({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onChange={(e) => field.onChange(e.target.value)} value={field.value}>
+                      <Select name="status" onChange={(e) => field.onChange(e.target.value)} value={field.value}>
                         {statuses.map((status) => (
                           <option key={status} value={status}>
                             {status.replace("_", " ")}

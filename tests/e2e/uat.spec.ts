@@ -11,8 +11,15 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
 }
 
 async function openDialog(page: import("@playwright/test").Page, name: string) {
-  await page.getByRole("button", { name }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  const trigger = page.getByRole("button", { name });
+  const dialog = page.getByRole("dialog");
+  await trigger.click();
+  try {
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
+  } catch {
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+  }
 }
 
 test.describe("UAT operational workflow", () => {
@@ -94,12 +101,13 @@ test.describe("UAT operational workflow", () => {
     expect(itemBefore.stok).toBe(5);
 
     await page.goto("/transactions");
-    await page.locator('select').first().selectOption({ label: customerName });
-    await page.locator("select").nth(1).selectOption({ label: `${itemName} (5)` });
-    await page.locator('input[type="number"]').nth(0).fill("2");
-    await page.locator('input[type="number"]').nth(1).fill("15000");
-    await page.getByText("Diskon").locator("..").locator("input").fill("0");
-    await page.getByText("Dibayar").locator("..").locator("input").fill("30000");
+    await page.locator('select[name="customerId"]').selectOption({ label: customerName });
+    await expect(page.locator('input[name="customerName"]')).toHaveValue(customerName);
+    await page.locator('select[name="itemId"]').selectOption({ label: `${itemName} (5)` });
+    await page.locator('input[name="qty"]').fill("2");
+    await page.locator('input[name="price"]').fill("15000");
+    await page.locator('input[name="diskon"]').fill("0");
+    await page.locator('input[name="paidAmount"]').fill("30000");
     const saveTransaction = page.getByRole("button", { name: "Simpan Transaksi" });
     await saveTransaction.click();
     try {
@@ -118,10 +126,11 @@ test.describe("UAT operational workflow", () => {
       }
     }
     const transaction = await prisma.transaction.findFirstOrThrow({
-      where: { customerName },
+      where: { items: { some: { item: { kodeBarang: itemCode } } } },
       orderBy: { createdAt: "desc" },
       include: { financeRecords: true }
     });
+    expect(transaction.customerName).toBe(customerName);
     expect(transaction.status).toBe("Berhasil");
     expect(transaction.financeRecords.some((record) => record.type === "income")).toBe(true);
 
@@ -130,30 +139,80 @@ test.describe("UAT operational workflow", () => {
 
     await page.goto("/services");
     await openDialog(page, "Service Masuk");
-    await page.locator('select[name="customerId"]').selectOption({ label: customerName });
-    await page.locator('input[name="deviceType"]').fill("Laptop");
-    await page.locator('input[name="deviceBrand"]').fill("UATBrand");
-    await page.locator('input[name="deviceModel"]').fill("UATModel");
-    await page.locator('input[name="estimatedCost"]').fill("50000");
-    await page.locator('input[name="finalCost"]').fill("75000");
-    await page.locator('select[name="status"]').selectOption("Selesai");
-    await page.locator('textarea[name="problemDescription"]').fill("Keluhan UAT otomatis");
-    await page.locator('textarea[name="diagnosis"]').fill("Diagnosa UAT");
-    await page.locator('textarea[name="technicianNote"]').fill("Catatan UAT");
-    await page.getByRole("button", { name: "Simpan Service" }).click();
+    const serviceDialog = page.getByRole("dialog");
+    await serviceDialog.locator('select[name="customerId"]').selectOption({ label: customerName });
+    await serviceDialog.locator('input[name="deviceType"]').fill("Laptop");
+    await serviceDialog.locator('input[name="deviceBrand"]').fill("UATBrand");
+    await serviceDialog.locator('input[name="deviceModel"]').fill("UATModel");
+    await serviceDialog.locator('input[name="estimatedCost"]').fill("50000");
+    await serviceDialog.locator('input[name="laborCost"]').fill("75000");
+    await serviceDialog.getByRole("button", { name: "Tambah", exact: true }).click();
+    await serviceDialog.locator('select[name="partItemId"]').selectOption({ label: `${itemName} (3 tersedia)` });
+    await serviceDialog.locator('input[name="partQty"]').fill("1");
+    await serviceDialog.locator('input[name="partPrice"]').fill("15000");
+    await serviceDialog.locator('textarea[name="problemDescription"]').fill("Keluhan UAT otomatis");
+    await serviceDialog.locator('textarea[name="diagnosis"]').fill("Diagnosa UAT");
+    await serviceDialog.locator('textarea[name="technicianNote"]').fill("Catatan UAT");
+    await serviceDialog.getByRole("button", { name: "Simpan Service" }).click();
     await expect.poll(async () => prisma.service.count({ where: { customerName } })).toBe(1);
-    const service = await prisma.service.findFirstOrThrow({ where: { customerName }, orderBy: { createdAt: "desc" } });
+    const service = await prisma.service.findFirstOrThrow({ where: { customerName }, orderBy: { createdAt: "desc" }, include: { parts: true } });
+    expect(Number(service.finalCost)).toBe(90000);
+    expect(service.parts).toHaveLength(1);
+    await expect.poll(async () => {
+      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      return [item.stok, item.reservedStock];
+    }).toEqual([2, 1]);
+
+    const serviceRow = page.getByRole("row").filter({ hasText: service.kodeService });
+    await serviceRow.locator("select").selectOption("Diproses");
+    await expect.poll(async () => {
+      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      return [item.stok, item.reservedStock];
+    }).toEqual([2, 0]);
+
     await page.goto(`/services/${service.id}`);
     await expect(page.getByText(service.kodeService)).toBeVisible();
+    await expect(page.getByText(itemName)).toBeVisible();
 
     await page.goto("/services");
-    const serviceRow = page.getByRole("row").filter({ hasText: service.kodeService });
-    await serviceRow.getByTitle("Tandai dibayar").click();
+    const paymentRow = page.getByRole("row").filter({ hasText: service.kodeService });
+    const paymentTrigger = paymentRow.getByTitle("Tandai dibayar");
+    await paymentTrigger.click();
+    try {
+      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 2_000 });
+    } catch {
+      await paymentTrigger.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    }
     await page.getByRole("button", { name: "Tandai Lunas" }).click();
     await expect(page.getByText("Service ditandai lunas")).toBeVisible();
     const paidService = await prisma.service.findUniqueOrThrow({ where: { id: service.id }, include: { financeRecords: true } });
     expect(paidService.paymentStatus).toBe("paid");
-    expect(paidService.financeRecords.some((record) => record.type === "income")).toBe(true);
+    const serviceIncome = paidService.financeRecords.find((record) => record.type === "income");
+    expect(Number(serviceIncome?.amount)).toBe(90000);
+
+    const cancelledCustomer = `${customerName} Cancel`;
+    await page.goto("/services");
+    await openDialog(page, "Service Masuk");
+    const cancelDialog = page.getByRole("dialog");
+    await cancelDialog.locator('input[name="customerName"]').fill(cancelledCustomer);
+    await cancelDialog.locator('input[name="deviceType"]').fill("Laptop");
+    await cancelDialog.locator('input[name="laborCost"]').fill("1000");
+    await cancelDialog.getByRole("button", { name: "Tambah", exact: true }).click();
+    await cancelDialog.locator('select[name="partItemId"]').selectOption({ label: `${itemName} (2 tersedia)` });
+    await cancelDialog.locator('textarea[name="problemDescription"]').fill("Service untuk uji pembatalan");
+    await cancelDialog.getByRole("button", { name: "Simpan Service" }).click();
+    await expect.poll(async () => {
+      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      return [item.stok, item.reservedStock];
+    }).toEqual([1, 1]);
+    const cancelledService = await prisma.service.findFirstOrThrow({ where: { customerName: cancelledCustomer }, orderBy: { id: "desc" } });
+    const cancelledRow = page.getByRole("row").filter({ hasText: cancelledService.kodeService });
+    await cancelledRow.locator("select").selectOption("Batal");
+    await expect.poll(async () => {
+      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      return [item.stok, item.reservedStock];
+    }).toEqual([2, 0]);
 
     await page.goto("/finance");
     await openDialog(page, "Catat Manual");

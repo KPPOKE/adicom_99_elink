@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { financeSchema, serviceSchema, transactionSchema, userSchema } from "@/lib/validators";
+import { bankTransferDepositSchema, bankTransferSchema, financeSchema, serviceSchema, transactionSchema, userSchema } from "@/lib/validators";
 
 describe("validators", () => {
   it("rejects cash transaction when paid amount is lower than grand total", () => {
@@ -37,8 +37,43 @@ describe("validators", () => {
   });
 
   it("requires positive amount for finance records", () => {
-    expect(financeSchema.safeParse({ type: "expense", category: "Operasional", amount: 0, date: new Date() }).success).toBe(false);
-    expect(financeSchema.safeParse({ type: "income", category: "Manual", amount: 1000, date: new Date() }).success).toBe(true);
+    expect(financeSchema.safeParse({ type: "expense", category: "Operasional", amount: 0, date: "2026-07-08" }).success).toBe(false);
+    expect(financeSchema.safeParse({ type: "income", category: "Manual", amount: 1000, date: "2026-07-08" }).success).toBe(true);
+  });
+
+  it("validates bank transfer recipient and money fields", () => {
+    expect(bankTransferSchema.safeParse({
+      destinationBank: "BCA",
+      accountNumber: "1234567890",
+      accountName: "Budi",
+      amount: 100_000,
+      adminFee: 5_000
+    }).success).toBe(true);
+    expect(bankTransferSchema.safeParse({
+      destinationBank: "BCA",
+      accountNumber: "abc",
+      accountName: "Budi",
+      amount: 0,
+      adminFee: -1
+    }).success).toBe(false);
+  });
+
+  it("validates positive transfer deposit", () => {
+    expect(bankTransferDepositSchema.safeParse({ amount: 100000, note: "Modal pagi" }).success).toBe(true);
+    expect(bankTransferDepositSchema.safeParse({ amount: 0 }).success).toBe(false);
+  });
+
+  it("accepts service spareparts with positive quantity", () => {
+    const result = serviceSchema.safeParse({
+      customerName: "Budi",
+      deviceType: "Laptop",
+      problemDescription: "Tidak menyala",
+      estimatedCost: 100000,
+      laborCost: 50000,
+      status: "Masuk",
+      parts: [{ itemId: 1, qty: 2, price: 25000 }]
+    });
+    expect(result.success).toBe(true);
   });
 
   it("rejects empty strings for required money fields (Fix: Uang Siluman)", () => {
@@ -46,7 +81,7 @@ describe("validators", () => {
       type: "income",
       category: "Test",
       amount: "",
-      date: new Date()
+      date: "2026-07-08"
     });
     expect(resultFinance.success).toBe(false);
 
@@ -55,7 +90,7 @@ describe("validators", () => {
       deviceType: "HP",
       problemDescription: "Mati Total",
       estimatedCost: 0,
-      finalCost: "",
+      laborCost: "",
       status: "Dicek"
     });
     expect(resultService.success).toBe(false);

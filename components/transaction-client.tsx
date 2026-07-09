@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useTransition } from "react";
+import { useEffect, useMemo, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,8 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 import { useCartStore } from "@/lib/store/useCartStore";
 import { transactionSchema } from "@/lib/validators";
+
+const emptySubscribe = () => () => {};
 
 type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string };
 type CustomerOption = { id: number; name: string; phone: string | null };
@@ -54,11 +56,13 @@ export function TransactionClient({
   
   // Local state for UI only
   const [isPending, startTransition] = useTransition();
+  const hydrated = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
-  // Initialize store if empty
-  if (cart.lines.length === 0 && items.length > 0) {
-    cart.setLines([{ itemId: items[0].id, qty: 1, price: items[0].hargaJual }]);
-  }
+  useEffect(() => {
+    if (useCartStore.getState().lines.length === 0 && items[0]) {
+      useCartStore.getState().setLines([{ itemId: items[0].id, qty: 1, price: items[0].hargaJual }]);
+    }
+  }, [items]);
 
   const total = useMemo(() => cart.lines.reduce((sum, line) => sum + line.qty * line.price, 0), [cart.lines]);
   const grandTotal = Math.max(0, total - cart.diskon);
@@ -188,11 +192,13 @@ export function TransactionClient({
             <div className="space-y-1.5">
               <Label>Customer</Label>
               <Select
+                name="customerId"
+                disabled={!hydrated}
                 value={cart.customerId ?? ""}
-                onChange={(event) => {
-                  const id = Number(event.target.value) || null;
-                  const customer = customers.find((item) => item.id === id);
-                  cart.setCustomer(id, customer?.name ?? "");
+                onInput={(event) => {
+                  const id = Number(event.currentTarget.value) || null;
+                  const name = id ? event.currentTarget.selectedOptions[0]?.text ?? "" : "";
+                  cart.setCustomer(id, name);
                 }}
               >
                 <option value="">Umum</option>
@@ -205,13 +211,13 @@ export function TransactionClient({
             </div>
             <div className="space-y-1.5">
               <Label>Nama Manual</Label>
-              <Input value={cart.customerName} onChange={(event) => cart.setCustomerName(event.target.value)} placeholder="Opsional" />
+              <Input name="customerName" value={cart.customerName} onChange={(event) => cart.setCustomerName(event.target.value)} placeholder="Opsional" />
             </div>
           </div>
           <div className="space-y-3">
             {cart.lines.map((line, index) => (
               <div key={index} className="grid gap-2 rounded-lg border border-slate-700 bg-slate-950/30 p-3">
-                <Select value={line.itemId} onChange={(event) => handleLineItemChange(index, Number(event.target.value))}>
+                <Select name="itemId" value={line.itemId} onChange={(event) => handleLineItemChange(index, Number(event.target.value))}>
                   {items.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.namaBarang} ({item.stok})
@@ -219,8 +225,8 @@ export function TransactionClient({
                   ))}
                 </Select>
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <CurrencyInput prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => cart.updateLine(index, { qty: value })} />
-                  <CurrencyInput min={0} value={line.price} onChange={(value) => cart.updateLine(index, { price: value })} />
+                  <CurrencyInput name="qty" prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => cart.updateLine(index, { qty: value })} />
+                  <CurrencyInput name="price" min={0} value={line.price} onChange={(value) => cart.updateLine(index, { price: value })} />
                   <Button variant="outline" size="icon" onClick={() => cart.setLines((current) => current.filter((_, i) => i !== index))}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -235,7 +241,7 @@ export function TransactionClient({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Diskon</Label>
-              <CurrencyInput value={cart.diskon} onChange={cart.setDiskon} />
+              <CurrencyInput name="diskon" value={cart.diskon} onChange={cart.setDiskon} />
             </div>
             <div className="space-y-1.5">
               <Label>Metode</Label>
@@ -255,7 +261,7 @@ export function TransactionClient({
             </div>
             <div className="space-y-1.5">
               <Label>Dibayar</Label>
-              <CurrencyInput value={cart.paidAmount} onChange={cart.setPaidAmount} />
+              <CurrencyInput name="paidAmount" value={cart.paidAmount} onChange={cart.setPaidAmount} />
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
               <p className="text-xs text-slate-500">Kembalian</p>

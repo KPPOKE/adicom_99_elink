@@ -19,7 +19,7 @@ export default async function ServiceInvoicePage({
   const [service, setting] = await Promise.all([
     prisma.service.findUnique({
       where: { id: Number(id) },
-      include: { user: true, customer: true }
+      include: { user: true, customer: true, parts: { include: { item: true } } }
     }),
     prisma.setting.findFirst()
   ]);
@@ -89,6 +89,8 @@ export default async function ServiceInvoicePage({
             <PaymentStatusBadge status={service.paymentStatus} />
           </div>
           <Row label="Estimasi" value={formatCurrency(toNumber(service.estimatedCost))} />
+          {service.parts.length ? <div className="border-y border-slate-200 py-2">{service.parts.map((part) => <Row key={part.id} label={`${part.item.namaBarang} x${part.qty}`} value={formatCurrency(toNumber(part.subtotal))} />)}</div> : null}
+          <Row label="Biaya Jasa" value={formatCurrency(toNumber(service.laborCost))} />
           <Row label="Biaya Final" value={formatCurrency(cost)} strong />
           {service.paidAt ? <Row label="Dibayar" value={formatDateTime(service.paidAt)} /> : null}
         </section>

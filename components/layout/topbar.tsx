@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Menu, ReceiptText, X } from "lucide-react";
+import { Building2, CalendarDays, Menu, ReceiptText, X } from "lucide-react";
 import { useState } from "react";
 import { nav, SidebarFooter } from "@/components/layout/sidebar";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { Button } from "@/components/ui/button";
+import { setActiveOutletAction } from "@/app/actions/outlets";
 import { cn } from "@/lib/utils";
 
-export function Topbar({ userName, role }: { userName: string; role: "admin" | "staff" }) {
+export function Topbar({ userName, role, outletName, activeOutletId, outlets }: { userName: string; role: "admin" | "staff"; outletName: string; activeOutletId: number; outlets: Array<{ id: number; name: string }> }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuItems = nav.filter((item) => !item.adminOnly || role === "admin");
@@ -40,6 +41,19 @@ export function Topbar({ userName, role }: { userName: string; role: "admin" | "
             <h1 className="text-xl font-bold tracking-tight text-slate-100">{activeItem?.label ?? "PosPintar"}</h1>
           </div>
           <div className="hidden shrink-0 items-center gap-3 lg:flex ml-auto">
+            {role === "admin" ? (
+              <form action={setActiveOutletAction} className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
+                <Building2 className="h-4 w-4" />
+                <select name="outletId" defaultValue={activeOutletId} onChange={(event) => event.currentTarget.form?.requestSubmit()} className="bg-transparent text-sm outline-none">
+                  {outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}
+                </select>
+              </form>
+            ) : (
+              <div className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
+                <Building2 className="h-4 w-4" />
+                <span>{outletName}</span>
+              </div>
+            )}
             <NotificationBell />
             <div className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
               <CalendarDays className="h-4 w-4" />
@@ -114,7 +128,7 @@ export function Topbar({ userName, role }: { userName: string; role: "admin" | "
             })}
           </nav>
 
-          <SidebarFooter userName={userName} roleLabel={role === "admin" ? "Admin" : "Staff"} />
+          <SidebarFooter userName={userName} roleLabel={role === "admin" ? "Admin" : "Staff"} outletName={outletName} />
         </aside>
       </div>
     </>

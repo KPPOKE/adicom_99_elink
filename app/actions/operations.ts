@@ -7,6 +7,7 @@ import { requireAdmin, requireUser } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
+import { outletContext } from "@/lib/outlet";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
 
@@ -35,6 +36,7 @@ async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service")
 export async function createTransaction(payload: unknown) {
   await assertTrustedOrigin();
   const user = await requireUser();
+  const { activeOutlet } = await outletContext(user);
   const parsed = transactionSchema.parse(payload);
   const itemIds = parsed.items.map((item) => item.itemId);
   const stocks = await prisma.item.findMany({ where: { id: { in: itemIds } } });
@@ -83,6 +85,7 @@ export async function createTransaction(payload: unknown) {
             digitalStatus: parsed.digitalStatus || null,
             status,
             userId: user.id,
+            outletId: activeOutlet.id,
             items: {
               create: parsed.items.map((item) => ({
                 itemId: item.itemId,
@@ -113,6 +116,7 @@ export async function createTransaction(payload: unknown) {
               referenceType: "transaction",
               referenceId: transaction.id,
               transactionId: transaction.id,
+              outletId: activeOutlet.id,
               userId: user.id
             }
           });
@@ -207,6 +211,7 @@ export async function completePendingTransaction(id: number) {
           referenceType: "transaction",
           referenceId: transaction.id,
           transactionId: transaction.id,
+          outletId: transaction.outletId,
           userId: user.id
         }
       });
@@ -228,52 +233,118 @@ export async function completePendingTransaction(id: number) {
   revalidatePath("/dashboard");
 }
 
+type ServiceStockMode = "reserved" | "consumed" | "released";
+type ServicePartInput = { itemId: number; qty: number; price: number };
+
+function serviceStockMode(status: string): ServiceStockMode {
+  if (["Masuk", "Dicek", "Menunggu_Konfirmasi"].includes(status)) return "reserved";
+  if (["Diproses", "Selesai", "Diambil"].includes(status)) return "consumed";
+  return "released";
+}
+
+async function releaseServiceParts(tx: Prisma.TransactionClient, parts: Array<{ itemId: number; qty: number }>, mode: ServiceStockMode) {
+  for (const part of parts) {
+    if (mode === "reserved") {
+      const updated = await tx.item.updateMany({
+        where: { id: part.itemId, reservedStock: { gte: part.qty } },
+        data: { stok: { increment: part.qty }, reservedStock: { decrement: part.qty } }
+      });
+      if (updated.count !== 1) throw new Error("Reservation stok sparepart tidak valid");
+    } else if (mode === "consumed") {
+      await tx.item.update({ where: { id: part.itemId }, data: { stok: { increment: part.qty } } });
+    }
+  }
+}
+
+async function allocateServiceParts(tx: Prisma.TransactionClient, parts: ServicePartInput[], mode: ServiceStockMode) {
+  if (mode === "released") return;
+  for (const part of parts) {
+    const data = mode === "reserved"
+      ? { stok: { decrement: part.qty }, reservedStock: { increment: part.qty } }
+      : { stok: { decrement: part.qty } };
+    const updated = await tx.item.updateMany({
+      where: { id: part.itemId, stok: { gte: part.qty } },
+      data
+    });
+    if (updated.count !== 1) throw new Error("Stok sparepart tidak cukup atau sudah berubah");
+  }
+}
+
+async function validateServiceParts(tx: Prisma.TransactionClient, parts: ServicePartInput[]) {
+  const ids = parts.map((part) => part.itemId);
+  if (new Set(ids).size !== ids.length) throw new Error("Sparepart yang sama tidak boleh dipilih dua kali");
+  const items = await tx.item.findMany({ where: { id: { in: ids } }, include: { category: true } });
+  if (items.length !== ids.length) throw new Error("Sparepart tidak ditemukan");
+  if (items.some((item) => item.category.name === "Produk Digital")) throw new Error("Produk Digital tidak dapat digunakan sebagai sparepart");
+}
+
+function parseServiceForm(formData: FormData) {
+  const raw = Object.fromEntries(formData);
+  let parts: unknown = [];
+  try {
+    parts = JSON.parse(String(raw.parts || "[]"));
+  } catch {
+    throw new Error("Data sparepart tidak valid");
+  }
+  return serviceSchema.parse({ ...raw, parts });
+}
+
+function sameServiceParts(existing: Array<{ itemId: number; qty: number; price: Prisma.Decimal }>, next: ServicePartInput[]) {
+  const normalize = (parts: Array<{ itemId: number; qty: number; price: Prisma.Decimal | number }>) =>
+    parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: toNumber(part.price) })).sort((a, b) => a.itemId - b.itemId);
+  return JSON.stringify(normalize(existing)) === JSON.stringify(normalize(next));
+}
+
+function revalidateServicePaths() {
+  revalidatePath("/services");
+  revalidatePath("/inventory");
+  revalidatePath("/finance");
+  revalidatePath("/reports");
+  revalidatePath("/dashboard");
+}
+
 export async function upsertService(formData: FormData) {
   await assertTrustedOrigin();
   const user = await requireUser();
-  const parsed = serviceSchema.parse(Object.fromEntries(formData));
+  const { activeOutlet } = await outletContext(user);
+  const parsed = parseServiceForm(formData);
+  const { id, parts, ...fields } = parsed;
+  const finalCost = fields.laborCost + parts.reduce((sum, part) => sum + part.qty * part.price, 0);
+  const targetMode = serviceStockMode(fields.status);
 
-  if (parsed.id) {
+  if (id) {
     await prisma.$transaction(async (tx) => {
-      const existing = await tx.service.findUniqueOrThrow({ where: { id: parsed.id } });
-      const isBatal = parsed.status === "Batal";
-      const paymentStatusToSet = isBatal ? "unpaid" : existing.paymentStatus;
-      const paidAtToSet = isBatal ? null : existing.paidAt;
+      const existing = await tx.service.findUnique({ where: { id }, include: { parts: true } });
+      if (!existing) throw new Error("Service tidak ditemukan");
+      if (existing.status === "Batal") throw new Error("Service batal tidak dapat diubah");
+      if (existing.paymentStatus === "paid") {
+        const costsChanged = toNumber(existing.laborCost) !== fields.laborCost || !sameServiceParts(existing.parts, parts);
+        if (costsChanged) throw new Error("Biaya dan sparepart service lunas tidak dapat diubah");
+        if (fields.status !== existing.status && fields.status !== "Diambil") throw new Error("Service lunas hanya dapat diubah ke status Diambil");
+      }
 
+      await validateServiceParts(tx, parts);
+      await releaseServiceParts(tx, existing.parts, serviceStockMode(existing.status));
+      await allocateServiceParts(tx, parts, targetMode);
       await tx.service.update({
-        where: { id: parsed.id },
+        where: { id },
         data: {
-          ...parsed,
-          customerId: parsed.customerId || null,
-          paymentStatus: paymentStatusToSet,
-          paidAt: paidAtToSet,
-          completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? existing.completedDate ?? new Date() : undefined,
-          pickedUpDate: parsed.status === "Diambil" ? existing.pickedUpDate ?? new Date() : undefined
+          ...fields,
+          customerId: fields.customerId || null,
+          finalCost,
+          paymentStatus: fields.status === "Batal" ? "unpaid" : existing.paymentStatus,
+          paidAt: fields.status === "Batal" ? null : existing.paidAt,
+          completedDate: ["Selesai", "Diambil"].includes(fields.status) ? existing.completedDate ?? new Date() : null,
+          pickedUpDate: fields.status === "Diambil" ? existing.pickedUpDate ?? new Date() : null,
+          parts: {
+            deleteMany: {},
+            create: parts.map((part) => ({ ...part, subtotal: part.qty * part.price }))
+          }
         }
       });
-
-      if (isBatal) {
-        await tx.financeRecord.deleteMany({
-          where: { serviceId: parsed.id }
-        });
-      } else if (existing.paymentStatus === "paid") {
-        await tx.financeRecord.updateMany({
-          where: { serviceId: parsed.id, type: "income" },
-          data: {
-            amount: parsed.finalCost,
-            description: `Service ${existing.kodeService}`
-          }
-        });
-      }
+      if (fields.status === "Batal") await tx.financeRecord.deleteMany({ where: { serviceId: id } });
       await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          userEmail: user.email,
-          action: "update",
-          entity: "service",
-          entityId: parsed.id,
-          metadata: { kodeService: existing.kodeService, status: parsed.status }
-        }
+        data: { userId: user.id, userEmail: user.email, action: "update", entity: "service", entityId: id, metadata: { kodeService: existing.kodeService, status: fields.status, finalCost } }
       });
     });
   } else {
@@ -282,25 +353,23 @@ export async function upsertService(formData: FormData) {
       const kodeService = await nextCode("SRV", "service");
       try {
         await prisma.$transaction(async (tx) => {
+          await validateServiceParts(tx, parts);
+          await allocateServiceParts(tx, parts, targetMode);
           const service = await tx.service.create({
             data: {
-              ...parsed,
+              ...fields,
               kodeService,
-              customerId: parsed.customerId || null,
+              customerId: fields.customerId || null,
+              finalCost,
               userId: user.id,
-              completedDate: ["Selesai", "Diambil"].includes(parsed.status) ? new Date() : null,
-              pickedUpDate: parsed.status === "Diambil" ? new Date() : null
+              outletId: activeOutlet.id,
+              completedDate: ["Selesai", "Diambil"].includes(fields.status) ? new Date() : null,
+              pickedUpDate: fields.status === "Diambil" ? new Date() : null,
+              parts: { create: parts.map((part) => ({ ...part, subtotal: part.qty * part.price })) }
             }
           });
           await tx.auditLog.create({
-            data: {
-              userId: user.id,
-              userEmail: user.email,
-              action: "create",
-              entity: "service",
-              entityId: service.id,
-              metadata: { kodeService, status: service.status }
-            }
+            data: { userId: user.id, userEmail: user.email, action: "create", entity: "service", entityId: service.id, metadata: { kodeService, status: service.status, finalCost } }
           });
         });
         created = true;
@@ -312,30 +381,20 @@ export async function upsertService(formData: FormData) {
     }
     if (!created) throw new Error("Gagal membuat kode service unik");
   }
-
-  revalidatePath("/services");
-  revalidatePath("/finance");
-  revalidatePath("/dashboard");
+  revalidateServicePaths();
 }
 
 export async function markServicePaid(id: number) {
   await assertTrustedOrigin();
   const user = await requireUser();
   await prisma.$transaction(async (tx) => {
-    const service = await tx.service.findUnique({
-      where: { id },
-      include: { financeRecords: true }
-    });
+    const service = await tx.service.findUnique({ where: { id }, include: { financeRecords: true } });
     if (!service) throw new Error("Service tidak ditemukan");
+    if (service.status === "Batal") throw new Error("Service batal tidak dapat dibayar");
     if (service.paymentStatus === "paid") throw new Error("Service sudah dibayar");
     if (toNumber(service.finalCost) <= 0) throw new Error("Biaya final wajib diisi sebelum pembayaran");
-    const hasIncomeRecord = service.financeRecords.some((record) => record.type === "income");
-
-    await tx.service.update({
-      where: { id },
-      data: { paymentStatus: "paid", paidAt: new Date() }
-    });
-    if (!hasIncomeRecord) {
+    await tx.service.update({ where: { id }, data: { paymentStatus: "paid", paidAt: new Date() } });
+    if (!service.financeRecords.some((record) => record.type === "income")) {
       await tx.financeRecord.create({
         data: {
           type: "income",
@@ -345,58 +404,68 @@ export async function markServicePaid(id: number) {
           referenceType: "service",
           referenceId: service.id,
           serviceId: service.id,
+          outletId: service.outletId,
           userId: user.id
         }
       });
     }
     await tx.auditLog.create({
-      data: {
-        userId: user.id,
-        userEmail: user.email,
-        action: "mark_paid",
-        entity: "service",
-        entityId: id,
-        metadata: { kodeService: service.kodeService, finalCost: toNumber(service.finalCost) }
-      }
+      data: { userId: user.id, userEmail: user.email, action: "mark_paid", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, finalCost: toNumber(service.finalCost) } }
     });
   });
-  revalidatePath("/services");
-  revalidatePath("/finance");
-  revalidatePath("/dashboard");
+  revalidateServicePaths();
 }
 
 export async function updateServiceStatus(id: number, status: string) {
   await assertTrustedOrigin();
-  await requireUser();
-  const form = new FormData();
-  const service = await prisma.service.findUniqueOrThrow({ where: { id } });
-  Object.entries({
-    id,
-    customerId: service.customerId ?? "",
-    customerName: service.customerName,
-    customerPhone: service.customerPhone ?? "",
-    deviceType: service.deviceType,
-    deviceBrand: service.deviceBrand ?? "",
-    deviceModel: service.deviceModel ?? "",
-    problemDescription: service.problemDescription,
-    diagnosis: service.diagnosis ?? "",
-    estimatedCost: toNumber(service.estimatedCost),
-    finalCost: toNumber(service.finalCost),
-    status,
-    technicianNote: service.technicianNote ?? ""
-  }).forEach(([key, value]) => form.set(key, String(value)));
-  await upsertService(form);
+  const user = await requireUser();
+  const targetStatus = serviceSchema.shape.status.parse(status);
+  await prisma.$transaction(async (tx) => {
+    const service = await tx.service.findUnique({ where: { id }, include: { parts: true } });
+    if (!service) throw new Error("Service tidak ditemukan");
+    if (service.status === "Batal") throw new Error("Service batal tidak dapat dibuka kembali");
+    if (service.paymentStatus === "paid" && targetStatus !== service.status && targetStatus !== "Diambil") {
+      throw new Error("Service lunas hanya dapat diubah ke status Diambil");
+    }
+    const currentMode = serviceStockMode(service.status);
+    const targetMode = serviceStockMode(targetStatus);
+    if (currentMode !== targetMode) {
+      await releaseServiceParts(tx, service.parts, currentMode);
+      await allocateServiceParts(tx, service.parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: toNumber(part.price) })), targetMode);
+    }
+    await tx.service.update({
+      where: { id },
+      data: {
+        status: targetStatus,
+        paymentStatus: targetStatus === "Batal" ? "unpaid" : service.paymentStatus,
+        paidAt: targetStatus === "Batal" ? null : service.paidAt,
+        completedDate: ["Selesai", "Diambil"].includes(targetStatus) ? service.completedDate ?? new Date() : null,
+        pickedUpDate: targetStatus === "Diambil" ? service.pickedUpDate ?? new Date() : null
+      }
+    });
+    if (targetStatus === "Batal") await tx.financeRecord.deleteMany({ where: { serviceId: id } });
+    await tx.auditLog.create({
+      data: { userId: user.id, userEmail: user.email, action: "update_status", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, from: service.status, to: targetStatus } }
+    });
+  });
+  revalidateServicePaths();
 }
 
 export async function deleteService(id: number) {
   try {
     await assertTrustedOrigin();
     const user = await requireAdmin();
-    const recordCount = await prisma.financeRecord.count({ where: { serviceId: id } });
-    if (recordCount > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
-    const service = await prisma.service.delete({ where: { id } });
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "service", entityId: id, metadata: { kodeService: service.kodeService } });
-    revalidatePath("/services");
+    await prisma.$transaction(async (tx) => {
+      const service = await tx.service.findUnique({ where: { id }, include: { parts: true, financeRecords: true } });
+      if (!service) throw new Error("Service tidak ditemukan");
+      if (service.financeRecords.length > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
+      await releaseServiceParts(tx, service.parts, serviceStockMode(service.status));
+      await tx.service.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: { userId: user.id, userEmail: user.email, action: "delete", entity: "service", entityId: id, metadata: { kodeService: service.kodeService } }
+      });
+    });
+    revalidateServicePaths();
   } catch (error) {
     handleActionError(error);
   }
@@ -406,13 +475,15 @@ export async function upsertFinanceRecord(formData: FormData) {
   await assertTrustedOrigin();
   const parsed = financeSchema.parse(Object.fromEntries(formData));
   const user = await requireAdmin();
+  const { activeOutlet } = await outletContext(user);
   const data: Prisma.FinanceRecordUncheckedCreateInput = {
     type: parsed.type,
     category: parsed.category,
     amount: parsed.amount,
     description: parsed.description || null,
-    date: parsed.date,
+    date: new Date(`${parsed.date}T00:00:00`),
     referenceType: "manual",
+    outletId: activeOutlet.id,
     userId: user.id
   };
   if (parsed.id) await prisma.financeRecord.update({ where: { id: parsed.id }, data });

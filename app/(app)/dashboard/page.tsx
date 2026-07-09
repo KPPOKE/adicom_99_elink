@@ -3,32 +3,38 @@ import { DashboardCharts } from "@/components/dashboard-charts";
 import { StatCard } from "@/components/shared/stat-card";
 import { ServiceStatusBadge, StockBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth";
+import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDateTime, toNumber, todayRange } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const { start, end } = todayRange();
+  const user = await getCurrentUser();
+  if (!user) throw new Error("User tidak ditemukan");
+  const { activeOutlet } = await outletContext(user);
+  const outletWhere = { outletId: activeOutlet.id };
   const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems] =
     await Promise.all([
       prisma.financeRecord.groupBy({
         by: ["type"],
-        where: { date: { gte: start, lt: end } },
+        where: { ...outletWhere, date: { gte: start, lt: end } },
         _sum: { amount: true }
       }),
-      prisma.transaction.count({ where: { createdAt: { gte: start, lt: end }, status: { not: "Batal" } } }),
+      prisma.transaction.count({ where: { ...outletWhere, createdAt: { gte: start, lt: end }, status: { not: "Batal" } } }),
       prisma.service.groupBy({
         by: ["status"],
-        where: { createdAt: { gte: start, lt: end } },
+        where: { ...outletWhere, createdAt: { gte: start, lt: end } },
         _count: { _all: true }
       }),
       prisma.item.findMany({ where: { stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true }, take: 8 }),
-      prisma.transaction.findMany({ include: { items: true }, orderBy: { createdAt: "desc" }, take: 5 }),
-      prisma.service.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
+      prisma.transaction.findMany({ where: outletWhere, include: { items: true }, orderBy: { createdAt: "desc" }, take: 5 }),
+      prisma.service.findMany({ where: outletWhere, orderBy: { createdAt: "desc" }, take: 5 }),
       prisma.financeRecord.findMany({
-        where: { type: "income", date: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } },
+        where: { ...outletWhere, type: "income", date: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } },
         orderBy: { date: "asc" }
       }),
-      prisma.transactionItem.findMany({ where: { transaction: { status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, orderBy: { createdAt: "desc" }, take: 200 })
+      prisma.transactionItem.findMany({ where: { transaction: { ...outletWhere, status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, orderBy: { createdAt: "desc" }, take: 200 })
     ]);
 
   const income = toNumber(todayFinance.find((item) => item.type === "income")?._sum.amount);

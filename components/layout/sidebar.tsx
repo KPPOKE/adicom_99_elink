@@ -12,6 +12,7 @@ import {
   LogOut,
   Settings,
   ShoppingCart,
+  Send,
   Stethoscope,
   Truck
 } from "lucide-react";
@@ -26,13 +27,14 @@ const nav = [
   { href: "/suppliers", label: "Supplier", icon: Truck },
   { href: "/customers", label: "Customer", icon: Contact },
   { href: "/transactions", label: "Transaksi", icon: ShoppingCart },
+  { href: "/bank-transfers", label: "Transfer Bank", icon: Send },
   { href: "/services", label: "Service", icon: Stethoscope },
   { href: "/finance", label: "Keuangan", icon: Landmark },
   { href: "/reports", label: "Laporan", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings, adminOnly: true }
 ];
 
-export function Sidebar({ userName, role }: { userName: string; role: "admin" | "staff" }) {
+export function Sidebar({ userName, role, outletName }: { userName: string; role: "admin" | "staff"; outletName?: string }) {
   const pathname = usePathname();
   const roleLabel = role === "admin" ? "Admin" : "Staff";
 
@@ -68,12 +70,12 @@ export function Sidebar({ userName, role }: { userName: string; role: "admin" | 
           );
         })}
       </nav>
-      <SidebarFooter userName={userName} roleLabel={roleLabel} />
+      <SidebarFooter userName={userName} roleLabel={roleLabel} outletName={outletName} />
     </aside>
   );
 }
 
-export function SidebarFooter({ userName, roleLabel }: { userName: string; roleLabel: string }) {
+export function SidebarFooter({ userName, roleLabel, outletName }: { userName: string; roleLabel: string; outletName?: string }) {
   const initials = userName
     .split(" ")
     .map((part) => part[0])
@@ -90,7 +92,7 @@ export function SidebarFooter({ userName, roleLabel }: { userName: string; roleL
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-slate-100">{userName}</p>
-            <p className="text-xs text-slate-500">{roleLabel}</p>
+            <p className="text-xs text-slate-500">{roleLabel}{outletName ? ` | ${outletName}` : ""}</p>
           </div>
           <form action={logoutAction}>
             <Button variant="ghost" size="icon" title="Logout">

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getCurrentUser } from "@/lib/auth";
+import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
@@ -56,20 +58,24 @@ export function reportDateRange(filters: ReportFilters) {
 
 export async function loadReportData(filters: ReportFilters) {
   const range = reportDateRange(filters);
+  const user = await getCurrentUser();
+  if (!user) throw new Error("User tidak ditemukan");
+  const { activeOutlet } = await outletContext(user);
   const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
+  const outletWhere = { outletId: activeOutlet.id };
   const [transactions, services, items, finance] = await Promise.all([
     prisma.transaction.findMany({
-      where: dateWhere ? { createdAt: dateWhere } : undefined,
+      where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere,
       include: { items: { include: { item: true } } },
       orderBy: { createdAt: "desc" }
     }),
     prisma.service.findMany({
-      where: dateWhere ? { receivedDate: dateWhere } : undefined,
+      where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere,
       orderBy: { receivedDate: "desc" }
     }),
     prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
     prisma.financeRecord.findMany({
-      where: dateWhere ? { date: dateWhere } : undefined,
+      where: dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere,
       orderBy: { date: "desc" }
     })
   ]);
@@ -79,6 +85,7 @@ export async function loadReportData(filters: ReportFilters) {
   const chartData = [
     { name: "Penjualan", ref: "transaction" },
     { name: "Service", ref: "service" },
+    { name: "Transfer Bank", ref: "bank_transfer" },
     { name: "Manual", ref: "manual" }
   ].map(({ name, ref }) => ({
     name,
@@ -91,11 +98,15 @@ export async function loadReportData(filters: ReportFilters) {
 
 export async function loadReportPreview(filters: ReportFilters) {
   const range = reportDateRange(filters);
+  const user = await getCurrentUser();
+  if (!user) throw new Error("User tidak ditemukan");
+  const { activeOutlet } = await outletContext(user);
   const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
-  const financeWhere = dateWhere ? { date: dateWhere } : undefined;
+  const outletWhere = { outletId: activeOutlet.id };
+  const financeWhere = dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere;
   const [transactions, services, items, finance, totals, grouped] = await Promise.all([
-    prisma.transaction.findMany({ where: dateWhere ? { createdAt: dateWhere } : undefined, orderBy: { createdAt: "desc" }, take: 8 }),
-    prisma.service.findMany({ where: dateWhere ? { receivedDate: dateWhere } : undefined, orderBy: { receivedDate: "desc" }, take: 8 }),
+    prisma.transaction.findMany({ where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere, orderBy: { createdAt: "desc" }, take: 8 }),
+    prisma.service.findMany({ where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere, orderBy: { receivedDate: "desc" }, take: 8 }),
     prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
     prisma.financeRecord.findMany({ where: financeWhere, orderBy: { date: "desc" }, take: 8 }),
     prisma.financeRecord.groupBy({ by: ["type"], where: financeWhere, _sum: { amount: true } }),
@@ -105,6 +116,7 @@ export async function loadReportPreview(filters: ReportFilters) {
   const chartData = [
     { name: "Penjualan", ref: "transaction" },
     { name: "Service", ref: "service" },
+    { name: "Transfer Bank", ref: "bank_transfer" },
     { name: "Manual", ref: "manual" }
   ].map(({ name, ref }) => ({
     name,
@@ -178,8 +190,8 @@ export function reportDataset(kind: string, data: Awaited<ReturnType<typeof load
   if (kind === "stock") {
     return {
       title: "Laporan Stok",
-      headers: ["Kode", "Nama Barang", "Kategori", "Stok", "Stok Minimum", "Satuan"],
-      rows: data.items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, item.stok, item.stokMinimum, item.satuan])
+      headers: ["Kode", "Nama Barang", "Kategori", "Stok Tersedia", "Dipesan Service", "Stok Minimum", "Satuan"],
+      rows: data.items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, item.stok, item.reservedStock, item.stokMinimum, item.satuan])
     };
   }
   if (kind === "profit-loss") {

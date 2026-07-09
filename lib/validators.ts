@@ -16,6 +16,7 @@ export const userSchema = z.object({
   name: z.string().min(2, "Nama user wajib diisi"),
   email: z.string().email("Email tidak valid"),
   role: z.enum(["admin", "staff"]),
+  outletId: z.coerce.number<number>().optional().nullable(),
   password: z.string().optional()
 }).superRefine((value, context) => {
   if (!value.id && (!value.password || value.password.length < 6)) {
@@ -78,9 +79,29 @@ export const financeSchema = z.object({
   category: z.string().min(2, "Kategori wajib diisi"),
   amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
   description: z.string().optional(),
-  date: z.coerce.string<string>().min(1, "Tanggal wajib diisi")
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid")
 });
 export type FinanceFormValues = z.output<typeof financeSchema>;
+
+export const bankTransferSchema = z.object({
+  id: z.coerce.number<number>().optional(),
+  customerId: z.coerce.number<number>().optional().nullable(),
+  senderName: z.string().trim().max(100, "Nama pengirim maksimal 100 karakter").optional(),
+  senderPhone: z.string().trim().max(30, "Nomor telepon maksimal 30 karakter").optional(),
+  destinationBank: z.string().trim().min(2, "Bank tujuan wajib diisi").max(80),
+  accountNumber: z.string().trim().regex(/^\d{5,30}$/, "Nomor rekening harus 5-30 digit"),
+  accountName: z.string().trim().min(2, "Nama pemilik rekening wajib diisi").max(100),
+  amount: numeric.pipe(z.number().min(1, "Nominal transfer wajib diisi")),
+  adminFee: money,
+  note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional()
+});
+export type BankTransferFormValues = z.output<typeof bankTransferSchema>;
+
+export const bankTransferDepositSchema = z.object({
+  amount: numeric.pipe(z.number().min(1, "Nominal deposit wajib diisi")),
+  note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional()
+});
+export type BankTransferDepositFormValues = z.output<typeof bankTransferDepositSchema>;
 
 export const serviceSchema = z.object({
   id: z.coerce.number<number>().optional(),
@@ -93,9 +114,14 @@ export const serviceSchema = z.object({
   problemDescription: z.string().min(5, "Keluhan wajib diisi"),
   diagnosis: z.string().optional(),
   estimatedCost: money,
-  finalCost: money,
+  laborCost: money,
   status: z.enum(["Masuk", "Dicek", "Menunggu_Konfirmasi", "Diproses", "Selesai", "Diambil", "Batal"]),
-  technicianNote: z.string().optional()
+  technicianNote: z.string().optional(),
+  parts: z.array(z.object({
+    itemId: z.coerce.number<number>().int().min(1),
+    qty: z.coerce.number<number>().int().min(1, "Qty minimal 1"),
+    price: money
+  })).default([])
 });
 export type ServiceFormValues = z.output<typeof serviceSchema>;
 

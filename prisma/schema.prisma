@@ -50,6 +50,12 @@ enum PaymentStatus {
   paid
 }
 
+enum BankTransferStatus {
+  Pending
+  Berhasil
+  Gagal
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   name      RoleName @unique
@@ -60,6 +66,23 @@ model Role {
   @@map("roles")
 }
 
+model Outlet {
+  id                   Int                   @id @default(autoincrement())
+  code                 String                @unique
+  name                 String
+  address              String?               @db.Text
+  users                User[]
+  transactions         Transaction[]
+  services             Service[]
+  bankTransfers        BankTransfer[]
+  bankTransferDeposits BankTransferDeposit[]
+  financeRecords       FinanceRecord[]
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  @@map("outlets")
+}
+
 model User {
   id             Int             @id @default(autoincrement())
   name           String
@@ -67,8 +90,12 @@ model User {
   passwordHash   String          @map("password_hash")
   roleId         Int             @map("role_id")
   role           Role            @relation(fields: [roleId], references: [id])
+  outletId       Int?            @map("outlet_id")
+  outlet         Outlet?         @relation(fields: [outletId], references: [id])
   transactions   Transaction[]
   services       Service[]
+  bankTransfers  BankTransfer[]
+  bankTransferDeposits BankTransferDeposit[]
   financeRecords FinanceRecord[]
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
@@ -109,6 +136,7 @@ model Customer {
   address      String?       @db.Text
   transactions Transaction[]
   services     Service[]
+  bankTransfers BankTransfer[]
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
@@ -133,6 +161,8 @@ model Item {
   supplier         Supplier?         @relation(fields: [supplierId], references: [id])
   deskripsi        String?           @db.Text
   transactionItems TransactionItem[]
+  serviceParts     ServicePart[]
+  reservedStock    Int               @default(0) @map("reserved_stock")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
@@ -164,6 +194,8 @@ model Transaction {
   status          TransactionStatus @default(Berhasil)
   userId          Int               @map("user_id")
   user            User              @relation(fields: [userId], references: [id])
+  outletId        Int?              @map("outlet_id")
+  outlet          Outlet?           @relation(fields: [outletId], references: [id])
   items           TransactionItem[]
   financeRecords  FinanceRecord[]
   createdAt       DateTime          @default(now()) @map("created_at")
@@ -171,6 +203,7 @@ model Transaction {
 
   @@index([customerId])
   @@index([userId])
+  @@index([outletId])
   @@index([createdAt])
   @@index([tanggal])
   @@index([status])
@@ -209,6 +242,7 @@ model Service {
   problemDescription String          @db.Text @map("problem_description")
   diagnosis          String?         @db.Text
   estimatedCost      Decimal         @default(0) @db.Decimal(14, 2) @map("estimated_cost")
+  laborCost          Decimal         @default(0) @db.Decimal(14, 2) @map("labor_cost")
   finalCost          Decimal         @default(0) @db.Decimal(14, 2) @map("final_cost")
   status             ServiceStatus   @default(Masuk)
   paymentStatus      PaymentStatus   @default(unpaid) @map("payment_status")
@@ -219,18 +253,89 @@ model Service {
   pickedUpDate       DateTime?       @map("picked_up_date")
   userId             Int             @map("user_id")
   user               User            @relation(fields: [userId], references: [id])
+  outletId        Int?              @map("outlet_id")
+  outlet          Outlet?           @relation(fields: [outletId], references: [id])
   financeRecords     FinanceRecord[]
+  parts              ServicePart[]
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
 
   @@index([customerId])
   @@index([userId])
+  @@index([outletId])
   @@index([createdAt])
   @@index([receivedDate])
   @@index([status])
   @@index([paymentStatus])
   @@index([status, paymentStatus, receivedDate])
   @@map("services")
+}
+
+model ServicePart {
+  id        Int      @id @default(autoincrement())
+  serviceId Int      @map("service_id")
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  itemId    Int      @map("item_id")
+  item      Item     @relation(fields: [itemId], references: [id])
+  qty       Int
+  price     Decimal  @db.Decimal(14, 2)
+  subtotal  Decimal  @db.Decimal(14, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([serviceId, itemId])
+  @@index([itemId])
+  @@map("service_parts")
+}
+
+model BankTransfer {
+  id              Int                @id @default(autoincrement())
+  kodeTransfer    String             @unique @map("kode_transfer")
+  customerId      Int?               @map("customer_id")
+  customer        Customer?          @relation(fields: [customerId], references: [id])
+  senderName      String?            @map("sender_name")
+  senderPhone     String?            @map("sender_phone")
+  destinationBank String             @map("destination_bank")
+  accountNumber   String             @map("account_number")
+  accountName     String             @map("account_name")
+  amount          Decimal            @db.Decimal(14, 2)
+  adminFee        Decimal            @default(0) @db.Decimal(14, 2) @map("admin_fee")
+  totalReceived   Decimal            @db.Decimal(14, 2) @map("total_received")
+  status          BankTransferStatus @default(Pending)
+  note            String?            @db.Text
+  completedAt     DateTime?          @map("completed_at")
+  userId          Int                @map("user_id")
+  user            User               @relation(fields: [userId], references: [id])
+  outletId        Int?              @map("outlet_id")
+  outlet          Outlet?           @relation(fields: [outletId], references: [id])
+  financeRecord   FinanceRecord?
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([userId])
+  @@index([outletId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([destinationBank])
+  @@map("bank_transfers")
+}
+
+model BankTransferDeposit {
+  id        Int      @id @default(autoincrement())
+  outletId  Int      @map("outlet_id")
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime
+  note      String?  @db.Text
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([outletId, date])
+  @@index([userId])
+  @@map("bank_transfer_deposits")
 }
 
 model FinanceRecord {
@@ -244,14 +349,19 @@ model FinanceRecord {
   referenceId   Int?         @map("reference_id")
   transactionId Int?         @map("transaction_id")
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
-  serviceId     Int?         @map("service_id")
-  service       Service?     @relation(fields: [serviceId], references: [id])
+  serviceId      Int?          @map("service_id")
+  service        Service?      @relation(fields: [serviceId], references: [id])
+  bankTransferId Int?          @unique @map("bank_transfer_id")
+  bankTransfer   BankTransfer? @relation(fields: [bankTransferId], references: [id])
   userId        Int          @map("user_id")
   user          User         @relation(fields: [userId], references: [id])
+  outletId        Int?              @map("outlet_id")
+  outlet          Outlet?           @relation(fields: [outletId], references: [id])
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
   @@index([userId])
+  @@index([outletId])
   @@index([transactionId])
   @@index([serviceId])
   @@index([date])

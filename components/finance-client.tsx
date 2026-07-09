@@ -206,7 +206,7 @@ export function FinanceClient({ records, role, pagination, filterValues, categor
                     <FormItem>
                       <FormLabel>Nominal</FormLabel>
                       <FormControl>
-                        <CurrencyInput value={field.value} onChange={field.onChange} />
+                        <CurrencyInput name="amount" value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

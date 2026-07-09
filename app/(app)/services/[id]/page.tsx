@@ -13,7 +13,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const service = await prisma.service.findUnique({
     where: { id: Number(id) },
-    include: { customer: true, user: true, financeRecords: true }
+    include: { customer: true, user: true, financeRecords: true, parts: { include: { item: true } } }
   });
   if (!service) notFound();
 
@@ -51,6 +51,10 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
             <Section title="Keluhan">{service.problemDescription}</Section>
             <Section title="Diagnosa">{service.diagnosis || "-"}</Section>
             <Section title="Catatan Teknisi">{service.technicianNote || "-"}</Section>
+            <div>
+              <p className="text-sm font-medium text-slate-500">Sparepart</p>
+              {service.parts.length ? <div className="mt-2 divide-y divide-slate-800 rounded-lg border border-slate-800">{service.parts.map((part) => <div key={part.id} className="flex justify-between gap-4 p-3 text-sm"><span>{part.item.namaBarang} x{part.qty}</span><span>{formatCurrency(toNumber(part.subtotal))}</span></div>)}</div> : <p className="mt-1 text-slate-200">-</p>}
+            </div>
           </CardContent>
         </Card>
         <div className="space-y-6">
@@ -68,6 +72,8 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               <Info label="Tanggal Selesai" value={service.completedDate ? formatDateTime(service.completedDate) : "-"} />
               <Info label="Tanggal Diambil" value={service.pickedUpDate ? formatDateTime(service.pickedUpDate) : "-"} />
               <Info label="Estimasi" value={formatCurrency(toNumber(service.estimatedCost))} />
+              <Info label="Biaya Jasa" value={formatCurrency(toNumber(service.laborCost))} />
+              <Info label="Sparepart" value={formatCurrency(service.parts.reduce((sum, part) => sum + toNumber(part.subtotal), 0))} />
               <Info label="Biaya Final" value={formatCurrency(toNumber(service.finalCost))} strong />
               <Info label="Dibayar" value={service.paidAt ? formatDateTime(service.paidAt) : "-"} />
             </CardContent>

@@ -13,9 +13,10 @@ import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const currentUser = await requireAdmin();
-  const [setting, users] = await Promise.all([
+  const [setting, users, outlets] = await Promise.all([
     prisma.setting.findFirst(),
-    prisma.user.findMany({ include: { role: true }, orderBy: { name: "asc" } })
+    prisma.user.findMany({ include: { role: true, outlet: true }, orderBy: { name: "asc" } }),
+    prisma.outlet.findMany({ orderBy: { name: "asc" } })
   ]);
   return (
     <>
@@ -68,11 +69,14 @@ export default async function SettingsPage() {
           <CardContent>
             <UserManagementClient
               currentUserId={currentUser.id}
+              outlets={outlets}
               users={users.map((user) => ({
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role.name
+                role: user.role.name,
+                outletId: user.outletId,
+                outletName: user.outlet?.name ?? "-"
               }))}
             />
           </CardContent>

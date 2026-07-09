@@ -16,6 +16,7 @@ export async function upsertUser(formData: FormData) {
       name: parsed.name,
       email: parsed.email,
       roleId: role.id,
+      outletId: parsed.outletId || null,
       ...(parsed.password ? { passwordHash: await hash(parsed.password, 10) } : {})
     };
 

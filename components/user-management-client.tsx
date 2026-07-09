@@ -19,9 +19,13 @@ type UserRow = {
   name: string;
   email: string;
   role: "admin" | "staff";
+  outletId: number | null;
+  outletName: string;
 };
 
-export function UserManagementClient({ users, currentUserId }: { users: UserRow[]; currentUserId: number }) {
+type OutletOption = { id: number; name: string };
+
+export function UserManagementClient({ users, currentUserId, outlets }: { users: UserRow[]; currentUserId: number; outlets: OutletOption[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
@@ -31,6 +35,7 @@ export function UserManagementClient({ users, currentUserId }: { users: UserRow[
     { accessorKey: "name", header: "Nama" },
     { accessorKey: "email", header: "Email" },
     { accessorKey: "role", header: "Role", cell: ({ row }) => <span className="capitalize">{row.original.role}</span> },
+    { accessorKey: "outletName", header: "Outlet" },
     {
       id: "actions",
       header: "",
@@ -113,6 +118,12 @@ export function UserManagementClient({ users, currentUserId }: { users: UserRow[
                 <Select name="role" defaultValue={editing?.role ?? "staff"}>
                   <option value="admin">Admin</option>
                   <option value="staff">Staff</option>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Outlet</Label>
+                <Select name="outletId" defaultValue={editing?.outletId ? String(editing.outletId) : String(outlets[0]?.id ?? "")}>
+                  {outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}
                 </Select>
               </div>
               <div className="space-y-1.5">
