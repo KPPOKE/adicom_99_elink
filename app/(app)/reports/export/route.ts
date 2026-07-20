@@ -1,7 +1,7 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { loadReportData, parseReportFilters, reportCsv, reportDataset, reportTitle } from "@/lib/reporting";
-import * as XLSX from "xlsx";
+import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 
 export const runtime = "nodejs";
 
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Use SheetJS for excel export
   const worksheetData = [
     [dataset.title],
     [`Periode: ${reportTitle(filters)}`],
@@ -43,19 +42,19 @@ export async function GET(request: NextRequest) {
     dataset.headers,
     ...dataset.rows
   ];
+  const body = worksheetData.map((row) => `<tr>${row.map((cell) => `<td>${htmlCell(cell)}</td>`).join("")}</tr>`).join("");
+  const workbook = `<!doctype html><html><head><meta charset="utf-8"></head><body><table>${body}</table></body></html>`;
 
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
-  
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-
-  return new Response(buffer, {
+  return new Response(`\uFEFF${workbook}`, {
     headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${filenameBase}.xlsx"`
+      "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filenameBase}.xls"`
     }
   });
+}
+
+function htmlCell(value: unknown) {
+  return safeSpreadsheetValue(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 }
 
 async function createPdf(title: string, period: string, headers: string[], rows: unknown[][]) {

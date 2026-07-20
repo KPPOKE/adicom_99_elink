@@ -1,6 +1,8 @@
-import { Save } from "lucide-react";
+﻿import { Save } from "lucide-react";
 import { updateSettings } from "@/app/actions/settings";
+import { deleteOutlet, upsertOutlet } from "@/app/actions/outlets";
 import { PageHeader } from "@/components/shared/page-header";
+import { SimpleCrud } from "@/components/shared/simple-crud";
 import { UserManagementClient } from "@/components/user-management-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +22,7 @@ export default async function SettingsPage() {
   ]);
   return (
     <>
-      <PageHeader title="Settings" description="Pengaturan toko, invoice, logo, dan user." />
+      <PageHeader title="Settings" description="Pengaturan toko, cabang, invoice, logo, dan user." />
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
           <CardHeader>
@@ -78,6 +80,24 @@ export default async function SettingsPage() {
                 outletId: user.outletId,
                 outletName: user.outlet?.name ?? "-"
               }))}
+            />
+          </CardContent>
+        </Card>
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Manajemen Cabang</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SimpleCrud
+              title="Cabang"
+              data={outlets}
+              fields={[
+                { name: "code", label: "Kode Cabang" },
+                { name: "name", label: "Nama Cabang" },
+                { name: "address", label: "Alamat", type: "textarea" }
+              ]}
+              upsertAction={upsertOutlet}
+              deleteAction={deleteOutlet}
             />
           </CardContent>
         </Card>

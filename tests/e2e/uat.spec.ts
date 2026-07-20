@@ -10,15 +10,14 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
-async function openDialog(page: import("@playwright/test").Page, name: string) {
+async function openDialog(page: import("@playwright/test").Page, name: string, readySelector = 'input[name="name"], input[name="namaBarang"], input[name="customerName"], select[name="type"]') {
   const trigger = page.getByRole("button", { name });
-  const dialog = page.getByRole("dialog");
+  await expect(trigger).toBeVisible();
   await trigger.click();
   try {
-    await expect(dialog).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 2_000 });
   } catch {
-    await trigger.click();
-    await expect(dialog).toBeVisible();
+    await expect(page.locator(readySelector).first()).toBeVisible({ timeout: 10_000 });
   }
 }
 
@@ -33,12 +32,14 @@ test.describe("UAT operational workflow", () => {
     const itemCode = `${suffix}-BRG`;
     const staffEmail = `${suffix.toLowerCase()}-staff@example.com`;
     const staffRole = await prisma.role.findUniqueOrThrow({ where: { name: "staff" } });
+    const defaultOutlet = await prisma.outlet.findFirstOrThrow({ orderBy: { id: "asc" } });
     await prisma.user.create({
       data: {
         name: `${suffix}-Staff`,
         email: staffEmail,
         passwordHash: await hash("password123", 10),
-        roleId: staffRole.id
+        roleId: staffRole.id,
+        outletId: defaultOutlet.id
       }
     });
 
@@ -97,7 +98,7 @@ test.describe("UAT operational workflow", () => {
     await page.reload();
     await expect(page.getByText(itemName)).toBeVisible();
 
-    const itemBefore = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+    const itemBefore = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
     expect(itemBefore.stok).toBe(5);
 
     await page.goto("/transactions");
@@ -112,15 +113,15 @@ test.describe("UAT operational workflow", () => {
     await saveTransaction.click();
     try {
       await expect.poll(async () => {
-        const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+        const item = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
         return item.stok;
       }, { timeout: 5_000 }).toBe(3);
     } catch {
-      const current = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      const current = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
       if (current.stok !== 3) {
         await saveTransaction.dispatchEvent("click");
         await expect.poll(async () => {
-          const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+          const item = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
           return item.stok;
         }).toBe(3);
       }
@@ -159,14 +160,14 @@ test.describe("UAT operational workflow", () => {
     expect(Number(service.finalCost)).toBe(90000);
     expect(service.parts).toHaveLength(1);
     await expect.poll(async () => {
-      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      const item = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
       return [item.stok, item.reservedStock];
     }).toEqual([2, 1]);
 
     const serviceRow = page.getByRole("row").filter({ hasText: service.kodeService });
     await serviceRow.locator("select").selectOption("Diproses");
     await expect.poll(async () => {
-      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      const item = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
       return [item.stok, item.reservedStock];
     }).toEqual([2, 0]);
 
@@ -203,14 +204,14 @@ test.describe("UAT operational workflow", () => {
     await cancelDialog.locator('textarea[name="problemDescription"]').fill("Service untuk uji pembatalan");
     await cancelDialog.getByRole("button", { name: "Simpan Service" }).click();
     await expect.poll(async () => {
-      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      const item = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
       return [item.stok, item.reservedStock];
     }).toEqual([1, 1]);
     const cancelledService = await prisma.service.findFirstOrThrow({ where: { customerName: cancelledCustomer }, orderBy: { id: "desc" } });
     const cancelledRow = page.getByRole("row").filter({ hasText: cancelledService.kodeService });
     await cancelledRow.locator("select").selectOption("Batal");
     await expect.poll(async () => {
-      const item = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: itemCode } });
+      const item = await prisma.item.findFirstOrThrow({ where: { kodeBarang: itemCode } });
       return [item.stok, item.reservedStock];
     }).toEqual([2, 0]);
 

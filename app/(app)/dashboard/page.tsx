@@ -1,4 +1,4 @@
-import { CircleDollarSign, ClipboardCheck, PackageSearch, Receipt, TrendingDown, TrendingUp, Wrench } from "lucide-react";
+import { CircleDollarSign, ClipboardCheck, PackageSearch, Receipt, TrendingDown, TrendingUp, WalletCards, Wrench } from "lucide-react";
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { StatCard } from "@/components/shared/stat-card";
 import { ServiceStatusBadge, StockBadge } from "@/components/shared/status-badge";
@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   if (!user) throw new Error("User tidak ditemukan");
   const { activeOutlet } = await outletContext(user);
   const outletWhere = { outletId: activeOutlet.id };
-  const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems] =
+  const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems, fundAccounts] =
     await Promise.all([
       prisma.financeRecord.groupBy({
         by: ["type"],
@@ -27,18 +27,20 @@ export default async function DashboardPage() {
         where: { ...outletWhere, createdAt: { gte: start, lt: end } },
         _count: { _all: true }
       }),
-      prisma.item.findMany({ where: { stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true }, take: 8 }),
+      prisma.item.findMany({ where: { ...outletWhere, stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true }, take: 8 }),
       prisma.transaction.findMany({ where: outletWhere, include: { items: true }, orderBy: { createdAt: "desc" }, take: 5 }),
       prisma.service.findMany({ where: outletWhere, orderBy: { createdAt: "desc" }, take: 5 }),
       prisma.financeRecord.findMany({
         where: { ...outletWhere, type: "income", date: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } },
         orderBy: { date: "asc" }
       }),
-      prisma.transactionItem.findMany({ where: { transaction: { ...outletWhere, status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, orderBy: { createdAt: "desc" }, take: 200 })
+      prisma.transactionItem.findMany({ where: { transaction: { ...outletWhere, status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, orderBy: { createdAt: "desc" }, take: 200 }),
+      prisma.fundAccount.findMany({ where: { ...outletWhere, isActive: true }, select: { balance: true } })
     ]);
 
   const income = toNumber(todayFinance.find((item) => item.type === "income")?._sum.amount);
   const expense = toNumber(todayFinance.find((item) => item.type === "expense")?._sum.amount);
+  const totalAsset = fundAccounts.reduce((sum, item) => sum + toNumber(item.balance), 0);
   const serviceStatusMap = new Map<string, number>(serviceStatusCounts.map((item) => [item.status, item._count._all]));
   const statusCount = (status: string) => serviceStatusMap.get(status) ?? 0;
   const serviceTotal = serviceStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
@@ -66,6 +68,7 @@ export default async function DashboardPage() {
         <StatCard title="Pemasukan Hari Ini" value={formatCurrency(income)} icon={TrendingUp} tone="green" helper="Total transaksi masuk" />
         <StatCard title="Pengeluaran Hari Ini" value={formatCurrency(expense)} icon={TrendingDown} tone="red" helper="Biaya operasional" />
         <StatCard title="Laba Bersih Hari Ini" value={formatCurrency(income - expense)} icon={CircleDollarSign} tone="blue" helper="Income - expense" />
+        <StatCard title="Total Aset" value={formatCurrency(totalAsset)} icon={WalletCards} tone="cyan" helper="Saldo sumber dana" />
         <StatCard title="Transaksi Hari Ini" value={String(todayTransactions)} icon={Receipt} tone="cyan" helper="Penjualan valid" />
         <StatCard title="Service Masuk" value={String(serviceTotal)} icon={Wrench} tone="orange" helper="Total hari ini" />
         <StatCard title="Service Selesai" value={String(statusCount("Selesai") + statusCount("Diambil"))} icon={ClipboardCheck} tone="green" helper="Siap diambil" />
@@ -132,3 +135,5 @@ export default async function DashboardPage() {
     </>
   );
 }
+
+

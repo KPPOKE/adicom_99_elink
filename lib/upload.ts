@@ -1,11 +1,11 @@
-import "server-only";
+﻿import "server-only";
 
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+export const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 
 type ImageSignature = {
   ext: "jpg" | "png" | "webp";
@@ -59,11 +59,11 @@ export async function saveImageUpload(file: File | null, prefix: string) {
   await mkdir(UPLOAD_DIR, { recursive: true });
   const filename = `${prefix}-${Date.now()}-${randomUUID()}.${image.ext}`;
   await writeFile(path.join(UPLOAD_DIR, filename), buffer, { flag: "wx" });
-  return `/uploads/${filename}`;
+  return `/api/uploads/${filename}`;
 }
 
 export async function deletePublicUpload(publicPath?: string | null) {
-  if (!publicPath?.startsWith("/uploads/")) return;
+  if (!publicPath?.startsWith("/uploads/") && !publicPath?.startsWith("/api/uploads/")) return;
   const filename = path.basename(publicPath);
   const target = path.resolve(UPLOAD_DIR, filename);
   if (!target.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return;

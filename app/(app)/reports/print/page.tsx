@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PrintControls } from "@/components/print-controls";
+import { requireAdmin } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { loadReportData, parseReportFilters, reportTitle } from "@/lib/reporting";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export default async function ReportPrintPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  await requireAdmin();
   const params = (await searchParams) ?? {};
   const filters = parseReportFilters(params);
   const [setting, data] = await Promise.all([

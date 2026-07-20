@@ -43,13 +43,20 @@ describe("validators", () => {
 
   it("validates bank transfer recipient and money fields", () => {
     expect(bankTransferSchema.safeParse({
+      kind: "Transfer",
+      sourceFundId: 1,
+      targetFundId: 2,
       destinationBank: "BCA",
       accountNumber: "1234567890",
       accountName: "Budi",
       amount: 100_000,
-      adminFee: 5_000
+      adminFee: 5_000,
+      adminBankFee: 1_000
     }).success).toBe(true);
     expect(bankTransferSchema.safeParse({
+      kind: "Transfer",
+      sourceFundId: 1,
+      targetFundId: 1,
       destinationBank: "BCA",
       accountNumber: "abc",
       accountName: "Budi",
@@ -96,3 +103,5 @@ describe("validators", () => {
     expect(resultService.success).toBe(false);
   });
 });
+
+

@@ -38,6 +38,17 @@ async function main() {
     create: { code: "ADICOM99_CIPUTAT", name: "ADICOM99_CIPUTAT", address: "Outlet default" }
   });
 
+  for (const account of [
+    { name: "LACI", type: "Cash" as const, note: "Kas tunai outlet" },
+    { name: "BRI", type: "Bank" as const, note: "Saldo bank utama" },
+    { name: "DANA", type: "Ewallet" as const, note: "Saldo e-wallet" }
+  ]) {
+    await prisma.fundAccount.upsert({
+      where: { outletId_name: { outletId: outlet.id, name: account.name } },
+      update: {},
+      create: { outletId: outlet.id, name: account.name, type: account.type, balance: 0, openingBalance: 0, note: account.note }
+    });
+  }
   const adminRole = await prisma.role.upsert({
     where: { name: "admin" },
     update: {},
@@ -115,7 +126,7 @@ async function main() {
 
   for (const [namaBarang, kodeBarang, category, hargaModal, hargaJual, stok, stokMinimum] of items) {
     await prisma.item.upsert({
-      where: { kodeBarang },
+      where: { outletId_kodeBarang: { outletId: outlet.id, kodeBarang } },
       update: {},
       create: {
         namaBarang,
@@ -127,6 +138,7 @@ async function main() {
         stokMinimum,
         satuan: "pcs",
         supplierId: supplier.id,
+        outletId: outlet.id,
         deskripsi: "Data contoh seed awal"
       }
     });
@@ -144,7 +156,7 @@ async function main() {
   });
 
   const user = await prisma.user.findUniqueOrThrow({ where: { email: adminEmail } });
-  const sampleItem = await prisma.item.findUniqueOrThrow({ where: { kodeBarang: "SSD-SATA-256" } });
+  const sampleItem = await prisma.item.findUniqueOrThrow({ where: { outletId_kodeBarang: { outletId: outlet.id, kodeBarang: "SSD-SATA-256" } } });
   const trxCode = `TRX-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`;
   const transaction = await prisma.transaction.upsert({
     where: { kodeTransaksi: trxCode },
@@ -234,3 +246,4 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+

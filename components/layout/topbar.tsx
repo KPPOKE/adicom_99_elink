@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2, CalendarDays, Menu, ReceiptText, X } from "lucide-react";
 import { useState } from "react";
-import { nav, SidebarFooter } from "@/components/layout/sidebar";
+import { canAccessNav, nav, SidebarFooter } from "@/components/layout/sidebar";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { Button } from "@/components/ui/button";
 import { setActiveOutletAction } from "@/app/actions/outlets";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function Topbar({ userName, role, outletName, activeOutletId, outlets }: { userName: string; role: "admin" | "staff"; outletName: string; activeOutletId: number; outlets: Array<{ id: number; name: string }> }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const menuItems = nav.filter((item) => !item.adminOnly || role === "admin");
+  const menuItems = nav.filter((item) => canAccessNav(item, role));
   const activeItem = menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 
   return (

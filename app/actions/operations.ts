@@ -39,7 +39,7 @@ export async function createTransaction(payload: unknown) {
   const { activeOutlet } = await outletContext(user);
   const parsed = transactionSchema.parse(payload);
   const itemIds = parsed.items.map((item) => item.itemId);
-  const stocks = await prisma.item.findMany({ where: { id: { in: itemIds } } });
+  const stocks = await prisma.item.findMany({ where: { id: { in: itemIds }, outletId: activeOutlet.id } });
   for (const line of parsed.items) {
     const stock = stocks.find((item) => item.id === line.itemId);
     if (!stock) throw new Error("Barang tidak ditemukan");
@@ -99,7 +99,7 @@ export async function createTransaction(payload: unknown) {
 
         for (const item of parsed.items) {
           const updated = await tx.item.updateMany({
-            where: { id: item.itemId, stok: { gte: item.qty } },
+            where: { id: item.itemId, outletId: activeOutlet.id, stok: { gte: item.qty } },
             data: { stok: { decrement: item.qty } }
           });
           if (updated.count !== 1) throw new Error("Stok barang tidak cukup atau sudah berubah");
@@ -150,19 +150,21 @@ export async function createTransaction(payload: unknown) {
 export async function cancelTransaction(id: number) {
   await assertTrustedOrigin();
   const user = await requireAdmin();
+  const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
       where: { id },
       include: { items: true, financeRecords: true }
     });
-    if (!transaction) throw new Error("Transaksi tidak ditemukan");
+    if (!transaction || transaction.outletId !== activeOutlet.id) throw new Error("Transaksi tidak ditemukan di cabang aktif");
     if (transaction.status === "Batal") throw new Error("Transaksi sudah dibatalkan");
 
     for (const line of transaction.items) {
-      await tx.item.update({
-        where: { id: line.itemId },
+      const updated = await tx.item.updateMany({
+        where: { id: line.itemId, outletId: activeOutlet.id },
         data: { stok: { increment: line.qty } }
       });
+      if (updated.count !== 1) throw new Error("Barang transaksi tidak ditemukan di cabang aktif");
     }
 
     await tx.financeRecord.deleteMany({ where: { transactionId: id } });
@@ -187,12 +189,13 @@ export async function cancelTransaction(id: number) {
 export async function completePendingTransaction(id: number) {
   await assertTrustedOrigin();
   const user = await requireUser();
+  const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
       where: { id },
       include: { financeRecords: true }
     });
-    if (!transaction) throw new Error("Transaksi tidak ditemukan");
+    if (!transaction || transaction.outletId !== activeOutlet.id) throw new Error("Transaksi tidak ditemukan di cabang aktif");
     if (transaction.status === "Batal") throw new Error("Transaksi sudah dibatalkan");
     if (transaction.status === "Berhasil") throw new Error("Transaksi sudah berhasil");
     if (transaction.digitalStatus === "Gagal") throw new Error("Produk digital gagal tidak bisa diselesaikan");
@@ -242,38 +245,38 @@ function serviceStockMode(status: string): ServiceStockMode {
   return "released";
 }
 
-async function releaseServiceParts(tx: Prisma.TransactionClient, parts: Array<{ itemId: number; qty: number }>, mode: ServiceStockMode) {
+async function releaseServiceParts(tx: Prisma.TransactionClient, outletId: number, parts: Array<{ itemId: number; qty: number }>, mode: ServiceStockMode) {
   for (const part of parts) {
     if (mode === "reserved") {
       const updated = await tx.item.updateMany({
-        where: { id: part.itemId, reservedStock: { gte: part.qty } },
+        where: { id: part.itemId, outletId, reservedStock: { gte: part.qty } },
         data: { stok: { increment: part.qty }, reservedStock: { decrement: part.qty } }
       });
       if (updated.count !== 1) throw new Error("Reservation stok sparepart tidak valid");
     } else if (mode === "consumed") {
-      await tx.item.update({ where: { id: part.itemId }, data: { stok: { increment: part.qty } } });
+      await tx.item.updateMany({ where: { id: part.itemId, outletId }, data: { stok: { increment: part.qty } } });
     }
   }
 }
 
-async function allocateServiceParts(tx: Prisma.TransactionClient, parts: ServicePartInput[], mode: ServiceStockMode) {
+async function allocateServiceParts(tx: Prisma.TransactionClient, outletId: number, parts: ServicePartInput[], mode: ServiceStockMode) {
   if (mode === "released") return;
   for (const part of parts) {
     const data = mode === "reserved"
       ? { stok: { decrement: part.qty }, reservedStock: { increment: part.qty } }
       : { stok: { decrement: part.qty } };
     const updated = await tx.item.updateMany({
-      where: { id: part.itemId, stok: { gte: part.qty } },
+      where: { id: part.itemId, outletId, stok: { gte: part.qty } },
       data
     });
     if (updated.count !== 1) throw new Error("Stok sparepart tidak cukup atau sudah berubah");
   }
 }
 
-async function validateServiceParts(tx: Prisma.TransactionClient, parts: ServicePartInput[]) {
+async function validateServiceParts(tx: Prisma.TransactionClient, outletId: number, parts: ServicePartInput[]) {
   const ids = parts.map((part) => part.itemId);
   if (new Set(ids).size !== ids.length) throw new Error("Sparepart yang sama tidak boleh dipilih dua kali");
-  const items = await tx.item.findMany({ where: { id: { in: ids } }, include: { category: true } });
+  const items = await tx.item.findMany({ where: { id: { in: ids }, outletId }, include: { category: true } });
   if (items.length !== ids.length) throw new Error("Sparepart tidak ditemukan");
   if (items.some((item) => item.category.name === "Produk Digital")) throw new Error("Produk Digital tidak dapat digunakan sebagai sparepart");
 }
@@ -315,7 +318,7 @@ export async function upsertService(formData: FormData) {
   if (id) {
     await prisma.$transaction(async (tx) => {
       const existing = await tx.service.findUnique({ where: { id }, include: { parts: true } });
-      if (!existing) throw new Error("Service tidak ditemukan");
+      if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
       if (existing.status === "Batal") throw new Error("Service batal tidak dapat diubah");
       if (existing.paymentStatus === "paid") {
         const costsChanged = toNumber(existing.laborCost) !== fields.laborCost || !sameServiceParts(existing.parts, parts);
@@ -323,9 +326,9 @@ export async function upsertService(formData: FormData) {
         if (fields.status !== existing.status && fields.status !== "Diambil") throw new Error("Service lunas hanya dapat diubah ke status Diambil");
       }
 
-      await validateServiceParts(tx, parts);
-      await releaseServiceParts(tx, existing.parts, serviceStockMode(existing.status));
-      await allocateServiceParts(tx, parts, targetMode);
+      await validateServiceParts(tx, activeOutlet.id, parts);
+      await releaseServiceParts(tx, activeOutlet.id, existing.parts, serviceStockMode(existing.status));
+      await allocateServiceParts(tx, activeOutlet.id, parts, targetMode);
       await tx.service.update({
         where: { id },
         data: {
@@ -353,8 +356,8 @@ export async function upsertService(formData: FormData) {
       const kodeService = await nextCode("SRV", "service");
       try {
         await prisma.$transaction(async (tx) => {
-          await validateServiceParts(tx, parts);
-          await allocateServiceParts(tx, parts, targetMode);
+          await validateServiceParts(tx, activeOutlet.id, parts);
+          await allocateServiceParts(tx, activeOutlet.id, parts, targetMode);
           const service = await tx.service.create({
             data: {
               ...fields,
@@ -387,9 +390,10 @@ export async function upsertService(formData: FormData) {
 export async function markServicePaid(id: number) {
   await assertTrustedOrigin();
   const user = await requireUser();
+  const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const service = await tx.service.findUnique({ where: { id }, include: { financeRecords: true } });
-    if (!service) throw new Error("Service tidak ditemukan");
+    if (!service || service.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
     if (service.status === "Batal") throw new Error("Service batal tidak dapat dibayar");
     if (service.paymentStatus === "paid") throw new Error("Service sudah dibayar");
     if (toNumber(service.finalCost) <= 0) throw new Error("Biaya final wajib diisi sebelum pembayaran");
@@ -419,10 +423,11 @@ export async function markServicePaid(id: number) {
 export async function updateServiceStatus(id: number, status: string) {
   await assertTrustedOrigin();
   const user = await requireUser();
+  const { activeOutlet } = await outletContext(user);
   const targetStatus = serviceSchema.shape.status.parse(status);
   await prisma.$transaction(async (tx) => {
     const service = await tx.service.findUnique({ where: { id }, include: { parts: true } });
-    if (!service) throw new Error("Service tidak ditemukan");
+    if (!service || service.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
     if (service.status === "Batal") throw new Error("Service batal tidak dapat dibuka kembali");
     if (service.paymentStatus === "paid" && targetStatus !== service.status && targetStatus !== "Diambil") {
       throw new Error("Service lunas hanya dapat diubah ke status Diambil");
@@ -430,8 +435,8 @@ export async function updateServiceStatus(id: number, status: string) {
     const currentMode = serviceStockMode(service.status);
     const targetMode = serviceStockMode(targetStatus);
     if (currentMode !== targetMode) {
-      await releaseServiceParts(tx, service.parts, currentMode);
-      await allocateServiceParts(tx, service.parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: toNumber(part.price) })), targetMode);
+      await releaseServiceParts(tx, service.outletId!, service.parts, currentMode);
+      await allocateServiceParts(tx, service.outletId!, service.parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: toNumber(part.price) })), targetMode);
     }
     await tx.service.update({
       where: { id },
@@ -455,11 +460,12 @@ export async function deleteService(id: number) {
   try {
     await assertTrustedOrigin();
     const user = await requireAdmin();
+    const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const service = await tx.service.findUnique({ where: { id }, include: { parts: true, financeRecords: true } });
-      if (!service) throw new Error("Service tidak ditemukan");
+      if (!service || service.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
       if (service.financeRecords.length > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
-      await releaseServiceParts(tx, service.parts, serviceStockMode(service.status));
+      await releaseServiceParts(tx, service.outletId!, service.parts, serviceStockMode(service.status));
       await tx.service.delete({ where: { id } });
       await tx.auditLog.create({
         data: { userId: user.id, userEmail: user.email, action: "delete", entity: "service", entityId: id, metadata: { kodeService: service.kodeService } }
@@ -486,8 +492,11 @@ export async function upsertFinanceRecord(formData: FormData) {
     outletId: activeOutlet.id,
     userId: user.id
   };
-  if (parsed.id) await prisma.financeRecord.update({ where: { id: parsed.id }, data });
-  else await prisma.financeRecord.create({ data });
+  if (parsed.id) {
+    const existing = await prisma.financeRecord.findUnique({ where: { id: parsed.id }, select: { outletId: true, referenceType: true } });
+    if (!existing || existing.outletId !== activeOutlet.id || existing.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
+    await prisma.financeRecord.update({ where: { id: parsed.id }, data });
+  } else await prisma.financeRecord.create({ data });
   await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "finance_record", entityId: parsed.id ?? null });
   revalidatePath("/finance");
   revalidatePath("/dashboard");
@@ -497,6 +506,9 @@ export async function deleteFinanceRecord(id: number) {
   try {
     await assertTrustedOrigin();
     const user = await requireAdmin();
+    const { activeOutlet } = await outletContext(user);
+    const record = await prisma.financeRecord.findUnique({ where: { id }, select: { outletId: true, referenceType: true } });
+    if (!record || record.outletId !== activeOutlet.id || record.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
     await prisma.financeRecord.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "finance_record", entityId: id });
     revalidatePath("/finance");

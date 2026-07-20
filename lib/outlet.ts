@@ -17,8 +17,13 @@ export async function outletCookie() {
 export async function outletContext(user: OutletUser) {
   const outlets = await prisma.outlet.findMany({ orderBy: { name: "asc" } });
   if (outlets.length === 0) throw new Error("Outlet belum tersedia. Jalankan migration/seed terlebih dahulu.");
-  const requested = user.role.name === "admin" ? await outletCookie() : null;
-  const activeOutlet = outlets.find((item) => item.id === (requested ?? user.outletId)) ?? outlets[0];
+  if (user.role.name !== "admin") {
+    const activeOutlet = outlets.find((item) => item.id === user.outletId);
+    if (!activeOutlet) throw new Error("User belum terhubung ke cabang. Hubungi admin.");
+    return { activeOutlet, outlets: [activeOutlet] };
+  }
+  const requested = await outletCookie();
+  const activeOutlet = outlets.find((item) => item.id === requested) ?? outlets.find((item) => item.id === user.outletId) ?? outlets[0];
   return { activeOutlet, outlets };
 }
 

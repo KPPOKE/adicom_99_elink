@@ -1,7 +1,7 @@
 import { FinanceType, Prisma } from "@prisma/client";
 import { FinanceClient } from "@/components/finance-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -12,8 +12,7 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
   const type = query.type === "income" ? FinanceType.income : query.type === "expense" ? FinanceType.expense : undefined;
-  const user = await getCurrentUser();
-  if (!user) throw new Error("User tidak ditemukan");
+  const user = await requireAdmin();
   const { activeOutlet } = await outletContext(user);
   const where: Prisma.FinanceRecordWhereInput = { AND: [
     { outletId: activeOutlet.id },

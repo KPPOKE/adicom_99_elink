@@ -56,6 +56,39 @@ enum BankTransferStatus {
   Gagal
 }
 
+enum BankTransferKind {
+  Transfer
+  Tarik_Tunai
+}
+
+enum FundAccountType {
+  Cash
+  Bank
+  Ewallet
+  Pulsa_Server
+  Other
+}
+
+enum FundMutationType {
+  Opening
+  Transfer_Out
+  Transfer_In
+  Cash_Out
+  Cash_In
+  Deposit_In
+  Withdraw_Out
+  Move_In
+  Move_Out
+  Adjustment
+  Reversal
+}
+
+enum OperationalBearer {
+  Pengirim
+  Penerima
+  Tidak_Ada
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   name      RoleName @unique
@@ -76,6 +109,9 @@ model Outlet {
   services             Service[]
   bankTransfers        BankTransfer[]
   bankTransferDeposits BankTransferDeposit[]
+  fundAccounts         FundAccount[]
+  fundMutations        FundMutation[]
+  items                Item[]
   financeRecords       FinanceRecord[]
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
@@ -96,6 +132,7 @@ model User {
   services       Service[]
   bankTransfers  BankTransfer[]
   bankTransferDeposits BankTransferDeposit[]
+  fundMutations   FundMutation[]
   financeRecords FinanceRecord[]
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
@@ -148,7 +185,7 @@ model Customer {
 model Item {
   id               Int               @id @default(autoincrement())
   namaBarang       String            @map("nama_barang")
-  kodeBarang       String            @unique @map("kode_barang")
+  kodeBarang       String            @map("kode_barang")
   categoryId       Int               @map("kategori_id")
   category         Category          @relation(fields: [categoryId], references: [id])
   gambar           String?
@@ -159,6 +196,8 @@ model Item {
   satuan           String            @default("pcs")
   supplierId       Int?              @map("supplier_id")
   supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+  outletId         Int?              @map("outlet_id")
+  outlet           Outlet?           @relation(fields: [outletId], references: [id])
   deskripsi        String?           @db.Text
   transactionItems TransactionItem[]
   serviceParts     ServicePart[]
@@ -166,7 +205,9 @@ model Item {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
+  @@unique([outletId, kodeBarang])
   @@index([categoryId])
+  @@index([outletId])
   @@index([supplierId])
   @@index([stok])
   @@index([createdAt])
@@ -291,6 +332,12 @@ model ServicePart {
 model BankTransfer {
   id              Int                @id @default(autoincrement())
   kodeTransfer    String             @unique @map("kode_transfer")
+  kind            BankTransferKind    @default(Transfer)
+  transactionType String?             @map("transaction_type")
+  sourceFundId    Int?                @map("source_fund_id")
+  sourceFund      FundAccount?        @relation("BankTransferSourceFund", fields: [sourceFundId], references: [id])
+  targetFundId    Int?                @map("target_fund_id")
+  targetFund      FundAccount?        @relation("BankTransferTargetFund", fields: [targetFundId], references: [id])
   customerId      Int?               @map("customer_id")
   customer        Customer?          @relation(fields: [customerId], references: [id])
   senderName      String?            @map("sender_name")
@@ -300,6 +347,8 @@ model BankTransfer {
   accountName     String             @map("account_name")
   amount          Decimal            @db.Decimal(14, 2)
   adminFee        Decimal            @default(0) @db.Decimal(14, 2) @map("admin_fee")
+  adminBankFee    Decimal            @default(0) @db.Decimal(14, 2) @map("admin_bank_fee")
+  externalAdminFee Decimal           @default(0) @db.Decimal(14, 2) @map("external_admin_fee")
   totalReceived   Decimal            @db.Decimal(14, 2) @map("total_received")
   status          BankTransferStatus @default(Pending)
   note            String?            @db.Text
@@ -309,6 +358,7 @@ model BankTransfer {
   outletId        Int?              @map("outlet_id")
   outlet          Outlet?           @relation(fields: [outletId], references: [id])
   financeRecord   FinanceRecord?
+  fundMutations    FundMutation[]
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
@@ -338,6 +388,54 @@ model BankTransferDeposit {
   @@map("bank_transfer_deposits")
 }
 
+model FundAccount {
+  id              Int             @id @default(autoincrement())
+  outletId        Int             @map("outlet_id")
+  outlet          Outlet          @relation(fields: [outletId], references: [id])
+  name            String
+  type            FundAccountType
+  balance         Decimal         @default(0) @db.Decimal(14, 2)
+  openingBalance  Decimal         @default(0) @db.Decimal(14, 2) @map("opening_balance")
+  note            String?         @db.Text
+  isActive        Boolean         @default(true) @map("is_active")
+  sourceTransfers BankTransfer[]  @relation("BankTransferSourceFund")
+  targetTransfers BankTransfer[]  @relation("BankTransferTargetFund")
+  mutations       FundMutation[]
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@unique([outletId, name])
+  @@index([outletId, type])
+  @@index([isActive])
+  @@map("fund_accounts")
+}
+
+model FundMutation {
+  id             Int              @id @default(autoincrement())
+  outletId       Int              @map("outlet_id")
+  outlet         Outlet           @relation(fields: [outletId], references: [id])
+  fundAccountId  Int              @map("fund_account_id")
+  fundAccount    FundAccount      @relation(fields: [fundAccountId], references: [id])
+  type           FundMutationType
+  amount         Decimal          @db.Decimal(14, 2)
+  adminFee       Decimal          @default(0) @db.Decimal(14, 2) @map("admin_fee")
+  balanceBefore  Decimal          @db.Decimal(14, 2) @map("balance_before")
+  balanceAfter   Decimal          @db.Decimal(14, 2) @map("balance_after")
+  referenceType  String?          @map("reference_type")
+  referenceId    Int?             @map("reference_id")
+  bankTransferId Int?             @map("bank_transfer_id")
+  bankTransfer   BankTransfer?    @relation(fields: [bankTransferId], references: [id], onDelete: SetNull)
+  note           String?          @db.Text
+  userId         Int              @map("user_id")
+  user           User             @relation(fields: [userId], references: [id])
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@index([outletId, createdAt])
+  @@index([fundAccountId, createdAt])
+  @@index([bankTransferId])
+  @@index([referenceType, referenceId])
+  @@map("fund_mutations")
+}
 model FinanceRecord {
   id            Int          @id @default(autoincrement())
   type          FinanceType
@@ -403,3 +501,11 @@ model Setting {
 
   @@map("settings")
 }
+
+
+
+
+
+
+
+

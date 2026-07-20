@@ -11,6 +11,14 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password minimal 6 karakter")
 });
 
+
+export const outletSchema = z.object({
+  id: z.coerce.number<number>().optional(),
+  code: z.string().trim().min(2, "Kode cabang wajib diisi").max(40).regex(/^[A-Z0-9_-]+$/i, "Kode hanya boleh huruf, angka, underscore, dan strip"),
+  name: z.string().trim().min(2, "Nama cabang wajib diisi").max(100),
+  address: z.string().trim().max(500, "Alamat maksimal 500 karakter").optional()
+});
+export type OutletFormValues = z.output<typeof outletSchema>;
 export const userSchema = z.object({
   id: z.coerce.number<number>().optional(),
   name: z.string().min(2, "Nama user wajib diisi"),
@@ -85,23 +93,63 @@ export type FinanceFormValues = z.output<typeof financeSchema>;
 
 export const bankTransferSchema = z.object({
   id: z.coerce.number<number>().optional(),
+  kind: z.enum(["Transfer", "Tarik_Tunai"]).default("Transfer"),
+  transactionType: z.string().trim().max(80).optional(),
+  sourceFundId: z.coerce.number<number>().int().min(1, "Sumber dana wajib dipilih"),
+  targetFundId: z.coerce.number<number>().int().min(1, "Terima dana wajib dipilih"),
   customerId: z.coerce.number<number>().optional().nullable(),
   senderName: z.string().trim().max(100, "Nama pengirim maksimal 100 karakter").optional(),
   senderPhone: z.string().trim().max(30, "Nomor telepon maksimal 30 karakter").optional(),
   destinationBank: z.string().trim().min(2, "Bank tujuan wajib diisi").max(80),
   accountNumber: z.string().trim().regex(/^\d{5,30}$/, "Nomor rekening harus 5-30 digit"),
   accountName: z.string().trim().min(2, "Nama pemilik rekening wajib diisi").max(100),
-  amount: numeric.pipe(z.number().min(1, "Nominal transfer wajib diisi")),
+  amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
   adminFee: money,
+  adminBankFee: money.default(0),
+  externalAdminFee: money.default(0),
   note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional()
+}).superRefine((value, context) => {
+  if (value.sourceFundId === value.targetFundId) {
+    context.addIssue({ code: "custom", path: ["targetFundId"], message: "Sumber dan terima dana harus berbeda" });
+  }
 });
 export type BankTransferFormValues = z.output<typeof bankTransferSchema>;
 
 export const bankTransferDepositSchema = z.object({
+  fundAccountId: z.coerce.number<number>().int().min(1, "Sumber dana wajib dipilih").optional(),
   amount: numeric.pipe(z.number().min(1, "Nominal deposit wajib diisi")),
   note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional()
 });
 export type BankTransferDepositFormValues = z.output<typeof bankTransferDepositSchema>;
+
+export const fundAccountSchema = z.object({
+  id: z.coerce.number<number>().optional(),
+  name: z.string().trim().min(2, "Nama sumber dana wajib diisi").max(80),
+  type: z.enum(["Cash", "Bank", "Ewallet", "Pulsa_Server", "Other"]),
+  balance: money.default(0),
+  note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional(),
+  isActive: z.coerce.boolean().default(true)
+});
+export type FundAccountFormValues = z.output<typeof fundAccountSchema>;
+
+export const fundMutationSchema = z.object({
+  mode: z.enum(["Tambah", "Ambil", "Pindah"]),
+  sourceFundId: z.coerce.number<number>().int().min(1).optional(),
+  targetFundId: z.coerce.number<number>().int().min(1).optional(),
+  amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
+  adminFee: money.default(0),
+  operationalBearer: z.enum(["Pengirim", "Penerima", "Tidak_Ada"]).default("Tidak_Ada"),
+  note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional()
+}).superRefine((value, context) => {
+  if (value.mode === "Tambah" && !value.targetFundId) context.addIssue({ code: "custom", path: ["targetFundId"], message: "Tujuan saldo wajib dipilih" });
+  if (value.mode === "Ambil" && !value.sourceFundId) context.addIssue({ code: "custom", path: ["sourceFundId"], message: "Sumber saldo wajib dipilih" });
+  if (value.mode === "Pindah") {
+    if (!value.sourceFundId) context.addIssue({ code: "custom", path: ["sourceFundId"], message: "Sumber saldo wajib dipilih" });
+    if (!value.targetFundId) context.addIssue({ code: "custom", path: ["targetFundId"], message: "Tujuan saldo wajib dipilih" });
+    if (value.sourceFundId && value.sourceFundId === value.targetFundId) context.addIssue({ code: "custom", path: ["targetFundId"], message: "Tujuan harus berbeda" });
+  }
+});
+export type FundMutationFormValues = z.output<typeof fundMutationSchema>;
 
 export const serviceSchema = z.object({
   id: z.coerce.number<number>().optional(),
@@ -158,3 +206,4 @@ export const transactionSchema = z.object({
   }
 });
 export type TransactionPayload = z.output<typeof transactionSchema>;
+

@@ -3,10 +3,11 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireUser } from "@/lib/auth";
+import { applyFundDelta, cashWithdrawalLedger, transferLedger } from "@/lib/fund-ledger";
+import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
-import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
 import { bankTransferDepositSchema, bankTransferSchema } from "@/lib/validators";
 
 async function nextTransferCode() {
@@ -21,10 +22,28 @@ async function nextTransferCode() {
 }
 
 function revalidateTransferPaths() {
-  revalidatePath("/bank-transfers");
-  revalidatePath("/finance");
-  revalidatePath("/reports");
-  revalidatePath("/dashboard");
+  ["/bank-transfers", "/funds", "/fund-mutations", "/finance", "/reports", "/dashboard"].forEach((path) => revalidatePath(path));
+}
+
+function profitRecord(profit: number, transfer: { id: number; kodeTransfer: string; outletId: number | null }, userId: number) {
+  if (profit === 0) return null;
+  return {
+    type: profit > 0 ? "income" as const : "expense" as const,
+    category: profit > 0 ? "Profit MiniATM" : "Rugi MiniATM",
+    amount: Math.abs(profit),
+    description: `MiniATM ${transfer.kodeTransfer}`,
+    referenceType: "bank_transfer",
+    referenceId: transfer.id,
+    bankTransferId: transfer.id,
+    outletId: transfer.outletId,
+    userId
+  };
+}
+
+async function defaultFundId(outletId: number, name: string) {
+  const fund = await prisma.fundAccount.findFirst({ where: { outletId, name, isActive: true }, select: { id: true } });
+  if (!fund) throw new Error(`Sumber dana ${name} belum tersedia`);
+  return fund.id;
 }
 
 export async function upsertBankTransfer(payload: unknown) {
@@ -32,7 +51,12 @@ export async function upsertBankTransfer(payload: unknown) {
   const user = await requireUser();
   const { activeOutlet } = await outletContext(user);
   const parsed = bankTransferSchema.parse(payload);
+  const totalReceived = parsed.amount + parsed.adminFee + (parsed.kind === "Transfer" ? 0 : parsed.externalAdminFee);
   const data = {
+    kind: parsed.kind,
+    transactionType: parsed.transactionType || null,
+    sourceFundId: parsed.sourceFundId,
+    targetFundId: parsed.targetFundId,
     customerId: parsed.customerId || null,
     senderName: parsed.senderName || null,
     senderPhone: parsed.senderPhone || null,
@@ -41,7 +65,9 @@ export async function upsertBankTransfer(payload: unknown) {
     accountName: parsed.accountName,
     amount: parsed.amount,
     adminFee: parsed.adminFee,
-    totalReceived: parsed.amount + parsed.adminFee,
+    adminBankFee: parsed.adminBankFee,
+    externalAdminFee: parsed.externalAdminFee,
+    totalReceived,
     outletId: activeOutlet.id,
     note: parsed.note || null
   };
@@ -52,9 +78,7 @@ export async function upsertBankTransfer(payload: unknown) {
       if (!existing) throw new Error("Transfer tidak ditemukan");
       if (existing.status !== "Pending") throw new Error("Transfer yang sudah final tidak dapat diedit");
       await tx.bankTransfer.update({ where: { id: parsed.id }, data });
-      await tx.auditLog.create({
-        data: { userId: user.id, userEmail: user.email, action: "update", entity: "bank_transfer", entityId: parsed.id, metadata: { kodeTransfer: existing.kodeTransfer } }
-      });
+      await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, action: "update", entity: "bank_transfer", entityId: parsed.id, metadata: { kodeTransfer: existing.kodeTransfer } } });
     });
     revalidateTransferPaths();
     return;
@@ -65,9 +89,7 @@ export async function upsertBankTransfer(payload: unknown) {
     try {
       await prisma.$transaction(async (tx) => {
         const transfer = await tx.bankTransfer.create({ data: { ...data, kodeTransfer, userId: user.id } });
-        await tx.auditLog.create({
-          data: { userId: user.id, userEmail: user.email, action: "create", entity: "bank_transfer", entityId: transfer.id, metadata: { kodeTransfer } }
-        });
+        await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, action: "create", entity: "bank_transfer", entityId: transfer.id, metadata: { kodeTransfer, kind: parsed.kind } } });
       });
       revalidateTransferPaths();
       return;
@@ -83,40 +105,26 @@ export async function finalizeBankTransfer(id: number, status: "Berhasil" | "Gag
   await assertTrustedOrigin();
   const user = await requireUser();
   await prisma.$transaction(async (tx) => {
-    const transfer = await tx.bankTransfer.findUnique({ where: { id } });
+    const transfer = await tx.bankTransfer.findUnique({ where: { id }, include: { fundMutations: true } });
     if (!transfer) throw new Error("Transfer tidak ditemukan");
     if (transfer.status !== "Pending") throw new Error("Transfer sudah diproses");
-
-    if (status === "Berhasil") {
-      const start = startOfToday();
-      const end = tomorrowOf(start);
-      const [deposit, used] = await Promise.all([
-        tx.bankTransferDeposit.aggregate({ where: { outletId: transfer.outletId ?? undefined, date: { gte: start, lt: end } }, _sum: { amount: true } }),
-        tx.bankTransfer.aggregate({ where: { outletId: transfer.outletId, status: "Berhasil", completedAt: { gte: start, lt: end } }, _sum: { amount: true } })
-      ]);
-      const available = toNumber(deposit._sum.amount) - toNumber(used._sum.amount);
-      if (available < toNumber(transfer.amount)) throw new Error("Saldo deposit transfer tidak cukup");
-    }
+    if (transfer.fundMutations.length) throw new Error("Mutasi transfer sudah ada");
 
     await tx.bankTransfer.update({ where: { id }, data: { status, completedAt: new Date() } });
-    if (status === "Berhasil" && toNumber(transfer.adminFee) > 0) {
-      await tx.financeRecord.create({
-        data: {
-          type: "income",
-          category: "Biaya Admin Transfer",
-          amount: transfer.adminFee,
-          description: `Biaya admin ${transfer.kodeTransfer}`,
-          referenceType: "bank_transfer",
-          referenceId: transfer.id,
-          bankTransferId: transfer.id,
-          outletId: transfer.outletId,
-          userId: user.id
-        }
-      });
+    let profit = 0;
+    if (status === "Berhasil") {
+      const amount = toNumber(transfer.amount);
+      if (!transfer.sourceFundId || !transfer.targetFundId) throw new Error("Sumber dan terima dana wajib diisi");
+      const ledger = transfer.kind === "Tarik_Tunai"
+        ? cashWithdrawalLedger(amount, toNumber(transfer.adminFee), toNumber(transfer.externalAdminFee))
+        : transferLedger(amount, toNumber(transfer.adminFee), toNumber(transfer.adminBankFee));
+      profit = ledger.profit;
+      await applyFundDelta(tx, { outletId: transfer.outletId!, fundAccountId: transfer.sourceFundId, type: transfer.kind === "Tarik_Tunai" ? "Cash_Out" : "Transfer_Out", delta: ledger.sourceDelta, adminFee: toNumber(transfer.adminBankFee), referenceType: "bank_transfer", referenceId: id, bankTransferId: id, note: transfer.note, userId: user.id });
+      await applyFundDelta(tx, { outletId: transfer.outletId!, fundAccountId: transfer.targetFundId, type: transfer.kind === "Tarik_Tunai" ? "Cash_In" : "Transfer_In", delta: ledger.targetDelta, adminFee: toNumber(transfer.adminFee), referenceType: "bank_transfer", referenceId: id, bankTransferId: id, note: transfer.note, userId: user.id });
+      const finance = profitRecord(profit, transfer, user.id);
+      if (finance) await tx.financeRecord.create({ data: finance });
     }
-    await tx.auditLog.create({
-      data: { userId: user.id, userEmail: user.email, action: status === "Berhasil" ? "complete" : "fail", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer } }
-    });
+    await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, action: status === "Berhasil" ? "complete" : "fail", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer, profit } } });
   });
   revalidateTransferPaths();
 }
@@ -125,14 +133,15 @@ export async function reopenBankTransfer(id: number) {
   await assertTrustedOrigin();
   const user = await requireAdmin();
   await prisma.$transaction(async (tx) => {
-    const transfer = await tx.bankTransfer.findUnique({ where: { id } });
+    const transfer = await tx.bankTransfer.findUnique({ where: { id }, include: { fundMutations: true } });
     if (!transfer) throw new Error("Transfer tidak ditemukan");
     if (transfer.status === "Pending") throw new Error("Transfer masih berstatus Pending");
+    for (const mutation of transfer.fundMutations.slice().reverse()) {
+      await applyFundDelta(tx, { outletId: mutation.outletId, fundAccountId: mutation.fundAccountId, type: "Reversal", delta: toNumber(mutation.balanceBefore) - toNumber(mutation.balanceAfter), referenceType: "bank_transfer_reopen", referenceId: id, bankTransferId: id, note: `Rollback ${transfer.kodeTransfer}`, userId: user.id });
+    }
     await tx.financeRecord.deleteMany({ where: { bankTransferId: id } });
     await tx.bankTransfer.update({ where: { id }, data: { status: "Pending", completedAt: null } });
-    await tx.auditLog.create({
-      data: { userId: user.id, userEmail: user.email, action: "reopen", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer } }
-    });
+    await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, action: "reopen", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer } } });
   });
   revalidateTransferPaths();
 }
@@ -142,17 +151,12 @@ export async function createBankTransferDeposit(payload: unknown) {
   const user = await requireUser();
   const { activeOutlet } = await outletContext(user);
   const parsed = bankTransferDepositSchema.parse(payload);
-  await prisma.bankTransferDeposit.create({
-    data: {
-      outletId: activeOutlet.id,
-      amount: parsed.amount,
-      date: startOfToday(),
-      note: parsed.note || null,
-      userId: user.id
-    }
-  });
-  await prisma.auditLog.create({
-    data: { userId: user.id, userEmail: user.email, action: "create", entity: "bank_transfer_deposit", metadata: { outletId: activeOutlet.id, amount: parsed.amount } }
+  const fundAccountId = parsed.fundAccountId || await defaultFundId(activeOutlet.id, "BRI");
+  await prisma.$transaction(async (tx) => {
+    await tx.bankTransferDeposit.create({ data: { outletId: activeOutlet.id, amount: parsed.amount, date: new Date(), note: parsed.note || null, userId: user.id } });
+    await applyFundDelta(tx, { outletId: activeOutlet.id, fundAccountId, type: "Deposit_In", delta: parsed.amount, referenceType: "manual_deposit", note: parsed.note, userId: user.id });
+    await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, action: "create", entity: "bank_transfer_deposit", metadata: { outletId: activeOutlet.id, fundAccountId, amount: parsed.amount } } });
   });
   revalidateTransferPaths();
 }
+

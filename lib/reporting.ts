@@ -73,7 +73,7 @@ export async function loadReportData(filters: ReportFilters) {
       where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere,
       orderBy: { receivedDate: "desc" }
     }),
-    prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
+    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
     prisma.financeRecord.findMany({
       where: dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere,
       orderBy: { date: "desc" }
@@ -107,7 +107,7 @@ export async function loadReportPreview(filters: ReportFilters) {
   const [transactions, services, items, finance, totals, grouped] = await Promise.all([
     prisma.transaction.findMany({ where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere, orderBy: { createdAt: "desc" }, take: 8 }),
     prisma.service.findMany({ where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere, orderBy: { receivedDate: "desc" }, take: 8 }),
-    prisma.item.findMany({ include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
+    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
     prisma.financeRecord.findMany({ where: financeWhere, orderBy: { date: "desc" }, take: 8 }),
     prisma.financeRecord.groupBy({ by: ["type"], where: financeWhere, _sum: { amount: true } }),
     prisma.financeRecord.groupBy({ by: ["type", "referenceType"], where: financeWhere, _sum: { amount: true } })
