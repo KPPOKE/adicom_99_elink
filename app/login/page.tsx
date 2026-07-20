@@ -37,10 +37,7 @@ export default function LoginPage() {
         </div>
 
         <section className="relative flex min-h-[360px] flex-col justify-center px-8 py-10 sm:px-14 lg:px-20">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-blue-400/40 bg-blue-600/20 text-2xl font-bold text-blue-200 shadow-[0_0_36px_rgba(37,99,235,0.32)]">
-              P
-            </div>
+          <div className="flex items-center">
             <div>
               <p className="text-3xl font-bold leading-none">
                 Pos<span className="text-blue-400">Pintar</span>

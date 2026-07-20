@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, CalendarDays, Menu, ReceiptText, X } from "lucide-react";
+import { Building2, CalendarDays, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { canAccessNav, nav, SidebarFooter } from "@/components/layout/sidebar";
 import { NotificationBell } from "@/components/ui/notification-bell";
@@ -31,7 +31,6 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets }: 
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 font-bold text-white shadow-sm md:hidden">P</div>
             <div className="md:hidden">
               <span className="truncate font-semibold text-slate-100">PosPintar</span>
               <span className="block text-[10px] text-slate-400">Management</span>
@@ -92,10 +91,7 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets }: 
           )}
         >
           <div className="flex h-16 items-center justify-between gap-3 border-b border-slate-800/60 px-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-400/30 bg-blue-600/20 text-blue-300">
-                <ReceiptText className="h-5 w-5" />
-              </div>
+            <div className="flex min-w-0 items-center">
               <div className="flex flex-col space-y-0.5 leading-none">
                 <p className="truncate font-semibold text-slate-100">PosPintar</p>
                 <p className="truncate text-xs text-slate-400">Management System</p>

@@ -50,8 +50,7 @@ export function Sidebar({ userName, role, outletName }: { userName: string; role
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-800/60 bg-slate-950/60 backdrop-blur-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] lg:flex">
-      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-800/60 px-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-400/30 bg-blue-600/20 text-blue-300 shadow-[0_0_24px_rgba(37,99,235,0.22)]"><span className="text-lg font-bold">P</span></div>
+      <div className="flex h-16 shrink-0 items-center border-b border-slate-800/60 px-5">
         <div><p className="font-semibold text-slate-100">PosPintar</p><p className="text-xs text-slate-400">Management System</p></div>
       </div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
