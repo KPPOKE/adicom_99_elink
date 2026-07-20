@@ -156,97 +156,7 @@ export function FinanceClient({ records, role, pagination, filterValues, categor
         <Summary label="Pengeluaran" value={expense} />
         <Summary label="Laba Bersih" value={income - expense} />
       </div>
-      {role === "admin" ? <div className="flex justify-end">
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenChange(true)}>
-              <Plus className="h-4 w-4" />
-              Catat Manual
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editing ? "Edit Catatan Keuangan" : "Catatan Keuangan Manual"}</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipe</FormLabel>
-                      <Select onChange={(e) => field.onChange(e.target.value)} value={field.value}>
-                        <option value="income">Pemasukan</option>
-                        <option value="expense">Pengeluaran</option>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kategori</FormLabel>
-                      <FormControl>
-                        <Input placeholder="cth: Listrik, Gaji, dll" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nominal</FormLabel>
-                      <FormControl>
-                        <CurrencyInput name="amount" value={field.value} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tanggal</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Deskripsi</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Keterangan..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button type="submit" disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div> : null}
       <DataTable
         columns={columns}
         data={records}
@@ -267,6 +177,97 @@ export function FinanceClient({ records, role, pagination, filterValues, categor
                 </option>
               ))}
             </Select>
+            {role === "admin" ? (
+              <Dialog open={open} onOpenChange={handleOpenChange}>
+                <DialogTrigger asChild>
+                  <Button type="button" onClick={() => handleOpenChange(true)}>
+                    <Plus className="h-4 w-4" />
+                    Catat Manual
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>{editing ? "Edit Catatan Keuangan" : "Catatan Keuangan Manual"}</DialogTitle>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+                      <FormField
+                        control={form.control}
+                        name="type"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipe</FormLabel>
+                            <Select onChange={(e) => field.onChange(e.target.value)} value={field.value}>
+                              <option value="income">Pemasukan</option>
+                              <option value="expense">Pengeluaran</option>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="category"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Kategori</FormLabel>
+                            <FormControl>
+                              <Input placeholder="cth: Listrik, Gaji, dll" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="amount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nominal</FormLabel>
+                            <FormControl>
+                              <CurrencyInput name="amount" value={field.value} onChange={field.onChange} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="date"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tanggal</FormLabel>
+                            <FormControl>
+                              <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Deskripsi</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="Keterangan..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button type="submit" disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            ) : null}
           </>
         }
       />

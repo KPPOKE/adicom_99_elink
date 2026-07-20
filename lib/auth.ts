@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 
 const COOKIE_NAME = "pospintar_session";
 const DAY = 24 * 60 * 60 * 1000;
+const SHORT_SESSION = 12 * 60 * 60 * 1000;
+const REMEMBER_SESSION = 30 * DAY;
 
 type SessionPayload = {
   userId: number;
@@ -27,8 +29,8 @@ function sign(payload: string) {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
-export function createSessionToken(payload: Omit<SessionPayload, "exp">) {
-  const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + DAY * 7 })).toString("base64url");
+export function createSessionToken(payload: Omit<SessionPayload, "exp">, ttlMs = SHORT_SESSION) {
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + ttlMs })).toString("base64url");
   return `${body}.${sign(body)}`;
 }
 
@@ -50,14 +52,14 @@ export function verifySessionToken(token?: string): SessionPayload | null {
   }
 }
 
-export async function setSession(userId: number, role: "admin" | "staff") {
+export async function setSession(userId: number, role: "admin" | "staff", remember = false) {
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, createSessionToken({ userId, role }), {
+  cookieStore.set(COOKIE_NAME, createSessionToken({ userId, role }, remember ? REMEMBER_SESSION : SHORT_SESSION), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7
+    ...(remember ? { maxAge: Math.floor(REMEMBER_SESSION / 1000) } : {})
   });
 }
 

@@ -125,42 +125,48 @@ export function SimpleCrud({
 
   return (
     <>
-      {canManage ? (
-      <div className="mb-4 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                setEditing(null);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Tambah
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editing ? `Edit ${title}` : `Tambah ${title}`}</DialogTitle>
-            </DialogHeader>
-            <form action={submit} className="grid gap-4">
-              {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
-              {fields.map((field) => (
-                <div className="space-y-1.5" key={field.name}>
-                  <Label>{field.label}</Label>
-                  {field.type === "textarea" ? (
-                    <Textarea name={field.name} defaultValue={String(editing?.[field.name] ?? "")} />
-                  ) : (
-                    <Input type={field.type ?? "text"} name={field.name} defaultValue={String(editing?.[field.name] ?? "")} />
-                  )}
-                </div>
-              ))}
-              <Button disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-      ) : null}
-      <DataTable columns={columns} data={data} searchPlaceholder={`Cari ${title.toLowerCase()}...`} serverPagination={pagination} />
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder={`Cari ${title.toLowerCase()}...`}
+        serverPagination={pagination}
+        filters={
+          canManage ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEditing(null);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Tambah
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editing ? `Edit ${title}` : `Tambah ${title}`}</DialogTitle>
+                </DialogHeader>
+                <form action={submit} className="grid gap-4">
+                  {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
+                  {fields.map((field) => (
+                    <div className="space-y-1.5" key={field.name}>
+                      <Label>{field.label}</Label>
+                      {field.type === "textarea" ? (
+                        <Textarea name={field.name} defaultValue={String(editing?.[field.name] ?? "")} />
+                      ) : (
+                        <Input type={field.type ?? "text"} name={field.name} defaultValue={String(editing?.[field.name] ?? "")} />
+                      )}
+                    </div>
+                  ))}
+                  <Button disabled={isPending}>{isPending ? "Menyimpan..." : "Simpan"}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : undefined
+        }
+      />
     </>
   );
 }

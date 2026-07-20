@@ -3,15 +3,14 @@ import { DashboardCharts } from "@/components/dashboard-charts";
 import { StatCard } from "@/components/shared/stat-card";
 import { ServiceStatusBadge, StockBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDateTime, toNumber, todayRange } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const { start, end } = todayRange();
-  const user = await getCurrentUser();
-  if (!user) throw new Error("User tidak ditemukan");
+  const user = await requireUser();
   const { activeOutlet } = await outletContext(user);
   const outletWhere = { outletId: activeOutlet.id };
   const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems, fundAccounts] =

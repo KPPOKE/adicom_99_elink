@@ -1,7 +1,7 @@
 ﻿import { PaymentStatus, Prisma, ServiceStatus } from "@prisma/client";
 import { ServiceClient } from "@/components/service-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -11,8 +11,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
-  const user = await getCurrentUser();
-  if (!user) throw new Error("User tidak ditemukan");
+  const user = await requireUser();
   const { activeOutlet } = await outletContext(user);
   const status = Object.values(ServiceStatus).find((value) => value === query.status);
   const payment = Object.values(PaymentStatus).find((value) => value === query.payment);

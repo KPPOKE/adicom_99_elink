@@ -183,7 +183,7 @@ export function TransactionClient({
 
   return (
     <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <Card className="min-w-0 xl:order-2">
+      <Card className="min-w-0 xl:order-2 xl:mt-14">
         <CardHeader>
           <CardTitle>Transaksi Baru</CardTitle>
         </CardHeader>

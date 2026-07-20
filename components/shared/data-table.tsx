@@ -15,19 +15,27 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
+import { cn } from "@/lib/utils";
+
+type ColumnMeta = {
+  headerClassName?: string;
+  cellClassName?: string;
+};
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchPlaceholder = "Cari data...",
   filters,
-  serverPagination
+  serverPagination,
+  tableClassName
 }: {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchPlaceholder?: string;
   filters?: ReactNode;
   serverPagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
+  tableClassName?: string;
 }) {
   const [globalFilter, setGlobalFilter] = useState("");
   const table = useReactTable({
@@ -54,23 +62,26 @@ export function DataTable<TData, TValue>({
     <div className="min-w-0 space-y-4">
       <Toolbar className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input className="pl-9" name={serverPagination ? "q" : undefined} placeholder={searchPlaceholder} defaultValue={serverPagination?.query.q} value={serverPagination ? undefined : globalFilter} onChange={serverPagination ? undefined : (event) => setGlobalFilter(event.target.value)} />
+          <Input className={cn(serverPagination ? "pr-11" : undefined)} name={serverPagination ? "q" : undefined} placeholder={searchPlaceholder} defaultValue={serverPagination?.query.q} value={serverPagination ? undefined : globalFilter} onChange={serverPagination ? undefined : (event) => setGlobalFilter(event.target.value)} />
+          {serverPagination ? <Button type="submit" variant="ghost" size="icon" aria-label="Cari" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-cyan-300 hover:bg-cyan-500/10"><Search className="h-4 w-4" /></Button> : null}
         </div>
         {filters ? <div className="flex flex-wrap gap-2">{filters}</div> : null}
-        {serverPagination ? <Button type="submit" variant="outline">Cari</Button> : null}
       </Toolbar>
       <div className="relative overflow-hidden rounded-xl border border-slate-700/60 bg-slate-900/60 shadow-lg">
         <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className={cn("w-full min-w-[760px] text-sm", tableClassName)}>
             <thead className="bg-slate-900/80 text-left text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 font-semibold">
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
+                  {headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef.meta as ColumnMeta | undefined;
+
+                    return (
+                      <th key={header.id} className={cn("px-4 py-3 font-semibold", meta?.headerClassName)}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
             </thead>
@@ -78,11 +89,15 @@ export function DataTable<TData, TValue>({
               {table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
                   <tr key={row.id} className="transition-colors hover:bg-slate-800/50 group">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3 align-middle text-slate-300">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const meta = cell.column.columnDef.meta as ColumnMeta | undefined;
+
+                      return (
+                        <td key={cell.id} className={cn("px-4 py-3 align-middle text-slate-300", meta?.cellClassName)}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))
               ) : (

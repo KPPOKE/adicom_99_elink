@@ -1,7 +1,7 @@
 import { BankTransferKind, BankTransferStatus, Prisma } from "@prisma/client";
 import { BankTransferClient } from "@/components/bank-transfer-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
 import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
@@ -13,8 +13,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
   const query = queryValues(params);
   const status = Object.values(BankTransferStatus).includes(query.status as BankTransferStatus) ? query.status as BankTransferStatus : undefined;
   const kind = Object.values(BankTransferKind).includes(query.kind as BankTransferKind) ? query.kind as BankTransferKind : undefined;
-  const user = await getCurrentUser();
-  if (!user) throw new Error("User tidak ditemukan");
+  const user = await requireUser();
   const { activeOutlet } = await outletContext(user);
   const start = startOfToday();
   const end = tomorrowOf(start);

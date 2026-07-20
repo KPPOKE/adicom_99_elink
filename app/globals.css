@@ -95,6 +95,16 @@ textarea {
   font: inherit;
 }
 
+select option {
+  background: #0f172a;
+  color: #e5eefb;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1) opacity(0.75);
+}
+
 @media print {
   aside,
   header,

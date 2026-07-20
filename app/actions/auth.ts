@@ -44,7 +44,7 @@ export async function loginAction(_: unknown, formData: FormData) {
   }
 
   resetRateLimit(rateKey);
-  await setSession(user.id, user.role.name);
+  await setSession(user.id, user.role.name, parsed.data.remember);
   void writeAuditLog({ userId: user.id, userEmail: user.email, action: "login_success", entity: "auth", metadata: { ip } });
   redirect("/dashboard");
 }

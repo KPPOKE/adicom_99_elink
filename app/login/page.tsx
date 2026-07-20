@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { ArrowRight, Lock, Mail, ShieldCheck } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,22 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
+
+  useEffect(() => {
+    const email = localStorage.getItem("pospintar_remember_email");
+    if (!email) return;
+    const emailInput = document.querySelector<HTMLInputElement>('input[name="email"]');
+    const rememberInput = document.querySelector<HTMLInputElement>('input[name="remember"]');
+    if (emailInput) emailInput.value = email;
+    if (rememberInput) rememberInput.checked = true;
+  }, []);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const form = event.currentTarget;
+    const email = form.email.value;
+    if (form.remember.checked) localStorage.setItem("pospintar_remember_email", email);
+    else localStorage.removeItem("pospintar_remember_email");
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_0%,rgba(37,99,235,0.22),transparent_34rem),linear-gradient(135deg,#070b14_0%,#0b1220_48%,#111827_100%)] p-4 text-slate-100 sm:p-6">
@@ -55,7 +71,7 @@ export default function LoginPage() {
               <p className="mt-2 text-sm text-slate-400">Masuk untuk melanjutkan ke akun Anda</p>
             </div>
 
-            <form action={formAction} className="mt-6 space-y-4">
+            <form action={formAction} onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div className="space-y-1.5">
                 <Label>Email</Label>
                 <div className="relative group">
@@ -67,12 +83,12 @@ export default function LoginPage() {
                 <Label>Password</Label>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="pl-10 h-11" name="password" type="password" placeholder="••••••••" required />
+                  <Input className="pl-10 h-11" name="password" type="password" placeholder="********" required />
                 </div>
               </div>
               <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
                 <label className="flex items-center gap-2">
-                  <input className="h-4 w-4 rounded border-slate-700 bg-slate-950 accent-blue-500" type="checkbox" />
+                  <input className="h-4 w-4 rounded border-slate-700 bg-slate-950 accent-blue-500" type="checkbox" name="remember" value="true" />
                   Ingat saya
                 </label>
                 <span className="text-blue-400">Lupa password?</span>

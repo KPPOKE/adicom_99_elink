@@ -8,7 +8,8 @@ const money = numeric.pipe(z.number().min(0, "Nominal tidak boleh negatif"));
 
 export const loginSchema = z.object({
   email: z.string().email("Email tidak valid"),
-  password: z.string().min(6, "Password minimal 6 karakter")
+  password: z.string().min(6, "Password minimal 6 karakter"),
+  remember: z.coerce.boolean().default(false)
 });
 
 

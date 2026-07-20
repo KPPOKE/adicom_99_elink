@@ -1,16 +1,17 @@
-﻿import { TransactionClient } from "@/components/transaction-client";
+import { TransactionClient } from "@/components/transaction-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
-import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
+import { parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
+
+const TRANSACTION_PAGE_SIZE = 10;
 
 export default async function TransactionsPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
-  const user = await getCurrentUser();
-  if (!user) throw new Error("User tidak ditemukan");
+  const user = await requireUser();
   const { activeOutlet } = await outletContext(user);
   const outletWhere = { outletId: activeOutlet.id };
   const where = q ? { AND: [outletWhere, { OR: [{ kodeTransaksi: { contains: q } }, { customerName: { contains: q } }, { items: { some: { item: { namaBarang: { contains: q } } } } }] }] } : outletWhere;
@@ -21,8 +22,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
       where,
       include: { items: { include: { item: true } } },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE
+      skip: (page - 1) * TRANSACTION_PAGE_SIZE,
+      take: TRANSACTION_PAGE_SIZE
     }),
     prisma.transaction.count({ where })
   ]);
@@ -50,7 +51,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
           items: transaction.items.map((item) => ({ qty: item.qty, item: { namaBarang: item.item.namaBarang } }))
         }))}
         role={user.role.name}
-        pagination={{ page, pageSize: PAGE_SIZE, total, query: queryValues(params) }}
+        pagination={{ page, pageSize: TRANSACTION_PAGE_SIZE, total, query: queryValues(params) }}
       />
     </>
   );

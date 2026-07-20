@@ -177,8 +177,8 @@ export function ServiceClient({
       )
     },
     { header: "Perangkat", cell: ({ row }) => `${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}` },
-    { header: "Status", cell: ({ row }) => <ServiceStatusBadge status={row.original.status} /> },
-    { header: "Pembayaran", cell: ({ row }) => <PaymentStatusBadge status={row.original.paymentStatus} /> },
+    { id: "status", header: () => <div className="text-center">Status</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => <div className="flex w-full justify-center"><ServiceStatusBadge status={row.original.status} /></div> },
+    { id: "paymentStatus", header: () => <div className="text-center">Pembayaran</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => <div className="flex w-full justify-center"><PaymentStatusBadge status={row.original.paymentStatus} /></div> },
     { header: "Biaya", cell: ({ row }) => formatCurrency(row.original.finalCost || row.original.estimatedCost) },
     { header: "Masuk", cell: ({ row }) => formatDate(row.original.receivedDate) },
     {
@@ -186,6 +186,7 @@ export function ServiceClient({
       header: "Update Cepat",
       cell: ({ row }) => (
         <Select
+          className="w-28"
           value={row.original.status}
           onChange={(event) =>
             startTransition(async () => {
@@ -211,7 +212,7 @@ export function ServiceClient({
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex min-w-max justify-end gap-2">
           <Button
             variant="outline"
             size="icon"
@@ -584,6 +585,7 @@ export function ServiceClient({
         </Dialog>
       </div>
       <DataTable
+        tableClassName="min-w-[1120px]"
         columns={columns}
         data={services}
         serverPagination={pagination}
