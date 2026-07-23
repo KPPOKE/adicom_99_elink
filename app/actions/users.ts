@@ -12,6 +12,10 @@ export async function upsertUser(formData: FormData) {
     await requireAdmin();
     const parsed = userSchema.parse(Object.fromEntries(formData));
     const role = await prisma.role.findUniqueOrThrow({ where: { name: parsed.role } });
+    if (parsed.outletId) {
+      const outlet = await prisma.outlet.findUnique({ where: { id: parsed.outletId }, select: { id: true } });
+      if (!outlet) throw new Error("Cabang tidak ditemukan");
+    }
     const data = {
       name: parsed.name,
       email: parsed.email,

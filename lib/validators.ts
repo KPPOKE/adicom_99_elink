@@ -42,6 +42,13 @@ export const userSchema = z.object({
       message: "Password minimal 6 karakter"
     });
   }
+  if (value.role === "staff" && !value.outletId) {
+    context.addIssue({
+      code: "custom",
+      path: ["outletId"],
+      message: "Staff wajib terhubung ke cabang"
+    });
+  }
 });
 
 export const categorySchema = z.object({
@@ -102,8 +109,8 @@ export const bankTransferSchema = z.object({
   senderName: z.string().trim().max(100, "Nama pengirim maksimal 100 karakter").optional(),
   senderPhone: z.string().trim().max(30, "Nomor telepon maksimal 30 karakter").optional(),
   destinationBank: z.string().trim().min(2, "Bank tujuan wajib diisi").max(80),
-  accountNumber: z.string().trim().regex(/^\d{5,30}$/, "Nomor rekening harus 5-30 digit"),
-  accountName: z.string().trim().min(2, "Nama pemilik rekening wajib diisi").max(100),
+  accountNumber: z.string().trim().max(30, "Nomor rekening maksimal 30 digit").optional(),
+  accountName: z.string().trim().max(100, "Nama pemilik rekening maksimal 100 karakter").optional(),
   amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
   adminFee: money,
   adminBankFee: money.default(0),

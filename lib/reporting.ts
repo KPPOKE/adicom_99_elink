@@ -26,6 +26,17 @@ function endExclusive(date: Date) {
   return next;
 }
 
+
+type ProfitTransaction = { items: Array<{ qty: number; price: unknown; item: { hargaModal: unknown } }> };
+type ProfitService = { laborCost: unknown; parts?: Array<{ qty: number; price: unknown; item: { hargaModal: unknown } }> };
+type ProfitFinance = { type: "income" | "expense"; amount: unknown; referenceType: string | null };
+
+function grossProfitFrom(transactions: ProfitTransaction[], services: ProfitService[], finance: ProfitFinance[]) {
+  const sales = transactions.reduce((sum, transaction) => sum + transaction.items.reduce((lineSum, line) => lineSum + line.qty * (toNumber(line.price) - toNumber(line.item.hargaModal)), 0), 0);
+  const service = services.reduce((sum, item) => sum + toNumber(item.laborCost) + (item.parts ?? []).reduce((partSum, part) => partSum + part.qty * (toNumber(part.price) - toNumber(part.item.hargaModal)), 0), 0);
+  const miniAtm = finance.filter((item) => item.referenceType === "bank_transfer").reduce((sum, item) => sum + (item.type === "income" ? toNumber(item.amount) : -toNumber(item.amount)), 0);
+  return sales + service + miniAtm;
+}
 export function parseReportFilters(params: Record<string, string | string[] | undefined>): ReportFilters {
   const rawPeriod = Array.isArray(params.period) ? params.period[0] : params.period;
   const period = ["today", "week", "month", "custom", "all"].includes(rawPeriod ?? "") ? (rawPeriod as ReportPeriod) : "today";
@@ -82,6 +93,8 @@ export async function loadReportData(filters: ReportFilters) {
 
   const income = finance.filter((item) => item.type === "income").reduce((sum, item) => sum + toNumber(item.amount), 0);
   const expense = finance.filter((item) => item.type === "expense").reduce((sum, item) => sum + toNumber(item.amount), 0);
+  const grossProfit = grossProfitFrom(transactions, services, finance);
+  const netProfit = grossProfit - expense;
   const chartData = [
     { name: "Penjualan", ref: "transaction" },
     { name: "Service", ref: "service" },
@@ -93,7 +106,7 @@ export async function loadReportData(filters: ReportFilters) {
     expense: finance.filter((item) => item.type === "expense" && (item.referenceType === ref || (!item.referenceType && ref === "manual"))).reduce((sum, item) => sum + toNumber(item.amount), 0)
   }));
 
-  return { transactions, services, items, finance, income, expense, chartData, range };
+  return { transactions, services, items, finance, income, expense, grossProfit, netProfit, chartData, range };
 }
 
 export async function loadReportPreview(filters: ReportFilters) {
@@ -105,14 +118,16 @@ export async function loadReportPreview(filters: ReportFilters) {
   const outletWhere = { outletId: activeOutlet.id };
   const financeWhere = dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere;
   const [transactions, services, items, finance, totals, grouped] = await Promise.all([
-    prisma.transaction.findMany({ where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere, orderBy: { createdAt: "desc" }, take: 8 }),
-    prisma.service.findMany({ where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere, orderBy: { receivedDate: "desc" }, take: 8 }),
+    prisma.transaction.findMany({ where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere, include: { items: { include: { item: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
+    prisma.service.findMany({ where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere, include: { parts: { include: { item: true } } }, orderBy: { receivedDate: "desc" }, take: 8 }),
     prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
     prisma.financeRecord.findMany({ where: financeWhere, orderBy: { date: "desc" }, take: 8 }),
     prisma.financeRecord.groupBy({ by: ["type"], where: financeWhere, _sum: { amount: true } }),
     prisma.financeRecord.groupBy({ by: ["type", "referenceType"], where: financeWhere, _sum: { amount: true } })
   ]);
   const total = (type: "income" | "expense") => toNumber(totals.find((item) => item.type === type)?._sum.amount);
+  const grossProfit = grossProfitFrom(transactions, services, finance);
+  const netProfit = grossProfit - total("expense");
   const chartData = [
     { name: "Penjualan", ref: "transaction" },
     { name: "Service", ref: "service" },
@@ -123,7 +138,7 @@ export async function loadReportPreview(filters: ReportFilters) {
     income: toNumber(grouped.find((item) => item.type === "income" && (item.referenceType === ref || (!item.referenceType && ref === "manual")))?._sum.amount),
     expense: toNumber(grouped.find((item) => item.type === "expense" && (item.referenceType === ref || (!item.referenceType && ref === "manual")))?._sum.amount)
   }));
-  return { transactions, services, items, finance, income: total("income"), expense: total("expense"), chartData, range };
+  return { transactions, services, items, finance, income: total("income"), expense: total("expense"), grossProfit, netProfit, chartData, range };
 }
 
 function csvCell(value: unknown) {

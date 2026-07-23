@@ -11,7 +11,9 @@ type OutletUser = { role: { name: RoleName }; outletId: number | null };
 
 export async function outletCookie() {
   const store = await cookies();
-  return Number(store.get(COOKIE_NAME)?.value) || null;
+  const value = store.get(COOKIE_NAME)?.value;
+  if (value === "all") return "all" as const;
+  return Number(value) || null;
 }
 
 export async function outletContext(user: OutletUser) {
@@ -23,8 +25,17 @@ export async function outletContext(user: OutletUser) {
     return { activeOutlet, outlets: [activeOutlet] };
   }
   const requested = await outletCookie();
-  const activeOutlet = outlets.find((item) => item.id === requested) ?? outlets.find((item) => item.id === user.outletId) ?? outlets[0];
+  const requestedId = requested === "all" ? null : requested;
+  const activeOutlet = outlets.find((item) => item.id === requestedId) ?? outlets.find((item) => item.id === user.outletId) ?? outlets[0];
   return { activeOutlet, outlets };
+}
+
+export async function dashboardOutletContext(user: OutletUser) {
+  const context = await outletContext(user);
+  const requested = await outletCookie();
+  return user.role.name === "admin" && requested === "all"
+    ? { ...context, mode: "all" as const, outletLabel: "Semua Cabang" }
+    : { ...context, mode: "single" as const, outletLabel: context.activeOutlet.name };
 }
 
 export function startOfToday() {

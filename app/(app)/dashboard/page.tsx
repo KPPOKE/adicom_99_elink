@@ -4,16 +4,17 @@ import { StatCard } from "@/components/shared/stat-card";
 import { ServiceStatusBadge, StockBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
-import { outletContext } from "@/lib/outlet";
+import { dashboardOutletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDateTime, toNumber, todayRange } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const { start, end } = todayRange();
   const user = await requireUser();
-  const { activeOutlet } = await outletContext(user);
-  const outletWhere = { outletId: activeOutlet.id };
-  const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems, fundAccounts] =
+  const { activeOutlet, outlets, mode, outletLabel } = await dashboardOutletContext(user);
+  const outletWhere = mode === "single" ? { outletId: activeOutlet.id } : {};
+  const scopedText = mode === "all" ? "Ringkasan operasional semua cabang." : `Ringkasan operasional cabang ${outletLabel}.`;
+  const [todayFinance, todayTransactions, serviceStatusCounts, lowStock, recentTransactions, recentServices, finance7Days, transactionItems, todaySalesItems, paidServicesToday, miniAtmFinance, fundAccounts] =
     await Promise.all([
       prisma.financeRecord.groupBy({
         by: ["type"],
@@ -26,20 +27,28 @@ export default async function DashboardPage() {
         where: { ...outletWhere, createdAt: { gte: start, lt: end } },
         _count: { _all: true }
       }),
-      prisma.item.findMany({ where: { ...outletWhere, stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true }, take: 8 }),
-      prisma.transaction.findMany({ where: outletWhere, include: { items: true }, orderBy: { createdAt: "desc" }, take: 5 }),
-      prisma.service.findMany({ where: outletWhere, orderBy: { createdAt: "desc" }, take: 5 }),
+      prisma.item.findMany({ where: { ...outletWhere, stok: { lte: prisma.item.fields.stokMinimum } }, include: { category: true, outlet: true }, take: 8 }),
+      prisma.transaction.findMany({ where: outletWhere, include: { items: true, outlet: true }, orderBy: { createdAt: "desc" }, take: 5 }),
+      prisma.service.findMany({ where: outletWhere, include: { outlet: true }, orderBy: { createdAt: "desc" }, take: 5 }),
       prisma.financeRecord.findMany({
         where: { ...outletWhere, type: "income", date: { gte: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) } },
         orderBy: { date: "asc" }
       }),
       prisma.transactionItem.findMany({ where: { transaction: { ...outletWhere, status: { not: "Batal" } } }, include: { item: { include: { category: true } } }, orderBy: { createdAt: "desc" }, take: 200 }),
+      prisma.transactionItem.findMany({ where: { transaction: { ...outletWhere, status: "Berhasil", createdAt: { gte: start, lt: end } } }, include: { item: true } }),
+      prisma.service.findMany({ where: { ...outletWhere, paymentStatus: "paid", paidAt: { gte: start, lt: end } }, include: { parts: { include: { item: true } } } }),
+      prisma.financeRecord.findMany({ where: { ...outletWhere, referenceType: "bank_transfer", date: { gte: start, lt: end } } }),
       prisma.fundAccount.findMany({ where: { ...outletWhere, isActive: true }, select: { balance: true } })
     ]);
 
   const income = toNumber(todayFinance.find((item) => item.type === "income")?._sum.amount);
   const expense = toNumber(todayFinance.find((item) => item.type === "expense")?._sum.amount);
   const totalAsset = fundAccounts.reduce((sum, item) => sum + toNumber(item.balance), 0);
+  const salesGrossProfit = todaySalesItems.reduce((sum, line) => sum + line.qty * (toNumber(line.price) - toNumber(line.item.hargaModal)), 0);
+  const serviceGrossProfit = paidServicesToday.reduce((sum, service) => sum + toNumber(service.laborCost) + service.parts.reduce((partSum, part) => partSum + part.qty * (toNumber(part.price) - toNumber(part.item.hargaModal)), 0), 0);
+  const miniAtmProfit = miniAtmFinance.reduce((sum, record) => sum + (record.type === "income" ? toNumber(record.amount) : -toNumber(record.amount)), 0);
+  const grossProfit = salesGrossProfit + serviceGrossProfit + miniAtmProfit;
+  const netProfit = grossProfit - expense;
   const serviceStatusMap = new Map<string, number>(serviceStatusCounts.map((item) => [item.status, item._count._all]));
   const statusCount = (status: string) => serviceStatusMap.get(status) ?? 0;
   const serviceTotal = serviceStatusCounts.reduce((sum, item) => sum + item._count._all, 0);
@@ -59,14 +68,27 @@ export default async function DashboardPage() {
     const name = line.item.category.name;
     categoryMap.set(name, (categoryMap.get(name) ?? 0) + line.qty);
   });
+  const outletSummaries = mode === "all" ? await Promise.all(outlets.map(async (outlet) => {
+    const where = { outletId: outlet.id };
+    const [finance, transactions, lowStockCount] = await Promise.all([
+      prisma.financeRecord.groupBy({ by: ["type"], where: { ...where, date: { gte: start, lt: end } }, _sum: { amount: true } }),
+      prisma.transaction.count({ where: { ...where, createdAt: { gte: start, lt: end }, status: { not: "Batal" } } }),
+      prisma.item.count({ where: { ...where, stok: { lte: prisma.item.fields.stokMinimum } } })
+    ]);
+    const outletIncome = toNumber(finance.find((item) => item.type === "income")?._sum.amount);
+    const outletExpense = toNumber(finance.find((item) => item.type === "expense")?._sum.amount);
+    return { id: outlet.id, name: outlet.name, income: outletIncome, net: outletIncome - outletExpense, transactions, lowStockCount };
+  })) : [];
 
   return (
     <>
       <h1 className="sr-only">Dashboard</h1>
+      <p className="mb-4 text-sm text-slate-400">{scopedText}</p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Pemasukan Hari Ini" value={formatCurrency(income)} icon={TrendingUp} tone="green" helper="Total transaksi masuk" />
         <StatCard title="Pengeluaran Hari Ini" value={formatCurrency(expense)} icon={TrendingDown} tone="red" helper="Biaya operasional" />
-        <StatCard title="Laba Bersih Hari Ini" value={formatCurrency(income - expense)} icon={CircleDollarSign} tone="blue" helper="Income - expense" />
+        <StatCard title="Keuntungan Kotor Hari Ini" value={formatCurrency(grossProfit)} icon={CircleDollarSign} tone="blue" helper="Margin penjualan, service, MiniATM" />
+        <StatCard title="Keuntungan Bersih Hari Ini" value={formatCurrency(netProfit)} icon={CircleDollarSign} tone="cyan" helper="Kotor - pengeluaran" />
         <StatCard title="Total Aset" value={formatCurrency(totalAsset)} icon={WalletCards} tone="cyan" helper="Saldo sumber dana" />
         <StatCard title="Transaksi Hari Ini" value={String(todayTransactions)} icon={Receipt} tone="cyan" helper="Penjualan valid" />
         <StatCard title="Service Masuk" value={String(serviceTotal)} icon={Wrench} tone="orange" helper="Total hari ini" />
@@ -90,7 +112,7 @@ export default async function DashboardPage() {
               <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3">
                 <div>
                   <p className="font-medium text-slate-100">{transaction.kodeTransaksi}</p>
-                  <p className="text-xs text-slate-500">{formatDateTime(transaction.createdAt)}</p>
+                  <p className="text-xs text-slate-500">{formatDateTime(transaction.createdAt)}{mode === "all" && transaction.outlet ? ` | ${transaction.outlet.name}` : ""}</p>
                 </div>
                 <p className="font-semibold text-blue-400">{formatCurrency(toNumber(transaction.grandTotal))}</p>
               </div>
@@ -106,7 +128,7 @@ export default async function DashboardPage() {
               <div key={service.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3">
                 <div>
                   <p className="font-medium text-slate-100">{service.kodeService}</p>
-                  <p className="text-xs text-slate-500">{service.customerName}</p>
+                  <p className="text-xs text-slate-500">{service.customerName}{mode === "all" && service.outlet ? ` | ${service.outlet.name}` : ""}</p>
                 </div>
                 <ServiceStatusBadge status={service.status} />
               </div>
@@ -114,6 +136,26 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      {mode === "all" ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Ringkasan Cabang</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {outletSummaries.map((outlet) => (
+              <div key={outlet.id} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
+                <p className="font-medium text-slate-100">{outlet.name}</p>
+                <p className="mt-2 text-sm text-slate-400">Pemasukan {formatCurrency(outlet.income)}</p>
+                <p className="text-sm text-slate-400">Laba bersih {formatCurrency(outlet.net)}</p>
+                <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                  <span>{outlet.transactions} trx</span>
+                  <span>{outlet.lowStockCount} stok rendah</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Barang Stok Hampir Habis</CardTitle>
@@ -122,7 +164,7 @@ export default async function DashboardPage() {
           {lowStock.map((item) => (
             <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
               <p className="font-medium text-slate-100">{item.namaBarang}</p>
-              <p className="text-xs text-slate-500">{item.category.name}</p>
+              <p className="text-xs text-slate-500">{item.category.name}{mode === "all" && item.outlet ? ` | ${item.outlet.name}` : ""}</p>
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-sm text-slate-300">{item.stok} {item.satuan}</span>
                 <StockBadge stok={item.stok} minimum={item.stokMinimum} />

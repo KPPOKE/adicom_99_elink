@@ -20,7 +20,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
   Object.entries(filters).forEach(([key, value]) => {
     if (value) query.set(key, value);
   });
-  const { transactions, services, items, finance, income, expense, chartData } = await loadReportPreview(filters);
+  const { transactions, services, items, finance, income, expense, grossProfit, netProfit, chartData } = await loadReportPreview(filters);
 
   return (
     <>
@@ -96,10 +96,11 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
           </form>
         </CardContent>
       </Card>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Pemasukan" value={formatCurrency(income)} icon={Download} tone="green" />
         <StatCard title="Total Pengeluaran" value={formatCurrency(expense)} icon={Download} tone="red" />
-        <StatCard title="Laba/Rugi" value={formatCurrency(income - expense)} icon={Download} tone="blue" />
+        <StatCard title="Keuntungan Kotor" value={formatCurrency(grossProfit)} icon={Download} tone="blue" />
+        <StatCard title="Keuntungan Bersih" value={formatCurrency(netProfit)} icon={Download} tone="cyan" />
       </div>
       <div className="mt-6">
         <ReportChart data={chartData} />

@@ -121,7 +121,7 @@ export function UserManagementClient({ users, currentUserId, outlets }: { users:
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Outlet</Label>
+                <Label>Cabang Kerja</Label>
                 <Select name="outletId" defaultValue={editing?.outletId ? String(editing.outletId) : String(outlets[0]?.id ?? "")}>
                   {outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}
                 </Select>

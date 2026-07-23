@@ -1,20 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Building2, CalendarDays, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Building2, CalendarDays, Loader2, Menu, X } from "lucide-react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { canAccessNav, nav, SidebarFooter } from "@/components/layout/sidebar";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { Button } from "@/components/ui/button";
 import { setActiveOutletAction } from "@/app/actions/outlets";
 import { cn } from "@/lib/utils";
 
-export function Topbar({ userName, role, outletName, activeOutletId, outlets }: { userName: string; role: "admin" | "staff"; outletName: string; activeOutletId: number; outlets: Array<{ id: number; name: string }> }) {
+export function Topbar({ userName, role, outletName, activeOutletId, selectedOutlet, outlets }: { userName: string; role: "admin" | "staff"; outletName: string; activeOutletId: number; selectedOutlet: number | "all" | null; outlets: Array<{ id: number; name: string }> }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
   const menuItems = nav.filter((item) => canAccessNav(item, role));
   const activeItem = menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const dashboardPage = pathname === "/dashboard" || pathname === "/";
+  const outletValue = dashboardPage && selectedOutlet === "all" ? "all" : String(activeOutletId);
+  const [selectedValue, setSelectedValue] = useState(outletValue);
+  const displayOutletValue = pending ? selectedValue : outletValue;
+
+  const changeOutlet = (value: string) => {
+    const previousValue = displayOutletValue;
+    setSelectedValue(value);
+    const formData = new FormData();
+    formData.set("outletId", value);
+    startTransition(async () => {
+      try {
+        await setActiveOutletAction(formData);
+        router.refresh();
+      } catch (error) {
+        setSelectedValue(previousValue);
+        toast.error(error instanceof Error ? error.message : "Gagal mengganti cabang");
+      }
+    });
+  };
 
   return (
     <>
@@ -41,12 +64,14 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets }: 
           </div>
           <div className="hidden shrink-0 items-center gap-3 lg:flex ml-auto">
             {role === "admin" ? (
-              <form action={setActiveOutletAction} className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
+              <div className={cn("flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300", pending && "opacity-80")}>
                 <Building2 className="h-4 w-4" />
-                <select name="outletId" defaultValue={activeOutletId} onChange={(event) => event.currentTarget.form?.requestSubmit()} className="bg-transparent text-sm outline-none">
+                <select name="outletId" value={displayOutletValue} disabled={pending} onChange={(event) => changeOutlet(event.currentTarget.value)} className="bg-transparent text-sm outline-none disabled:cursor-wait">
+                  {dashboardPage ? <option value="all">Semua Cabang</option> : null}
                   {outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}
                 </select>
-              </form>
+                {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-300" /> : null}
+              </div>
             ) : (
               <div className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300">
                 <Building2 className="h-4 w-4" />
