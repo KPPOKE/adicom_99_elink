@@ -42,7 +42,7 @@ export default function LoginPage() {
               <p className="text-3xl font-bold leading-none">
                 Pos<span className="text-blue-400">Pintar</span>
               </p>
-              <p className="mt-1 text-sm text-slate-400">Management System</p>
+              <p className="mt-1 text-sm text-slate-400">Sistem Manajemen</p>
             </div>
           </div>
 
@@ -102,3 +102,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

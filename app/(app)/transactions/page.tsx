@@ -1,6 +1,6 @@
 import { TransactionClient } from "@/components/transaction-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -11,7 +11,7 @@ const TRANSACTION_PAGE_SIZE = 10;
 export default async function TransactionsPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
-  const user = await requireUser();
+  const user = await requirePermission("transactions.view");
   const { activeOutlet } = await outletContext(user);
   const outletWhere = { outletId: activeOutlet.id };
   const where = q ? { AND: [outletWhere, { OR: [{ kodeTransaksi: { contains: q } }, { customerName: { contains: q } }, { items: { some: { item: { namaBarang: { contains: q } } } } }] }] } : outletWhere;
@@ -56,3 +56,4 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
     </>
   );
 }
+

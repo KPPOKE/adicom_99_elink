@@ -1,7 +1,7 @@
 import { FinanceType, Prisma } from "@prisma/client";
 import { FinanceClient } from "@/components/finance-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -12,7 +12,7 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
   const type = query.type === "income" ? FinanceType.income : query.type === "expense" ? FinanceType.expense : undefined;
-  const user = await requireAdmin();
+  const user = await requirePermission("finance.view");
   const { activeOutlet } = await outletContext(user);
   const where: Prisma.FinanceRecordWhereInput = { AND: [
     { outletId: activeOutlet.id },
@@ -49,3 +49,4 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
     </>
   );
 }
+

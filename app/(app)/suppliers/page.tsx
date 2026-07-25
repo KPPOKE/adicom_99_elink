@@ -1,12 +1,12 @@
 import { deleteSupplier, upsertSupplier } from "@/app/actions/master-data";
 import { PageHeader } from "@/components/shared/page-header";
 import { SimpleCrud } from "@/components/shared/simple-crud";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
 export default async function SuppliersPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
-  await requireAdmin();
+  await requirePermission("suppliers.view");
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
   const where = q ? { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { address: { contains: q } }] } : undefined;
@@ -33,3 +33,4 @@ export default async function SuppliersPage({ searchParams }: { searchParams?: P
     </>
   );
 }
+

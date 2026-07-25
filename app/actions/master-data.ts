@@ -1,8 +1,8 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { categorySchema, customerSchema, itemSchema, supplierSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
@@ -18,7 +18,7 @@ function cleanNullable(value: unknown) {
 export async function upsertCategory(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("categories.manage");
     const parsed = categorySchema.parse(Object.fromEntries(formData));
     const data = { name: parsed.name, description: parsed.description || null };
     if (parsed.id) await prisma.category.update({ where: { id: parsed.id }, data });
@@ -33,7 +33,7 @@ export async function upsertCategory(formData: FormData) {
 export async function deleteCategory(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("categories.manage");
     await prisma.category.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "category", entityId: id });
     revalidatePath("/categories");
@@ -45,7 +45,7 @@ export async function deleteCategory(id: number) {
 export async function upsertSupplier(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("suppliers.manage");
     const parsed = supplierSchema.parse(Object.fromEntries(formData));
     const data = { name: parsed.name, phone: parsed.phone || null, address: parsed.address || null, note: parsed.note || null };
     if (parsed.id) await prisma.supplier.update({ where: { id: parsed.id }, data });
@@ -60,7 +60,7 @@ export async function upsertSupplier(formData: FormData) {
 export async function deleteSupplier(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("suppliers.manage");
     await prisma.supplier.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "supplier", entityId: id });
     revalidatePath("/suppliers");
@@ -72,7 +72,7 @@ export async function deleteSupplier(id: number) {
 export async function upsertCustomer(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requireUser();
+    const user = await requirePermission("customers.manage");
     const parsed = customerSchema.parse(Object.fromEntries(formData));
     const data = { name: parsed.name, phone: parsed.phone || null, email: parsed.email || null, address: parsed.address || null };
     if (parsed.id) await prisma.customer.update({ where: { id: parsed.id }, data });
@@ -87,7 +87,7 @@ export async function upsertCustomer(formData: FormData) {
 export async function deleteCustomer(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("customers.manage");
     await prisma.customer.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "customer", entityId: id });
     revalidatePath("/customers");
@@ -99,7 +99,7 @@ export async function deleteCustomer(id: number) {
 export async function upsertItem(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("inventory.manage");
     const { activeOutlet } = await outletContext(user);
     const image = await saveImageUpload(formData.get("image") as File | null, "item");
     const values = Object.fromEntries(formData);
@@ -138,7 +138,7 @@ export async function upsertItem(formData: FormData) {
 export async function deleteItem(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("inventory.manage");
     const { activeOutlet } = await outletContext(user);
     const item = await prisma.item.findUnique({ where: { id } });
     if (!item || item.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
@@ -150,3 +150,7 @@ export async function deleteItem(id: number) {
     handleActionError(error);
   }
 }
+
+
+
+

@@ -299,7 +299,7 @@ export function ServiceClient({
                   name="customerId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer Terdaftar</FormLabel>
+                      <FormLabel>Pelanggan Terdaftar</FormLabel>
                       <Select name="customerId"
                         onChange={(event) => {
                           field.onChange(Number(event.target.value) || undefined);
@@ -424,7 +424,7 @@ export function ServiceClient({
                 <section className="space-y-3 rounded-lg border border-slate-700/60 bg-slate-950/25 p-4 sm:col-span-2">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-100">Sparepart Inventory</h3>
+                      <h3 className="text-sm font-semibold text-slate-100">Inventori Sparepart</h3>
                       <p className="text-xs text-slate-500">Barang dicadangkan sampai service mulai diproses.</p>
                     </div>
                     <Button
@@ -589,7 +589,7 @@ export function ServiceClient({
         columns={columns}
         data={services}
         serverPagination={pagination}
-        searchPlaceholder="Cari kode service, customer, nomor HP..."
+        searchPlaceholder="Cari kode service, pelanggan, nomor HP..."
         filters={
           <>
             <Select name="status" defaultValue={filterValues.status} className="w-[180px]">
@@ -611,3 +611,5 @@ export function ServiceClient({
     </>
   );
 }
+
+

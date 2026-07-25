@@ -46,7 +46,7 @@ export function FundsClient({ funds }: { funds: FundRow[] }) {
     <section className="grid gap-4 md:grid-cols-3">
       <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-5"><div className="flex items-center gap-3 text-slate-400"><Wallet className="h-5 w-5 text-cyan-300" /><span className="text-sm">Total Aset</span></div><p className="mt-3 text-2xl font-semibold text-cyan-300">{formatCurrency(totalCash + totalNonCash)}</p></div>
       <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-5"><div className="flex items-center gap-3 text-slate-400"><Wallet className="h-5 w-5 text-emerald-300" /><span className="text-sm">Aset Cash</span></div><p className="mt-3 text-2xl font-semibold text-cyan-300">{formatCurrency(totalCash)}</p></div>
-      <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-5"><div className="flex items-center gap-3 text-slate-400"><Landmark className="h-5 w-5 text-blue-300" /><span className="text-sm">Aset Bank/E-wallet</span></div><p className="mt-3 text-2xl font-semibold text-cyan-300">{formatCurrency(totalNonCash)}</p></div>
+      <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-5"><div className="flex items-center gap-3 text-slate-400"><Landmark className="h-5 w-5 text-blue-300" /><span className="text-sm">Aset Non Tunai</span></div><p className="mt-3 text-2xl font-semibold text-cyan-300">{formatCurrency(totalNonCash)}</p></div>
     </section>
 
     <section className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-5 shadow-lg sm:p-6">
@@ -65,3 +65,4 @@ export function FundsClient({ funds }: { funds: FundRow[] }) {
     <DataTable columns={columns} data={funds} searchPlaceholder="Cari sumber dana..." />
   </div>;
 }
+

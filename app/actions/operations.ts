@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
@@ -35,7 +35,7 @@ async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service")
 
 export async function createTransaction(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("transactions.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = transactionSchema.parse(payload);
   const itemIds = parsed.items.map((item) => item.itemId);
@@ -149,7 +149,7 @@ export async function createTransaction(payload: unknown) {
 
 export async function cancelTransaction(id: number) {
   await assertTrustedOrigin();
-  const user = await requireAdmin();
+  const user = await requirePermission("transactions.manage");
   const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
@@ -188,7 +188,7 @@ export async function cancelTransaction(id: number) {
 
 export async function completePendingTransaction(id: number) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("transactions.manage");
   const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({
@@ -308,7 +308,7 @@ function revalidateServicePaths() {
 
 export async function upsertService(formData: FormData) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("services.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = parseServiceForm(formData);
   const { id, parts, ...fields } = parsed;
@@ -389,7 +389,7 @@ export async function upsertService(formData: FormData) {
 
 export async function markServicePaid(id: number) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("services.manage");
   const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const service = await tx.service.findUnique({ where: { id }, include: { financeRecords: true } });
@@ -422,7 +422,7 @@ export async function markServicePaid(id: number) {
 
 export async function updateServiceStatus(id: number, status: string) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("services.manage");
   const { activeOutlet } = await outletContext(user);
   const targetStatus = serviceSchema.shape.status.parse(status);
   await prisma.$transaction(async (tx) => {
@@ -459,7 +459,7 @@ export async function updateServiceStatus(id: number, status: string) {
 export async function deleteService(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("services.manage");
     const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const service = await tx.service.findUnique({ where: { id }, include: { parts: true, financeRecords: true } });
@@ -480,7 +480,7 @@ export async function deleteService(id: number) {
 export async function upsertFinanceRecord(formData: FormData) {
   await assertTrustedOrigin();
   const parsed = financeSchema.parse(Object.fromEntries(formData));
-  const user = await requireAdmin();
+  const user = await requirePermission("finance.manage");
   const { activeOutlet } = await outletContext(user);
   const data: Prisma.FinanceRecordUncheckedCreateInput = {
     type: parsed.type,
@@ -505,7 +505,7 @@ export async function upsertFinanceRecord(formData: FormData) {
 export async function deleteFinanceRecord(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requireAdmin();
+    const user = await requirePermission("finance.manage");
     const { activeOutlet } = await outletContext(user);
     const record = await prisma.financeRecord.findUnique({ where: { id }, select: { outletId: true, referenceType: true } });
     if (!record || record.outletId !== activeOutlet.id || record.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
@@ -516,3 +516,4 @@ export async function deleteFinanceRecord(id: number) {
     handleActionError(error);
   }
 }
+

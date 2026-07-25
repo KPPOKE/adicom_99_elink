@@ -88,7 +88,7 @@ export function BankTransferClient({ transfers, customers, role, pagination, fil
   filterValues: { status: string; bank: string; kind: string };
   banks: string[];
   outletName: string;
-  summary: { totalAsset: number; cash: number; bank: number; profit: number; transferAmount: number; tarikAmount: number };
+  summary: { totalAsset: number; profit: number; transferAmount: number; tarikAmount: number };
   funds: FundOption[];
 }) {
   void customers;
@@ -150,8 +150,7 @@ export function BankTransferClient({ transfers, customers, role, pagination, fil
   return <div className="space-y-6">
     <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
       <SummaryCard label="Total Aset" value={summary.totalAsset} outlet={outletName} icon={<Wallet className="h-4 w-4" />} />
-      <SummaryCard label="LACI" value={summary.cash} outlet={outletName} icon={<Wallet className="h-4 w-4" />} />
-      <SummaryCard label="Bank/E-wallet" value={summary.bank} outlet={outletName} icon={<Landmark className="h-4 w-4" />} />
+      {funds.map((fund) => <SummaryCard key={fund.id} label={fund.name} value={fund.balance} outlet={outletName} icon={fund.type === "Cash" ? <Wallet className="h-4 w-4" /> : <Landmark className="h-4 w-4" />} />)}
       <SummaryCard label="Profit MiniATM" value={summary.profit} outlet={outletName} icon={<Send className="h-4 w-4" />} />
       <SummaryCard label="Transfer" value={summary.transferAmount} outlet={outletName} icon={<Send className="h-4 w-4" />} />
       <SummaryCard label="Tarik Tunai" value={summary.tarikAmount} outlet={outletName} icon={<Wallet className="h-4 w-4" />} />
@@ -190,3 +189,5 @@ export function BankTransferClient({ transfers, customers, role, pagination, fil
     <DataTable columns={columns} data={transfers} serverPagination={pagination} searchPlaceholder="Cari kode, bank, tipe, catatan..." filters={<><Select name="status" defaultValue={filterValues.status} className="w-[150px]"><option value="">Semua status</option><option value="Pending">Pending</option><option value="Berhasil">Berhasil</option><option value="Gagal">Gagal</option></Select><Select name="kind" defaultValue={filterValues.kind} className="w-[160px]"><option value="">Semua jenis</option><option value="Transfer">Transfer</option><option value="Tarik_Tunai">Tarik Tunai</option></Select><Select name="bank" defaultValue={filterValues.bank} className="w-[180px]"><option value="">Semua bank</option>{banks.map((bank) => <option key={bank} value={bank}>{bank}</option>)}</Select></>} />
   </div>;
 }
+
+

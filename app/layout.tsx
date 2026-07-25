@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
-  title: "PosPintar Management System",
+  title: "Sistem Manajemen PosPintar",
   description: "Sistem internal PosPintar untuk inventory, transaksi, service, dan keuangan.",
   icons: {
     icon: "/icon.svg"
@@ -24,3 +24,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

@@ -8,12 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { loadReportPreview, parseReportFilters, reportCurrency, reportTitle } from "@/lib/reporting";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export default async function ReportsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireAdmin();
+  await requirePermission("reports.view");
   const params = (await searchParams) ?? {};
   const filters = parseReportFilters(params);
   const query = new URLSearchParams();
@@ -141,3 +141,4 @@ function ReportTable({ title, rows }: { title: string; rows: string[][] }) {
     </Card>
   );
 }
+

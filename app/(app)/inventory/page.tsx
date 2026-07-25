@@ -1,17 +1,17 @@
-﻿import { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { InventoryClient } from "@/components/inventory-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
-export default async function InventoryPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
+export default async function InventoriPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
-  const user = await requireAdmin();
+  const user = await requirePermission("inventory.view");
   const { activeOutlet } = await outletContext(user);
   const categoryId = Number(query.category) || undefined;
   const supplier = query.supplier;
@@ -31,7 +31,7 @@ export default async function InventoryPage({ searchParams }: { searchParams?: P
   ]);
   return (
     <>
-      <PageHeader title="Inventory" description={`Kelola stok cabang ${activeOutlet.name}.`} />
+      <PageHeader title="Inventori" description={`Kelola stok cabang ${activeOutlet.name}.`} />
       <InventoryClient
         items={items.map((item) => ({
           ...item,
@@ -47,3 +47,5 @@ export default async function InventoryPage({ searchParams }: { searchParams?: P
     </>
   );
 }
+
+

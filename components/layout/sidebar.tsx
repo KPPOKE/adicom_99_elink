@@ -2,59 +2,46 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ArrowLeftRight,
-  BarChart3,
-  Boxes,
-  Contact,
-  Home,
-  Landmark,
-  Layers3,
-  LogOut,
-  Send,
-  Settings,
-  ShoppingCart,
-  Stethoscope,
-  Truck,
-  WalletCards
-} from "lucide-react";
+import { ArrowLeftRight, BarChart3, Boxes, Contact, Home, Landmark, Layers3, LogOut, Send, Settings, ShoppingCart, Stethoscope, Truck, WalletCards } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
+import { hasPermission, type PermissionKey } from "@/lib/permission-keys";
 import { cn } from "@/lib/utils";
 
-const staffNav = new Set(["/dashboard", "/customers", "/transactions", "/bank-transfers", "/services"]);
+type Role = "admin" | "staff";
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; permission: PermissionKey };
 
-function canAccessNav(item: { href: string; adminOnly?: boolean }, role: "admin" | "staff") {
-  return role === "admin" ? true : !item.adminOnly && staffNav.has(item.href);
+function canAccessNav(item: NavItem, role: Role, permissions: string[]) {
+  return hasPermission(role, permissions, item.permission);
 }
 
-const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/inventory", label: "Inventory", icon: Boxes },
-  { href: "/categories", label: "Kategori", icon: Layers3 },
-  { href: "/suppliers", label: "Supplier", icon: Truck },
-  { href: "/customers", label: "Customer", icon: Contact },
-  { href: "/transactions", label: "Transaksi", icon: ShoppingCart },
-  { href: "/bank-transfers", label: "MiniATM", icon: Send },
-  { href: "/funds", label: "Sumber Dana", icon: WalletCards },
-  { href: "/fund-mutations", label: "Mutasi Saldo", icon: ArrowLeftRight },
-  { href: "/services", label: "Service", icon: Stethoscope },
-  { href: "/finance", label: "Keuangan", icon: Landmark },
-  { href: "/reports", label: "Laporan", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings, adminOnly: true }
+const nav: NavItem[] = [
+  { href: "/dashboard", label: "Dasbor", icon: Home, permission: "dashboard.view" },
+  { href: "/inventory", label: "Inventori", icon: Boxes, permission: "inventory.view" },
+  { href: "/categories", label: "Kategori", icon: Layers3, permission: "categories.view" },
+  { href: "/suppliers", label: "Supplier", icon: Truck, permission: "suppliers.view" },
+  { href: "/customers", label: "Pelanggan", icon: Contact, permission: "customers.view" },
+  { href: "/transactions", label: "Transaksi", icon: ShoppingCart, permission: "transactions.view" },
+  { href: "/bank-transfers", label: "MiniATM", icon: Send, permission: "bankTransfers.view" },
+  { href: "/funds", label: "Sumber Dana", icon: WalletCards, permission: "funds.view" },
+  { href: "/fund-mutations", label: "Mutasi Saldo", icon: ArrowLeftRight, permission: "fundMutations.view" },
+  { href: "/services", label: "Service", icon: Stethoscope, permission: "services.view" },
+  { href: "/finance", label: "Keuangan", icon: Landmark, permission: "finance.view" },
+  { href: "/reports", label: "Laporan", icon: BarChart3, permission: "reports.view" },
+  { href: "/settings", label: "Pengaturan", icon: Settings, permission: "settings.view" }
 ];
 
-export function Sidebar({ userName, role, outletName }: { userName: string; role: "admin" | "staff"; outletName?: string }) {
+export function Sidebar({ userName, role, outletName, permissions }: { userName: string; role: Role; outletName?: string; permissions: string[] }) {
   const pathname = usePathname();
   const roleLabel = role === "admin" ? "Admin" : "Staff";
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-800/60 bg-slate-950/60 backdrop-blur-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] lg:flex">
       <div className="flex h-16 shrink-0 items-center border-b border-slate-800/60 px-5">
-        <div><p className="font-semibold text-slate-100">PosPintar</p><p className="text-xs text-slate-400">Management System</p></div>
+        <div><p className="font-semibold text-slate-100">PosPintar</p><p className="text-xs text-slate-400">Sistem Manajemen</p></div>
       </div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
-        {nav.filter((item) => canAccessNav(item, role)).map((item, index) => {
+        {nav.filter((item) => canAccessNav(item, role, permissions)).map((item, index) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return <Link key={item.href} href={item.href} className={cn("group flex items-center gap-3 rounded-r-lg px-3 py-2.5 text-sm font-medium transition-all duration-300 animate-stagger-item", active ? "bg-gradient-to-r from-cyan-500/15 to-transparent text-white border-l-[3px] border-cyan-400 shadow-[inset_20px_0_40px_-20px_rgba(34,211,238,0.3)]" : "border-l-[3px] border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-100 hover:border-slate-700")} style={{ animationDelay: `${index * 50}ms` }}><item.icon className="h-4 w-4" />{item.label}</Link>;
         })}
@@ -66,7 +53,7 @@ export function Sidebar({ userName, role, outletName }: { userName: string; role
 
 export function SidebarFooter({ userName, roleLabel, outletName }: { userName: string; roleLabel: string; outletName?: string }) {
   const initials = userName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-  return <div className="shrink-0 border-t border-slate-800/60 p-4 animate-stagger-item" style={{ animationDelay: "500ms" }}><div className="rounded-xl bg-slate-900/40 border border-slate-800/50 p-3 backdrop-blur-sm transition-all hover:bg-slate-900/60"><div className="flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">{initials || "AD"}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-100">{userName}</p><p className="text-xs text-slate-500">{roleLabel}{outletName ? ` | ${outletName}` : ""}</p></div><form action={logoutAction}><Button variant="ghost" size="icon" title="Logout"><LogOut className="h-4 w-4" /></Button></form></div></div></div>;
+  return <div className="shrink-0 border-t border-slate-800/60 p-4 animate-stagger-item" style={{ animationDelay: "500ms" }}><div className="rounded-xl bg-slate-900/40 border border-slate-800/50 p-3 backdrop-blur-sm transition-all hover:bg-slate-900/60"><div className="flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">{initials || "AD"}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-100">{userName}</p><p className="text-xs text-slate-500">{roleLabel}{outletName ? ` | ${outletName}` : ""}</p></div><form action={logoutAction}><Button variant="ghost" size="icon" title="Keluar"><LogOut className="h-4 w-4" /></Button></form></div></div></div>;
 }
 
 export { nav, canAccessNav };

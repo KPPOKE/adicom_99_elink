@@ -1,7 +1,7 @@
 import { BankTransferKind, BankTransferStatus, Prisma } from "@prisma/client";
 import { BankTransferClient } from "@/components/bank-transfer-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
 import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +13,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
   const query = queryValues(params);
   const status = Object.values(BankTransferStatus).includes(query.status as BankTransferStatus) ? query.status as BankTransferStatus : undefined;
   const kind = Object.values(BankTransferKind).includes(query.kind as BankTransferKind) ? query.kind as BankTransferKind : undefined;
-  const user = await requireUser();
+  const user = await requirePermission("bankTransfers.view");
   const { activeOutlet } = await outletContext(user);
   const start = startOfToday();
   const end = tomorrowOf(start);
@@ -38,8 +38,6 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
   ]);
   const fundRows = funds.map((item) => ({ id: item.id, name: item.name, type: item.type, balance: toNumber(item.balance) }));
   const totalAsset = fundRows.reduce((sum, item) => sum + item.balance, 0);
-  const cash = fundRows.filter((item) => item.type === "Cash").reduce((sum, item) => sum + item.balance, 0);
-  const bank = totalAsset - cash;
   const income = toNumber(todayFinance.find((item) => item.type === "income")?._sum.amount);
   const expense = toNumber(todayFinance.find((item) => item.type === "expense")?._sum.amount);
 
@@ -79,8 +77,6 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
         outletName={activeOutlet.name}
         summary={{
           totalAsset,
-          cash,
-          bank,
           profit: income - expense,
           transferAmount: toNumber(todayTransfers.find((item) => item.kind === "Transfer")?._sum.amount),
           tarikAmount: toNumber(todayTransfers.find((item) => item.kind === "Tarik_Tunai")?._sum.amount)
@@ -91,3 +87,6 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
     </>
   );
 }
+
+
+

@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -12,6 +12,7 @@ const COOKIE_NAME = "pospintar_outlet";
 const defaultFunds = [
   { name: "LACI", type: "Cash" as const, note: "Kas tunai outlet" },
   { name: "BRI", type: "Bank" as const, note: "Rekening operasional" },
+  { name: "SEABANK", type: "Bank" as const, note: "Saldo bank SEABANK" },
   { name: "DANA", type: "Ewallet" as const, note: "Saldo e-wallet" }
 ];
 
@@ -74,3 +75,5 @@ export async function deleteOutlet(id: number) {
     handleActionError(error);
   }
 }
+
+

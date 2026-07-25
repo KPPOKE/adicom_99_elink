@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PrintControls } from "@/components/print-controls";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { loadReportData, parseReportFilters, reportTitle } from "@/lib/reporting";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export default async function ReportPrintPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireAdmin();
+  await requirePermission("reports.view");
   const params = (await searchParams) ?? {};
   const filters = parseReportFilters(params);
   const [setting, data] = await Promise.all([
@@ -40,12 +40,12 @@ export default async function ReportPrintPage({ searchParams }: { searchParams?:
 
         <ReportTable
           title="Penjualan"
-          headers={["Kode", "Tanggal", "Customer", "Status", "Total"]}
+          headers={["Kode", "Tanggal", "Pelanggan", "Status", "Total"]}
           rows={data.transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), item.customerName ?? "Umum", item.status, formatCurrency(toNumber(item.grandTotal))])}
         />
         <ReportTable
           title="Service"
-          headers={["Kode", "Customer", "Status", "Bayar", "Biaya"]}
+          headers={["Kode", "Pelanggan", "Status", "Bayar", "Biaya"]}
           rows={data.services.map((item) => [item.kodeService, item.customerName, item.status.replace("_", " "), item.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar", formatCurrency(toNumber(item.finalCost))])}
         />
         <ReportTable
@@ -96,3 +96,5 @@ function ReportTable({ title, headers, rows }: { title: string; headers: string[
     </section>
   );
 }
+
+

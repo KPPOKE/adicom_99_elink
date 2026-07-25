@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { hash } from "bcryptjs";
+import { DEFAULT_STAFF_PERMISSIONS } from "../lib/permission-keys";
 import "dotenv/config";
 
 function adapter() {
@@ -41,6 +42,7 @@ async function main() {
   for (const account of [
     { name: "LACI", type: "Cash" as const, note: "Kas tunai outlet" },
     { name: "BRI", type: "Bank" as const, note: "Saldo bank utama" },
+    { name: "SEABANK", type: "Bank" as const, note: "Saldo bank SEABANK" },
     { name: "DANA", type: "Ewallet" as const, note: "Saldo e-wallet" }
   ]) {
     await prisma.fundAccount.upsert({
@@ -72,7 +74,7 @@ async function main() {
     }
   });
 
-  await prisma.user.upsert({
+  const staffUser = await prisma.user.upsert({
     where: { email: staffEmail },
     update: {},
     create: {
@@ -83,6 +85,8 @@ async function main() {
       outletId: outlet.id
     }
   });
+
+  await prisma.userPermission.createMany({ data: DEFAULT_STAFF_PERMISSIONS.map((key) => ({ userId: staffUser.id, key })), skipDuplicates: true });
 
   const categoryNames = [
     "RAM",
@@ -246,4 +250,8 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+
+
+
+
 

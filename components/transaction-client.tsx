@@ -71,7 +71,7 @@ export function TransactionClient({
 
   const columns: ColumnDef<TransactionRow>[] = [
     { accessorKey: "kodeTransaksi", header: "Kode" },
-    { header: "Customer", cell: ({ row }) => row.original.customerName || "Umum" },
+    { header: "Pelanggan", cell: ({ row }) => row.original.customerName || "Umum" },
     { header: "Item", cell: ({ row }) => row.original.items.map((item) => `${item.item.namaBarang} x${item.qty}`).join(", ") },
     { header: "Total", cell: ({ row }) => formatCurrency(row.original.grandTotal) },
     { accessorKey: "paymentMethod", header: "Pembayaran" },
@@ -190,7 +190,7 @@ export function TransactionClient({
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Customer</Label>
+              <Label>Pelanggan</Label>
               <Select
                 name="customerId"
                 disabled={!hydrated}
@@ -317,3 +317,5 @@ export function TransactionClient({
     </div>
   );
 }
+
+

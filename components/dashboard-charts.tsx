@@ -92,8 +92,8 @@ export function ReportChart({ data }: { data: { name: string; income: number; ex
                 formatter={(value) => formatCurrency(Number(value))}
                 cursor={{ fill: "transparent" }}
               />
-              <Bar dataKey="income" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="expense" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="income" stackId="report" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="expense" stackId="report" fill="#f43f5e" radius={[6, 6, 0, 0]} />
             </BarChart>
           )}
         </ChartFrame>
@@ -126,3 +126,4 @@ function ChartFrame({ children }: { children: (width: number) => React.ReactNode
 function ChartSkeleton() {
   return <div className="h-full w-full animate-pulse rounded-md bg-slate-800" />;
 }
+

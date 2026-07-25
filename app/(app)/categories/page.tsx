@@ -1,11 +1,11 @@
 import { upsertCategory, deleteCategory } from "@/app/actions/master-data";
 import { SimpleCrud } from "@/components/shared/simple-crud";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export default async function CategoriesPage() {
-  await requireAdmin();
+  await requirePermission("categories.view");
   const data = await prisma.category.findMany({ orderBy: { name: "asc" } });
   return (
     <>
@@ -23,3 +23,4 @@ export default async function CategoriesPage() {
     </>
   );
 }
+

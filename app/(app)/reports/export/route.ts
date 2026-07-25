@@ -1,12 +1,12 @@
-﻿import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { requirePermission } from "@/lib/permissions";
 import { loadReportData, parseReportFilters, reportCsv, reportDataset, reportTitle } from "@/lib/reporting";
 import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  await requireAdmin();
+  await requirePermission("reports.export");
   const params = Object.fromEntries(request.nextUrl.searchParams.entries());
   const filters = parseReportFilters(params);
   const kind = request.nextUrl.searchParams.get("kind") ?? "sales";
@@ -92,3 +92,4 @@ async function createPdf(title: string, period: string, headers: string[], rows:
   pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return Buffer.from(pdf, "ascii");
 }
+

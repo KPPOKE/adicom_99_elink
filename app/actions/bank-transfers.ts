@@ -2,7 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { applyFundDelta, cashWithdrawalLedger, transferLedger } from "@/lib/fund-ledger";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
@@ -48,7 +48,7 @@ async function defaultFundId(outletId: number, name: string) {
 
 export async function upsertBankTransfer(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = bankTransferSchema.parse(payload);
   const totalReceived = parsed.amount + parsed.adminFee + (parsed.kind === "Transfer" ? 0 : parsed.externalAdminFee);
@@ -103,7 +103,7 @@ export async function upsertBankTransfer(payload: unknown) {
 
 export async function finalizeBankTransfer(id: number, status: "Berhasil" | "Gagal") {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("bankTransfers.manage");
   await prisma.$transaction(async (tx) => {
     const transfer = await tx.bankTransfer.findUnique({ where: { id }, include: { fundMutations: true } });
     if (!transfer) throw new Error("Transfer tidak ditemukan");
@@ -131,7 +131,7 @@ export async function finalizeBankTransfer(id: number, status: "Berhasil" | "Gag
 
 export async function reopenBankTransfer(id: number) {
   await assertTrustedOrigin();
-  const user = await requireAdmin();
+  const user = await requirePermission("bankTransfers.manage");
   await prisma.$transaction(async (tx) => {
     const transfer = await tx.bankTransfer.findUnique({ where: { id }, include: { fundMutations: true } });
     if (!transfer) throw new Error("Transfer tidak ditemukan");
@@ -148,7 +148,7 @@ export async function reopenBankTransfer(id: number) {
 
 export async function createBankTransferDeposit(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requireUser();
+  const user = await requirePermission("bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = bankTransferDepositSchema.parse(payload);
   const fundAccountId = parsed.fundAccountId || await defaultFundId(activeOutlet.id, "BRI");
@@ -159,4 +159,5 @@ export async function createBankTransferDeposit(payload: unknown) {
   });
   revalidateTransferPaths();
 }
+
 

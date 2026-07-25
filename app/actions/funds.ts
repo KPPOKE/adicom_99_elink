@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { applyFundDelta, moveLedger } from "@/lib/fund-ledger";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,7 @@ function revalidateFunds() {
 
 export async function upsertFundAccount(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requireAdmin();
+  const user = await requirePermission("funds.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = fundAccountSchema.parse(payload);
   await prisma.$transaction(async (tx) => {
@@ -35,7 +35,7 @@ export async function upsertFundAccount(payload: unknown) {
 
 export async function createFundMutation(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requireAdmin();
+  const user = await requirePermission("funds.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = fundMutationSchema.parse(payload);
   await prisma.$transaction(async (tx) => {
@@ -54,7 +54,7 @@ export async function createFundMutation(payload: unknown) {
 
 export async function toggleFundAccount(id: number, isActive: boolean) {
   await assertTrustedOrigin();
-  const user = await requireAdmin();
+  const user = await requirePermission("funds.manage");
   const { activeOutlet } = await outletContext(user);
   const account = await prisma.fundAccount.findUnique({ where: { id } });
   if (!account || account.outletId !== activeOutlet.id) throw new Error("Sumber dana tidak ditemukan");
@@ -62,4 +62,5 @@ export async function toggleFundAccount(id: number, isActive: boolean) {
   await prisma.fundAccount.update({ where: { id }, data: { isActive } });
   revalidateFunds();
 }
+
 

@@ -169,7 +169,7 @@ export function reportCsv(kind: string, data: Awaited<ReturnType<typeof loadRepo
     toNumber(item.diskon),
     toNumber(item.grandTotal)
   ]);
-  return [["Kode", "Tanggal", "Customer", "Status", "Pembayaran", "Subtotal", "Diskon", "Grand Total"], ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+  return [["Kode", "Tanggal", "Pelanggan", "Status", "Pembayaran", "Subtotal", "Diskon", "Grand Total"], ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
 export function reportDataset(kind: string, data: Awaited<ReturnType<typeof loadReportData>>) {
@@ -190,7 +190,7 @@ export function reportDataset(kind: string, data: Awaited<ReturnType<typeof load
   if (kind === "service") {
     return {
       title: "Laporan Service",
-      headers: ["Kode", "Tanggal Masuk", "Customer", "Perangkat", "Status", "Pembayaran", "Biaya Final"],
+      headers: ["Kode", "Tanggal Masuk", "Pelanggan", "Perangkat", "Status", "Pembayaran", "Biaya Final"],
       rows: data.services.map((item) => [
         item.kodeService,
         formatDate(item.receivedDate),
@@ -222,7 +222,7 @@ export function reportDataset(kind: string, data: Awaited<ReturnType<typeof load
   }
   return {
     title: "Laporan Penjualan",
-    headers: ["Kode", "Tanggal", "Customer", "Status", "Pembayaran", "Subtotal", "Diskon", "Grand Total"],
+    headers: ["Kode", "Tanggal", "Pelanggan", "Status", "Pembayaran", "Subtotal", "Diskon", "Grand Total"],
     rows: data.transactions.map((item) => [
       item.kodeTransaksi,
       formatDate(item.createdAt),
@@ -245,3 +245,4 @@ export function reportTitle(filters: ReportFilters) {
 export function reportCurrency(value: unknown) {
   return formatCurrency(toNumber(value));
 }
+

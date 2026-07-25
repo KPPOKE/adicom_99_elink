@@ -1,7 +1,7 @@
-﻿import { PaymentStatus, Prisma, ServiceStatus } from "@prisma/client";
+import { PaymentStatus, Prisma, ServiceStatus } from "@prisma/client";
 import { ServiceClient } from "@/components/service-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -11,7 +11,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
-  const user = await requireUser();
+  const user = await requirePermission("services.view");
   const { activeOutlet } = await outletContext(user);
   const status = Object.values(ServiceStatus).find((value) => value === query.status);
   const payment = Object.values(PaymentStatus).find((value) => value === query.payment);
@@ -55,3 +55,4 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
     </>
   );
 }
+
