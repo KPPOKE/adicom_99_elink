@@ -7,14 +7,15 @@ import { formatCurrency, toNumber } from "@/lib/utils";
 
 async function outletSummary(outlet: { id: number; name: string }, start: Date, end: Date) {
   const where = { outletId: outlet.id };
-  const [finance, transactions, transferCount] = await Promise.all([
+  const [finance, transactions, sales, transferCount] = await Promise.all([
     prisma.financeRecord.groupBy({ by: ["type"], where: { ...where, date: { gte: start, lt: end } }, _sum: { amount: true } }),
     prisma.transaction.count({ where: { ...where, createdAt: { gte: start, lt: end }, status: { not: "Batal" } } }),
+    prisma.transaction.aggregate({ where: { ...where, createdAt: { gte: start, lt: end }, status: { not: "Batal" } }, _sum: { grandTotal: true } }),
     prisma.bankTransfer.count({ where: { ...where, kind: "Transfer", status: "Berhasil", completedAt: { gte: start, lt: end } } })
   ]);
   const income = toNumber(finance.find((item) => item.type === "income")?._sum.amount);
   const expense = toNumber(finance.find((item) => item.type === "expense")?._sum.amount);
-  return { id: outlet.id, name: outlet.name, net: income - expense, transactions, transferCount };
+  return { id: outlet.id, name: outlet.name, net: income - expense, sales: toNumber(sales._sum.grandTotal), transactions, transferCount };
 }
 
 export default async function DashboardPage() {
@@ -35,7 +36,8 @@ export default async function DashboardPage() {
           {outletSummaries.map((outlet) => (
             <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3 transition hover:border-cyan-400/70 hover:bg-slate-900/60">
               <p className="font-medium text-slate-100">{outlet.name}</p>
-              <p className="mt-2 text-sm text-slate-400">Laba bersih {formatCurrency(outlet.net)}</p>
+              <p className="mt-2 text-sm text-slate-400">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
+              <p className="mt-1 text-sm text-slate-400">Laba bersih {formatCurrency(outlet.net)}</p>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
                 <span>{outlet.transactions} transaksi</span>
                 <span>{outlet.transferCount} transfer dana</span>
@@ -47,3 +49,4 @@ export default async function DashboardPage() {
     </>
   );
 }
+
