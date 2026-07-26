@@ -7,11 +7,13 @@ import { requireAdmin, requireUser } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permission-keys";
 import { userSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
+import { assertTrustedOrigin } from "@/lib/security";
 
 const validPermissions = new Set<string>(PERMISSIONS.map((item) => item.key));
 
 export async function upsertUser(formData: FormData) {
   try {
+    await assertTrustedOrigin();
     await requireAdmin();
     const parsed = userSchema.parse(Object.fromEntries(formData));
     const role = await prisma.role.findUniqueOrThrow({ where: { name: parsed.role } });
@@ -44,6 +46,7 @@ export async function upsertUser(formData: FormData) {
 
 export async function deleteUser(id: number) {
   try {
+    await assertTrustedOrigin();
     const current = await requireAdmin();
     if (current.id === id) throw new Error("User yang sedang login tidak bisa dihapus");
     const usage = await prisma.user.findUnique({ where: { id }, select: { _count: { select: { transactions: true, services: true, financeRecords: true } } } });

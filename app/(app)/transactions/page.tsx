@@ -4,7 +4,7 @@ import { requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
-import { parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
+import { SELECT_OPTION_LIMIT, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
 const TRANSACTION_PAGE_SIZE = 10;
 
@@ -16,8 +16,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const outletWhere = { outletId: activeOutlet.id };
   const where = q ? { AND: [outletWhere, { OR: [{ kodeTransaksi: { contains: q } }, { customerName: { contains: q } }, { items: { some: { item: { namaBarang: { contains: q } } } } }] }] } : outletWhere;
   const [items, customers, transactions, total] = await Promise.all([
-    prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" } }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
+    prisma.customer.findMany({ orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
       where,
       include: { items: { include: { item: true } } },

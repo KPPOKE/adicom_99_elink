@@ -27,6 +27,8 @@ function endExclusive(date: Date) {
 }
 
 
+export const REPORT_EXPORT_ROW_LIMIT = 5000;
+
 type ProfitTransaction = { items: Array<{ qty: number; price: unknown; item: { hargaModal: unknown } }> };
 type ProfitService = { laborCost: unknown; parts?: Array<{ qty: number; price: unknown; item: { hargaModal: unknown } }> };
 type ProfitFinance = { type: "income" | "expense"; amount: unknown; referenceType: string | null };
@@ -78,16 +80,19 @@ export async function loadReportData(filters: ReportFilters) {
     prisma.transaction.findMany({
       where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere,
       include: { items: { include: { item: true } } },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: REPORT_EXPORT_ROW_LIMIT
     }),
     prisma.service.findMany({
       where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere,
-      orderBy: { receivedDate: "desc" }
+      orderBy: { receivedDate: "desc" },
+      take: REPORT_EXPORT_ROW_LIMIT
     }),
-    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
+    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: REPORT_EXPORT_ROW_LIMIT }),
     prisma.financeRecord.findMany({
       where: dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere,
-      orderBy: { date: "desc" }
+      orderBy: { date: "desc" },
+      take: REPORT_EXPORT_ROW_LIMIT
     })
   ]);
 

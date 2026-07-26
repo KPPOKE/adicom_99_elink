@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Download, Save } from "lucide-react";
 import { redirect } from "next/navigation";
 import { updateSettings } from "@/app/actions/settings";
@@ -34,7 +33,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Pengaturan" description="Pengaturan toko, cabang, invoice, user, dan backup data." />
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        {canBackup ? <Card className="xl:col-span-2"><CardHeader><CardTitle>Backup Data</CardTitle></CardHeader><CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-400">Unduh backup JSON sesuai akses cabang akun saat ini.</p><Button asChild><Link href="/settings/backup"><Download className="h-4 w-4" />Unduh Backup JSON</Link></Button></CardContent></Card> : null}
+        {canBackup ? <Card className="xl:col-span-2"><CardHeader><CardTitle>Backup Data</CardTitle></CardHeader><CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-400">Unduh backup JSON sesuai akses cabang akun saat ini.</p><form action="/settings/backup" method="post"><Button type="submit"><Download className="h-4 w-4" />Unduh Backup JSON</Button></form></CardContent></Card> : null}
         {isAdmin ? <>
           <Card>
             <CardHeader><CardTitle>Profil Toko</CardTitle></CardHeader>

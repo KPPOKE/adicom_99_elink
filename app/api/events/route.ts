@@ -35,7 +35,7 @@ export async function GET(req: Request) {
       };
 
       await checkState();
-      if (!closed) interval = setInterval(checkState, 3000);
+      if (!closed) interval = setInterval(checkState, 15000);
     },
     cancel: stop
   });

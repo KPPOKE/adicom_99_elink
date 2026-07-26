@@ -33,7 +33,7 @@ describe("validators", () => {
 
   it("requires password for new users but allows empty password on edit", () => {
     expect(userSchema.safeParse({ name: "Staff", email: "staff@example.com", role: "staff", password: "" }).success).toBe(false);
-    expect(userSchema.safeParse({ id: 2, name: "Staff", email: "staff@example.com", role: "staff", password: "" }).success).toBe(true);
+    expect(userSchema.safeParse({ id: 2, name: "Staff", email: "staff@example.com", role: "staff", outletId: 1, password: "" }).success).toBe(true);
   });
 
   it("requires positive amount for finance records", () => {

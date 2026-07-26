@@ -1,4 +1,5 @@
 export const PAGE_SIZE = 25;
+export const SELECT_OPTION_LIMIT = 500;
 
 export type ListSearchParams = Record<string, string | string[] | undefined>;
 

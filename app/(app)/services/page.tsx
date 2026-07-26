@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
-import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
+import { PAGE_SIZE, SELECT_OPTION_LIMIT, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
 export default async function ServicesPage({ searchParams }: { searchParams?: Promise<ListSearchParams> }) {
   const params = (await searchParams) ?? {};
@@ -24,8 +24,8 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
   const [services, total, customers, items] = await Promise.all([
     prisma.service.findMany({ where, include: { parts: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.service.count({ where }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
-    prisma.item.findMany({ where: { outletId: activeOutlet.id, category: { name: { not: "Produk Digital" } } }, orderBy: { namaBarang: "asc" } })
+    prisma.customer.findMany({ orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
+    prisma.item.findMany({ where: { outletId: activeOutlet.id, category: { name: { not: "Produk Digital" } } }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT })
   ]);
   return (
     <>

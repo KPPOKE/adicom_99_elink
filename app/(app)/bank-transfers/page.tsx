@@ -3,7 +3,7 @@ import { BankTransferClient } from "@/components/bank-transfer-client";
 import { PageHeader } from "@/components/shared/page-header";
 import { requirePermission } from "@/lib/permissions";
 import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
-import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
+import { PAGE_SIZE, SELECT_OPTION_LIMIT, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
   const [transfers, total, customers, banks, funds, todayFinance, todayTransfers] = await Promise.all([
     prisma.bankTransfer.findMany({ where, include: { user: { select: { name: true } }, sourceFund: true, targetFund: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.bankTransfer.count({ where }),
-    prisma.customer.findMany({ select: { id: true, name: true, phone: true }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.bankTransfer.groupBy({ by: ["destinationBank"], where: { outletId: activeOutlet.id }, orderBy: { destinationBank: "asc" } }),
     prisma.fundAccount.findMany({ where: { outletId: activeOutlet.id, isActive: true }, orderBy: [{ type: "asc" }, { name: "asc" }] }),
     prisma.financeRecord.groupBy({ by: ["type"], where: { outletId: activeOutlet.id, referenceType: "bank_transfer", date: { gte: start, lt: end } }, _sum: { amount: true } }),
