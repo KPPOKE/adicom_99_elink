@@ -72,7 +72,7 @@ test.describe("UAT operational workflow", () => {
     await page.locator('input[name="email"]').fill(`${suffix.toLowerCase()}@example.com`);
     await page.locator('textarea[name="address"]').fill("Customer UAT");
     await page.getByRole("button", { name: "Simpan" }).click();
-    await expect(page.getByText("Customer disimpan")).toBeVisible();
+    await expect.poll(async () => prisma.customer.count({ where: { name: customerName } })).toBe(1);
     await page.reload();
     await expect(page.getByText(customerName)).toBeVisible();
 
@@ -240,6 +240,7 @@ test.describe("UAT operational workflow", () => {
     await page.goto("/login");
     await login(page, staffEmail);
     await page.goto("/settings");
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByRole("heading", { name: "Backup Data", exact: true })).toBeVisible();
+    await expect(page.getByText("Data User")).toHaveCount(0);
   });
 });

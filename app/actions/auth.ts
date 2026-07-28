@@ -3,7 +3,7 @@
 import { compare } from "bcryptjs";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { clearSession, setSession } from "@/lib/auth";
+import { clearSession, getCurrentUser, setSession } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit";
@@ -19,7 +19,7 @@ export async function loginAction(_: unknown, formData: FormData) {
   const rateKey = `login:${ip}:${parsed.data.email.toLowerCase()}`;
   const rate = checkRateLimit(rateKey, 20, 15 * 60 * 1000);
   if (!rate.allowed) {
-    void writeAuditLog({
+    await writeAuditLog({
       userEmail: parsed.data.email,
       action: "login_rate_limited",
       entity: "auth",
@@ -33,23 +33,25 @@ export async function loginAction(_: unknown, formData: FormData) {
     include: { role: true }
   });
   if (!user) {
-    void writeAuditLog({ userEmail: parsed.data.email, action: "login_failed", entity: "auth", metadata: { ip } });
+    await writeAuditLog({ userEmail: parsed.data.email, action: "login_failed", entity: "auth", metadata: { ip } });
     return { error: "Email atau password salah" };
   }
 
   const valid = await compare(parsed.data.password, user.passwordHash);
   if (!valid) {
-    void writeAuditLog({ userId: user.id, userEmail: user.email, action: "login_failed", entity: "auth", metadata: { ip } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.outletId, action: "login_failed", entity: "auth", metadata: { ip } });
     return { error: "Email atau password salah" };
   }
 
   resetRateLimit(rateKey);
   await setSession(user.id, user.role.name, parsed.data.remember);
-  void writeAuditLog({ userId: user.id, userEmail: user.email, action: "login_success", entity: "auth", metadata: { ip } });
+  await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.outletId, action: "login_success", entity: "auth", metadata: { ip } });
   redirect("/dashboard");
 }
 
 export async function logoutAction() {
+  const user = await getCurrentUser();
+  if (user) await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.outletId, action: "logout", entity: "auth" });
   await clearSession();
   redirect("/login");
 }

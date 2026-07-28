@@ -487,6 +487,7 @@ model AuditLog {
   id        Int      @id @default(autoincrement())
   userId    Int?     @map("user_id")
   userEmail String?  @map("user_email")
+  outletId  Int?     @map("outlet_id")
   action    String
   entity    String
   entityId  Int?     @map("entity_id")
@@ -494,6 +495,7 @@ model AuditLog {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
+  @@index([outletId, createdAt])
   @@index([entity, entityId])
   @@index([action])
   @@index([createdAt])

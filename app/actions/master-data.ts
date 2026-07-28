@@ -119,15 +119,22 @@ export async function upsertItem(formData: FormData) {
       outletId: activeOutlet.id,
       deskripsi: parsed.deskripsi || null
     };
-    if (parsed.id) {
-      const existing = await prisma.item.findUnique({ where: { id: parsed.id }, select: { outletId: true } });
-      if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
-      await prisma.item.update({ where: { id: parsed.id }, data });
-    } else {
-      await prisma.item.create({ data });
-    }
+    const existing = parsed.id ? await prisma.item.findUnique({ where: { id: parsed.id } }) : null;
+    if (parsed.id && (!existing || existing.outletId !== activeOutlet.id)) throw new Error("Barang tidak ditemukan di cabang aktif");
+    const item = parsed.id ? await prisma.item.update({ where: { id: parsed.id }, data }) : await prisma.item.create({ data });
     if (image) await deletePublicUpload(typeof values.gambar === "string" ? values.gambar : null);
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "item", entityId: parsed.id ?? null });
+    await writeAuditLog({
+      userId: user.id,
+      userEmail: user.email,
+      outletId: activeOutlet.id,
+      action: existing ? "update" : "create",
+      entity: "item",
+      entityId: item.id,
+      metadata: {
+        before: existing ? { name: existing.namaBarang, code: existing.kodeBarang, cost: Number(existing.hargaModal), price: Number(existing.hargaJual), stock: existing.stok, minimumStock: existing.stokMinimum } : {},
+        after: { name: item.namaBarang, code: item.kodeBarang, cost: Number(item.hargaModal), price: Number(item.hargaJual), stock: item.stok, minimumStock: item.stokMinimum }
+      }
+    });
     revalidatePath("/inventory");
     revalidatePath("/dashboard");
   } catch (error) {
@@ -144,7 +151,7 @@ export async function deleteItem(id: number) {
     if (!item || item.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
     await prisma.item.delete({ where: { id } });
     await deletePublicUpload(item.gambar);
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "item", entityId: id });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "item", entityId: id, metadata: { name: item.namaBarang, code: item.kodeBarang, cost: Number(item.hargaModal), price: Number(item.hargaJual), stock: item.stok } });
     revalidatePath("/inventory");
   } catch (error) {
     handleActionError(error);

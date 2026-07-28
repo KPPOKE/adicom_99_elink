@@ -21,6 +21,7 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets, pe
   const menuItems = nav.filter((item) => canAccessNav(item, role, permissions));
   const activeItem = menuItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
   const dashboardPage = pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const hideOutletControl = dashboardPage || pathname === "/settings/activity";
   const [selectedValue, setSelectedValue] = useState(String(activeOutletId));
   const displayOutletValue = pending ? selectedValue : String(activeOutletId);
 
@@ -65,7 +66,7 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets, pe
           </div>
           <div className="hidden min-w-0 lg:block"><h1 className="text-xl font-bold tracking-tight text-slate-100">{activeItem?.label ?? "PosPintar"}</h1></div>
           <div className="hidden shrink-0 items-center gap-3 lg:flex ml-auto">
-            {dashboardPage ? null : outletControl}
+            {hideOutletControl ? null : outletControl}
             <NotificationBell />
             <div className="flex h-9 items-center gap-2 rounded-md border border-slate-700 bg-slate-900/60 px-3 text-sm text-slate-300"><CalendarDays className="h-4 w-4" /><span>{new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</span></div>
           </div>

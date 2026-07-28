@@ -4,7 +4,6 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { writeAuditLog } from "@/lib/audit";
 import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
 import { outletContext } from "@/lib/outlet";
@@ -126,6 +125,7 @@ export async function createTransaction(payload: unknown) {
           data: {
             userId: user.id,
             userEmail: user.email,
+            outletId: activeOutlet.id,
             action: "create",
             entity: "transaction",
             entityId: transaction.id,
@@ -173,10 +173,11 @@ export async function cancelTransaction(id: number) {
       data: {
         userId: user.id,
         userEmail: user.email,
+        outletId: activeOutlet.id,
         action: "cancel",
         entity: "transaction",
         entityId: id,
-        metadata: { kodeTransaksi: transaction.kodeTransaksi }
+        metadata: { kodeTransaksi: transaction.kodeTransaksi, before: { status: transaction.status }, after: { status: "Batal" } }
       }
     });
   });
@@ -223,10 +224,11 @@ export async function completePendingTransaction(id: number) {
       data: {
         userId: user.id,
         userEmail: user.email,
+        outletId: activeOutlet.id,
         action: "complete_pending",
         entity: "transaction",
         entityId: id,
-        metadata: { kodeTransaksi: transaction.kodeTransaksi }
+        metadata: { kodeTransaksi: transaction.kodeTransaksi, before: { status: transaction.status }, after: { status: "Berhasil" } }
       }
     });
   });
@@ -347,7 +349,7 @@ export async function upsertService(formData: FormData) {
       });
       if (fields.status === "Batal") await tx.financeRecord.deleteMany({ where: { serviceId: id } });
       await tx.auditLog.create({
-        data: { userId: user.id, userEmail: user.email, action: "update", entity: "service", entityId: id, metadata: { kodeService: existing.kodeService, status: fields.status, finalCost } }
+        data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "update", entity: "service", entityId: id, metadata: { kodeService: existing.kodeService, before: { status: existing.status, finalCost: toNumber(existing.finalCost) }, after: { status: fields.status, finalCost } } }
       });
     });
   } else {
@@ -372,7 +374,7 @@ export async function upsertService(formData: FormData) {
             }
           });
           await tx.auditLog.create({
-            data: { userId: user.id, userEmail: user.email, action: "create", entity: "service", entityId: service.id, metadata: { kodeService, status: service.status, finalCost } }
+            data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "create", entity: "service", entityId: service.id, metadata: { kodeService, status: service.status, finalCost } }
           });
         });
         created = true;
@@ -414,7 +416,7 @@ export async function markServicePaid(id: number) {
       });
     }
     await tx.auditLog.create({
-      data: { userId: user.id, userEmail: user.email, action: "mark_paid", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, finalCost: toNumber(service.finalCost) } }
+      data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "mark_paid", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, before: { paymentStatus: service.paymentStatus }, after: { paymentStatus: "paid" }, finalCost: toNumber(service.finalCost) } }
     });
   });
   revalidateServicePaths();
@@ -450,7 +452,7 @@ export async function updateServiceStatus(id: number, status: string) {
     });
     if (targetStatus === "Batal") await tx.financeRecord.deleteMany({ where: { serviceId: id } });
     await tx.auditLog.create({
-      data: { userId: user.id, userEmail: user.email, action: "update_status", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, from: service.status, to: targetStatus } }
+      data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "update_status", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, from: service.status, to: targetStatus } }
     });
   });
   revalidateServicePaths();
@@ -468,7 +470,7 @@ export async function deleteService(id: number) {
       await releaseServiceParts(tx, service.outletId!, service.parts, serviceStockMode(service.status));
       await tx.service.delete({ where: { id } });
       await tx.auditLog.create({
-        data: { userId: user.id, userEmail: user.email, action: "delete", entity: "service", entityId: id, metadata: { kodeService: service.kodeService } }
+        data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "service", entityId: id, metadata: { kodeService: service.kodeService } }
       });
     });
     revalidateServicePaths();
@@ -492,12 +494,27 @@ export async function upsertFinanceRecord(formData: FormData) {
     outletId: activeOutlet.id,
     userId: user.id
   };
-  if (parsed.id) {
-    const existing = await prisma.financeRecord.findUnique({ where: { id: parsed.id }, select: { outletId: true, referenceType: true } });
-    if (!existing || existing.outletId !== activeOutlet.id || existing.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
-    await prisma.financeRecord.update({ where: { id: parsed.id }, data });
-  } else await prisma.financeRecord.create({ data });
-  await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "finance_record", entityId: parsed.id ?? null });
+  await prisma.$transaction(async (tx) => {
+    const existing = parsed.id ? await tx.financeRecord.findUnique({ where: { id: parsed.id } }) : null;
+    if (parsed.id && (!existing || existing.outletId !== activeOutlet.id || existing.referenceType !== "manual")) throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
+    const record = parsed.id
+      ? await tx.financeRecord.update({ where: { id: parsed.id }, data })
+      : await tx.financeRecord.create({ data });
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        outletId: activeOutlet.id,
+        action: existing ? "update" : "create",
+        entity: "finance_record",
+        entityId: record.id,
+        metadata: {
+          before: existing ? { type: existing.type, category: existing.category, amount: toNumber(existing.amount), date: existing.date.toISOString() } : {},
+          after: { type: record.type, category: record.category, amount: toNumber(record.amount), date: record.date.toISOString() }
+        }
+      }
+    });
+  });
   revalidatePath("/finance");
   revalidatePath("/dashboard");
 }
@@ -507,13 +524,24 @@ export async function deleteFinanceRecord(id: number) {
     await assertTrustedOrigin();
     const user = await requirePermission("finance.manage");
     const { activeOutlet } = await outletContext(user);
-    const record = await prisma.financeRecord.findUnique({ where: { id }, select: { outletId: true, referenceType: true } });
-    if (!record || record.outletId !== activeOutlet.id || record.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
-    await prisma.financeRecord.delete({ where: { id } });
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "finance_record", entityId: id });
+    await prisma.$transaction(async (tx) => {
+      const record = await tx.financeRecord.findUnique({ where: { id } });
+      if (!record || record.outletId !== activeOutlet.id || record.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
+      await tx.financeRecord.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          userEmail: user.email,
+          outletId: activeOutlet.id,
+          action: "delete",
+          entity: "finance_record",
+          entityId: id,
+          metadata: { category: record.category, type: record.type, amount: toNumber(record.amount), date: record.date.toISOString() }
+        }
+      });
+    });
     revalidatePath("/finance");
   } catch (error) {
     handleActionError(error);
   }
 }
-

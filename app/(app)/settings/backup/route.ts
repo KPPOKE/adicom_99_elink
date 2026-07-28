@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
+import { writeAuditLog } from "@/lib/audit";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { assertTrustedOrigin } from "@/lib/security";
@@ -41,6 +42,7 @@ export async function POST() {
     note: "Setiap tabel dibatasi agar backup tidak membebani server. Gunakan backup database langsung untuk arsip penuh.",
     data: { outlets, users, categories, suppliers, customers, items, transactions, services, bankTransfers, bankTransferDeposits, fundAccounts, fundMutations, financeRecords, settings }
   };
+  await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.role.name === "admin" ? null : activeOutlet.id, action: "download", entity: "backup", metadata: { scope: payload.scope, rowLimit: BACKUP_ROW_LIMIT } });
   const filename = `backup-adicom99-${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}.json`;
   return new NextResponse(JSON.stringify(payload), { headers: { "content-type": "application/json; charset=utf-8", "content-disposition": `attachment; filename="${filename}"` } });
 }

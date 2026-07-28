@@ -1,4 +1,5 @@
-import { Download, Save } from "lucide-react";
+import { Download, History, Save } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { updateSettings } from "@/app/actions/settings";
 import { deleteOutlet, upsertOutlet } from "@/app/actions/outlets";
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         {canBackup ? <Card className="xl:col-span-2"><CardHeader><CardTitle>Backup Data</CardTitle></CardHeader><CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-400">Unduh backup JSON sesuai akses cabang akun saat ini.</p><form action="/settings/backup" method="post"><Button type="submit"><Download className="h-4 w-4" />Unduh Backup JSON</Button></form></CardContent></Card> : null}
         {isAdmin ? <>
+          <Card className="xl:col-span-2"><CardHeader><CardTitle>Riwayat Aktivitas</CardTitle></CardHeader><CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-400">Lihat perubahan data, aktivitas akun, saldo, dan pengaturan.</p><Button asChild variant="outline"><Link href="/settings/activity"><History className="h-4 w-4" />Buka Riwayat</Link></Button></CardContent></Card>
           <Card>
             <CardHeader><CardTitle>Profil Toko</CardTitle></CardHeader>
             <CardContent>

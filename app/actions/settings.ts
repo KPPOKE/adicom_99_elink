@@ -15,6 +15,7 @@ export async function updateSettings(formData: FormData) {
     const logo = await saveImageUpload(formData.get("logoFile") as File | null, "logo");
     const existingLogo = String(formData.get("logo") || "");
     const id = Number(formData.get("id"));
+    const existing = id ? await prisma.setting.findUnique({ where: { id } }) : null;
     const data = {
       storeName: String(formData.get("storeName") || "PosPintar"),
       logo: logo || existingLogo || null,
@@ -25,10 +26,19 @@ export async function updateSettings(formData: FormData) {
       invoiceFooter: String(formData.get("invoiceFooter") || "") || null,
       defaultPrintFormat: String(formData.get("defaultPrintFormat") || "thermal_80")
     };
-    if (id) await prisma.setting.update({ where: { id }, data });
-    else await prisma.setting.create({ data });
+    const setting = id ? await prisma.setting.update({ where: { id }, data }) : await prisma.setting.create({ data });
     if (logo) await deletePublicUpload(existingLogo);
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "update", entity: "settings", entityId: id || null });
+    await writeAuditLog({
+      userId: user.id,
+      userEmail: user.email,
+      action: existing ? "update" : "create",
+      entity: "settings",
+      entityId: setting.id,
+      metadata: {
+        before: existing ? { storeName: existing.storeName, address: existing.address, whatsapp: existing.whatsapp, email: existing.email, invoicePrefix: existing.invoicePrefix, defaultPrintFormat: existing.defaultPrintFormat } : {},
+        after: { storeName: setting.storeName, address: setting.address, whatsapp: setting.whatsapp, email: setting.email, invoicePrefix: setting.invoicePrefix, defaultPrintFormat: setting.defaultPrintFormat }
+      }
+    });
     revalidatePath("/settings");
   } catch (error) {
     handleActionError(error);

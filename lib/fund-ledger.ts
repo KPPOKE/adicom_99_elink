@@ -47,7 +47,7 @@ export async function applyFundDelta(
   if (after < 0) throw new Error(`Saldo ${account.name} tidak cukup`);
   const updated = await tx.fundAccount.updateMany({ where: { id: account.id, balance: account.balance }, data: { balance: after } });
   if (updated.count !== 1) throw new Error("Saldo berubah, ulangi transaksi");
-  await tx.fundMutation.create({
+  return tx.fundMutation.create({
     data: {
       outletId: input.outletId,
       fundAccountId: account.id,

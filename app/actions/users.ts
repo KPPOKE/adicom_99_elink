@@ -14,7 +14,7 @@ const validPermissions = new Set<string>(PERMISSIONS.map((item) => item.key));
 export async function upsertUser(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    await requireAdmin();
+    const current = await requireAdmin();
     const parsed = userSchema.parse(Object.fromEntries(formData));
     const role = await prisma.role.findUniqueOrThrow({ where: { name: parsed.role } });
     if (parsed.outletId) {
@@ -31,11 +31,29 @@ export async function upsertUser(formData: FormData) {
     const permissions = formData.getAll("permissions").map(String).filter((key) => validPermissions.has(key));
 
     await prisma.$transaction(async (tx) => {
-      const user = parsed.id ? await tx.user.update({ where: { id: parsed.id }, data }) : await tx.user.create({ data: data as typeof data & { passwordHash: string } });
-      await tx.userPermission.deleteMany({ where: { userId: user.id } });
+      const existing = parsed.id ? await tx.user.findUnique({ where: { id: parsed.id }, include: { role: true, permissions: true } }) : null;
+      if (parsed.id && !existing) throw new Error("User tidak ditemukan");
+      const target = parsed.id ? await tx.user.update({ where: { id: parsed.id }, data }) : await tx.user.create({ data: data as typeof data & { passwordHash: string } });
+      await tx.userPermission.deleteMany({ where: { userId: target.id } });
       if (parsed.role === "staff" && permissions.length) {
-        await tx.userPermission.createMany({ data: permissions.map((key) => ({ userId: user.id, key })), skipDuplicates: true });
+        await tx.userPermission.createMany({ data: permissions.map((key) => ({ userId: target.id, key })), skipDuplicates: true });
       }
+      await tx.auditLog.create({
+        data: {
+          userId: current.id,
+          userEmail: current.email,
+          outletId: target.outletId,
+          action: existing ? "update" : "create",
+          entity: "user",
+          entityId: target.id,
+          metadata: {
+            targetEmail: target.email,
+            passwordChanged: Boolean(parsed.password),
+            before: existing ? { name: existing.name, email: existing.email, role: existing.role.name, outletId: existing.outletId, permissions: existing.permissions.map((item) => item.key) } : {},
+            after: { name: target.name, email: target.email, role: parsed.role, outletId: target.outletId, permissions: parsed.role === "staff" ? permissions : [] }
+          }
+        }
+      });
     });
     revalidatePath("/settings");
     revalidatePath("/", "layout");
@@ -49,11 +67,24 @@ export async function deleteUser(id: number) {
     await assertTrustedOrigin();
     const current = await requireAdmin();
     if (current.id === id) throw new Error("User yang sedang login tidak bisa dihapus");
-    const usage = await prisma.user.findUnique({ where: { id }, select: { _count: { select: { transactions: true, services: true, financeRecords: true } } } });
-    if (!usage) throw new Error("User tidak ditemukan");
-    const used = usage._count.transactions + usage._count.services + usage._count.financeRecords;
+    const target = await prisma.user.findUnique({ where: { id }, include: { role: true, permissions: true, _count: { select: { transactions: true, services: true, financeRecords: true } } } });
+    if (!target) throw new Error("User tidak ditemukan");
+    const used = target._count.transactions + target._count.services + target._count.financeRecords;
     if (used > 0) throw new Error("User sudah dipakai di transaksi/service/keuangan dan tidak bisa dihapus");
-    await prisma.user.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.user.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          userId: current.id,
+          userEmail: current.email,
+          outletId: target.outletId,
+          action: "delete",
+          entity: "user",
+          entityId: id,
+          metadata: { targetEmail: target.email, role: target.role.name, outletId: target.outletId, permissions: target.permissions.map((item) => item.key) }
+        }
+      });
+    });
     revalidatePath("/settings");
   } catch (error) {
     handleActionError(error);
