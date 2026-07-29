@@ -1,18 +1,14 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { ArrowLeft, Banknote, CalendarDays, CircleDollarSign, Filter, PackageCheck, Smartphone, TrendingDown } from "lucide-react";
+import { ArrowLeft, Banknote, BarChart3, CalendarDays, CircleDollarSign, Filter, PackageCheck, Smartphone, TrendingDown } from "lucide-react";
 import { OutletProfitChart } from "@/components/dashboard-charts";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { outletContext } from "@/lib/outlet";
-import { buildOutletReport, outletReportPeriod } from "@/lib/outlet-dashboard-report";
-import { requirePermission } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
-import { cn, formatCurrency, toNumber } from "@/lib/utils";
-
+import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
+import { outletReportPeriod } from "@/lib/outlet-dashboard-report";
+import { cn, formatCurrency } from "@/lib/utils";
 export default async function DashboardOutletDetailPage({
   params,
   searchParams
@@ -24,76 +20,8 @@ export default async function DashboardOutletDetailPage({
   const query = (await searchParams) ?? {};
   const rawPeriod = Array.isArray(query.periode) ? query.periode[0] : query.periode;
   const period = outletReportPeriod(rawPeriod);
-  const user = await requirePermission("dashboard.view");
-  const { activeOutlet, outlets } = await outletContext(user);
-  const selectedOutlet = user.role.name === "admin" ? outlets.find((item) => item.id === Number(outletId)) : activeOutlet.id === Number(outletId) ? activeOutlet : null;
-  if (!selectedOutlet) redirect("/dashboard");
-
-  const outletIdValue = selectedOutlet.id;
-  const dateRange = { gte: period.start, lt: period.end };
-  const [transactions, services, finance, miniAtm, operations] = await Promise.all([
-    prisma.transaction.findMany({
-      where: { outletId: outletIdValue, status: "Berhasil", createdAt: dateRange },
-      select: {
-        createdAt: true,
-        diskon: true,
-        items: { select: { qty: true, price: true, item: { select: { hargaModal: true, category: { select: { name: true } } } } } }
-      }
-    }),
-    prisma.service.findMany({
-      where: { outletId: outletIdValue, paymentStatus: "paid", paidAt: dateRange },
-      select: {
-        paidAt: true,
-        laborCost: true,
-        parts: { select: { qty: true, price: true, item: { select: { hargaModal: true } } } }
-      }
-    }),
-    prisma.financeRecord.findMany({
-      where: { outletId: outletIdValue, date: dateRange, type: "expense", OR: [{ referenceType: null }, { referenceType: { not: "bank_transfer" } }] },
-      select: { date: true, type: true, amount: true, referenceType: true }
-    }),
-    prisma.bankTransfer.findMany({
-      where: { outletId: outletIdValue, status: "Berhasil", completedAt: dateRange },
-      select: { completedAt: true, kind: true, adminFee: true, adminBankFee: true, externalAdminFee: true }
-    }),
-    prisma.fundMutation.findMany({
-      where: { outletId: outletIdValue, createdAt: dateRange, adminFee: { gt: 0 }, bankTransferId: null },
-      select: { createdAt: true, adminFee: true }
-    })
-  ]);
-
-  const report = buildOutletReport({
-    start: period.start,
-    visibleEnd: period.visibleEnd,
-    transactions: transactions.map((transaction) => ({
-      date: transaction.createdAt,
-      discount: toNumber(transaction.diskon),
-      items: transaction.items.map((item) => ({
-        qty: item.qty,
-        price: toNumber(item.price),
-        cost: toNumber(item.item.hargaModal),
-        categoryName: item.item.category.name
-      }))
-    })),
-    services: services.flatMap((service) => service.paidAt ? [{
-      date: service.paidAt,
-      laborCost: toNumber(service.laborCost),
-      parts: service.parts.map((part) => ({ qty: part.qty, price: toNumber(part.price), cost: toNumber(part.item.hargaModal) }))
-    }] : []),
-    finance: finance.map((record) => ({
-      date: record.date,
-      type: record.type,
-      amount: toNumber(record.amount),
-      referenceType: record.referenceType
-    })),
-    miniAtm: miniAtm.flatMap((transaction) => transaction.completedAt ? [{
-      date: transaction.completedAt,
-      grossProfit: toNumber(transaction.adminFee) + (transaction.kind === "Tarik_Tunai" ? toNumber(transaction.externalAdminFee) : 0),
-      bankFee: transaction.kind === "Transfer" ? toNumber(transaction.adminBankFee) : 0
-    }] : []),
-    operations: operations.map((operation) => ({ date: operation.createdAt, amount: toNumber(operation.adminFee) }))
-  });
-
+  const { outlet: selectedOutlet } = await requireDashboardOutlet(Number(outletId));
+  const report = await loadOutletReport(selectedOutlet.id, period.start, period.end, period.visibleEnd);
   const monthLabel = period.start.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
   const chartData = report.days.map((day) => ({
     date: day.date.toLocaleDateString("id-ID", { day: "2-digit" }),
@@ -121,6 +49,9 @@ export default async function DashboardOutletDetailPage({
               Terapkan
             </Button>
           </form>
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/cabang/${selectedOutlet.id}/tahunan`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Semua Cabang</Link>
           </Button>

@@ -263,3 +263,44 @@ test("admin opens the monthly report from an outlet card", async ({ page }) => {
   await expect(profitToggle).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByText("Total Aset", { exact: true })).toHaveCount(0);
 });
+
+test("annual outlet report is scoped and export follows permission", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const outlet = await prisma.outlet.findFirstOrThrow({ orderBy: { id: "asc" } });
+  const staff = await createStaff(`annual-${Date.now()}-${testInfo.project.name}`);
+
+  try {
+    await login(page);
+    await page.goto(`/dashboard/cabang/${outlet.id}`);
+    await page.getByRole("link", { name: "Laporan Tahunan" }).click();
+    await expect(page).toHaveURL(new RegExp(`/dashboard/cabang/${outlet.id}/tahunan`));
+    await expect(page.getByText(`Statistik Profit Tahun ${new Date().getFullYear()}`)).toBeVisible();
+    await expect(page.getByRole("table").getByRole("row")).toHaveCount(14);
+
+    const toggle = page.getByRole("button", { name: "Potongan Bank" });
+    const december = page.getByText("Desember", { exact: true }).last();
+    const [toggleBox, decemberBox] = await Promise.all([toggle.boundingBox(), december.boundingBox()]);
+    expect(toggleBox?.y).toBeGreaterThanOrEqual((decemberBox?.y ?? 0) + (decemberBox?.height ?? 0) + 8);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    const exportHref = await page.getByRole("link", { name: "Unduh Excel" }).getAttribute("href");
+    expect(exportHref).toBeTruthy();
+    const exportResponse = await page.request.get(exportHref!);
+    expect(exportResponse.ok()).toBe(true);
+    expect(exportResponse.headers()["content-disposition"]).toMatch(/laporan-tahunan-.*\.xls"/);
+
+    await page.context().clearCookies();
+    await login(page, staff.email);
+    await page.goto(`/dashboard/cabang/${outlet.id}/tahunan`);
+    await expect(page.getByText(`Statistik Profit Tahun ${new Date().getFullYear()}`)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Unduh Excel" })).toHaveCount(0);
+    await page.goto(`/dashboard/cabang/${outlet.id}/tahunan/export`);
+    await expect(page).toHaveURL(/\/dashboard$/);
+  } finally {
+    await prisma.auditLog.deleteMany({ where: { userId: staff.id } });
+    await prisma.userPermission.deleteMany({ where: { userId: staff.id } });
+    await prisma.user.deleteMany({ where: { id: staff.id } });
+  }
+});

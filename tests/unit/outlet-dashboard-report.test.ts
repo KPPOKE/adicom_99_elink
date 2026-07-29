@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOutletReport, outletReportPeriod } from "@/lib/outlet-dashboard-report";
+import { buildOutletAnnualReport, buildOutletReport, outletAnnualReportYear, outletReportPeriod } from "@/lib/outlet-dashboard-report";
 
 describe("outlet dashboard report", () => {
   it("matches the daily gross, deduction, profit, and expense flow", () => {
@@ -61,5 +61,30 @@ describe("outlet dashboard report", () => {
     expect(outletReportPeriod("2026-08", now).value).toBe("2026-07");
     expect(outletReportPeriod("invalid", now).visibleEnd).toEqual(new Date(2026, 6, 30));
     expect(outletReportPeriod("2026-06", now).visibleEnd).toEqual(new Date(2026, 6, 1));
+  });
+
+  it("aggregates every month and the annual total", () => {
+    const annual = buildOutletAnnualReport([
+      {
+        date: new Date(2026, 0, 10), digitalTransactions: 0, physicalTransactions: 0, grossProfit: 15_000,
+        bankFee: 1_000, operational: 2_000, profit: 12_000, expense: 3_000, netProfit: 9_000
+      },
+      {
+        date: new Date(2026, 6, 10), digitalTransactions: 0, physicalTransactions: 0, grossProfit: 30_000,
+        bankFee: 2_000, operational: 3_000, profit: 25_000, expense: 5_000, netProfit: 20_000
+      }
+    ]);
+
+    expect(annual.months).toHaveLength(12);
+    expect(annual.months[1]).toMatchObject({ bankFee: 0, operational: 0, profit: 0, expense: 0, netProfit: 0 });
+    expect(annual.months[6]).toMatchObject({ bankFee: 2_000, operational: 3_000, profit: 25_000, expense: 5_000, netProfit: 20_000 });
+    expect(annual.total).toEqual({ bankFee: 3_000, operational: 5_000, profit: 37_000, expense: 8_000, netProfit: 29_000 });
+  });
+
+  it("uses the current year for invalid or future annual periods", () => {
+    const now = new Date(2026, 6, 29, 12);
+    expect(outletAnnualReportYear("2025", now).year).toBe(2025);
+    expect(outletAnnualReportYear("2027", now).year).toBe(2026);
+    expect(outletAnnualReportYear("invalid", now)).toMatchObject({ value: "2026", current: "2026", year: 2026 });
   });
 });

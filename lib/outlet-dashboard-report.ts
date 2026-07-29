@@ -10,6 +10,16 @@ export type OutletReportDay = {
   netProfit: number;
 };
 
+export type OutletAnnualMonth = {
+  month: number;
+  name: string;
+  bankFee: number;
+  operational: number;
+  profit: number;
+  expense: number;
+  netProfit: number;
+};
+
 type ReportTransaction = {
   date: Date;
   discount: number;
@@ -48,6 +58,19 @@ export function outletReportPeriod(value: string | undefined, now = new Date()) 
   const end = new Date(year, month, 1);
   const visibleEnd = selected === current ? new Date(year, month - 1, now.getDate() + 1) : end;
   return { value: selected, current, start, end, visibleEnd };
+}
+
+export function outletAnnualReportYear(value: string | undefined, now = new Date()) {
+  const current = now.getFullYear();
+  const parsed = /^\d{4}$/.test(value ?? "") ? Number(value) : current;
+  const year = parsed >= 2000 && parsed <= current ? parsed : current;
+  return {
+    value: String(year),
+    current: String(current),
+    year,
+    start: new Date(year, 0, 1),
+    end: new Date(year + 1, 0, 1)
+  };
 }
 
 export function buildOutletReport(input: {
@@ -129,6 +152,40 @@ export function buildOutletReport(input: {
         netProfit: sum.netProfit + day.netProfit
       }),
       { digitalTransactions: 0, physicalTransactions: 0, grossProfit: 0, bankFee: 0, operational: 0, profit: 0, expense: 0, netProfit: 0 }
+    )
+  };
+}
+export function buildOutletAnnualReport(days: OutletReportDay[]) {
+  const months: OutletAnnualMonth[] = Array.from({ length: 12 }, (_, month) => ({
+    month,
+    name: new Date(2000, month, 1).toLocaleDateString("id-ID", { month: "long" }),
+    bankFee: 0,
+    operational: 0,
+    profit: 0,
+    expense: 0,
+    netProfit: 0
+  }));
+
+  for (const day of days) {
+    const month = months[day.date.getMonth()];
+    month.bankFee += day.bankFee;
+    month.operational += day.operational;
+    month.profit += day.profit;
+    month.expense += day.expense;
+    month.netProfit += day.netProfit;
+  }
+
+  return {
+    months,
+    total: months.reduce(
+      (sum, month) => ({
+        bankFee: sum.bankFee + month.bankFee,
+        operational: sum.operational + month.operational,
+        profit: sum.profit + month.profit,
+        expense: sum.expense + month.expense,
+        netProfit: sum.netProfit + month.netProfit
+      }),
+      { bankFee: 0, operational: 0, profit: 0, expense: 0, netProfit: 0 }
     )
   };
 }
