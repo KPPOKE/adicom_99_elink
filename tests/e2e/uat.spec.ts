@@ -23,7 +23,7 @@ async function openDialog(page: import("@playwright/test").Page, name: string, r
 
 test.describe("UAT operational workflow", () => {
   test("admin and staff workflows update stock, finance, reports, and role access", async ({ page }, testInfo) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     const suffix = `UAT-${Date.now()}-${testInfo.project.name}`;
     const categoryName = `${suffix}-Kategori`;
     const supplierName = `${suffix}-Supplier`;

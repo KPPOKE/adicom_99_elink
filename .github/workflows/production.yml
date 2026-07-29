@@ -1,0 +1,71 @@
+name: Production
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DATABASE_URL: mysql://root:root@127.0.0.1:3306/adicom99_ci
+  AUTH_SECRET: ci-auth-secret-at-least-32-characters-long
+  SEED_ADMIN_EMAIL: admin@adicom99.com
+  SEED_ADMIN_PASSWORD: password123
+  SEED_STAFF_EMAIL: staff@adicom99.com
+  SEED_STAFF_PASSWORD: password123
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: adicom99_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: bash -n ops/*.sh
+      - run: npx prisma migrate deploy
+      - run: npx prisma db seed
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - run: npm run test:e2e
+
+  deploy:
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOY == 'true' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
+    needs: verify
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Publish verified commit
+        run: git push --force origin "$GITHUB_SHA:refs/heads/deploy"
+      - name: Trigger production webhook
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+        run: curl --fail --show-error --silent --retry 3 --max-time 900 --request POST "$DEPLOY_WEBHOOK_URL"

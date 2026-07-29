@@ -102,6 +102,34 @@ export function ReportChart({ data }: { data: { name: string; income: number; ex
   );
 }
 
+export function OutletProfitChart({ data }: { data: { date: string; profit: number; expense: number; netProfit: number }[] }) {
+  return (
+    <Card className="min-w-0">
+      <CardHeader>
+        <CardTitle>Grafik Laporan Bulanan</CardTitle>
+      </CardHeader>
+      <CardContent className="h-80 min-h-80 min-w-0">
+        <ChartFrame>
+          {(width) => (
+            <LineChart data={data} width={width} height={300}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+              <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
+              <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
+              <Tooltip
+                contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                formatter={(value) => formatCurrency(Number(value))}
+              />
+              <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
+              <Line type="monotone" dataKey="profit" name="Profit" stroke="#38bdf8" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="expense" name="Pengeluaran" stroke="#fb7185" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="netProfit" name="Profit Bersih" stroke="#34d399" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+            </LineChart>
+          )}
+        </ChartFrame>
+      </CardContent>
+    </Card>
+  );
+}
 function ChartFrame({ children }: { children: (width: number) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -126,4 +154,3 @@ function ChartFrame({ children }: { children: (width: number) => React.ReactNode
 function ChartSkeleton() {
   return <div className="h-full w-full animate-pulse rounded-md bg-slate-800" />;
 }
-

@@ -10,6 +10,12 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
+test("health endpoint reports application and database readiness", async ({ request }) => {
+  const response = await request.get("/api/health");
+  expect(response.status()).toBe(200);
+  await expect(response.json()).resolves.toMatchObject({ status: "ok" });
+});
+
 async function createStaff(suffix: string) {
   const staffRole = await prisma.role.findUniqueOrThrow({ where: { name: "staff" } });
   const outlet = await prisma.outlet.findFirstOrThrow({ orderBy: { id: "asc" } });
@@ -215,4 +221,21 @@ test("audit date range controls are clearly labeled", async ({ page }) => {
   await expect(page.getByLabel("Sampai tanggal")).toBeVisible();
   await expect(page.getByRole("button", { name: "Terapkan" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Reset" })).toBeVisible();
+});
+test("admin opens the monthly report from an outlet card", async ({ page }) => {
+  await login(page);
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+  const outletCard = page.locator('a[href^="/dashboard/cabang/"]').first();
+  await expect(outletCard).toBeVisible();
+  await outletCard.click();
+  await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+/);
+
+  for (const label of ["Transaksi Digital", "Transaksi Fisik", "Profit", "Pengeluaran", "Profit Bersih"]) {
+    await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+  }
+  await expect(page.getByLabel("Periode")).toHaveValue(/^\d{4}-\d{2}$/);
+  await expect(page.getByRole("heading", { name: "Grafik Laporan Bulanan" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ringkasan Harian" })).toBeVisible();
+  await expect(page.getByText("Total Aset", { exact: true })).toHaveCount(0);
 });

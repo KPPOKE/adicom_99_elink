@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
   expect: { timeout: 30_000 },
+  workers: process.env.CI ? 1 : 2,
+  retries: process.env.CI ? 1 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL,

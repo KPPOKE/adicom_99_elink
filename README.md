@@ -82,90 +82,18 @@ Jika port tersebut sedang dipakai, gunakan port lain:
 PLAYWRIGHT_PORT=3004 npm run test:e2e
 ```
 
-## Deploy ke VPS aaPanel
+## Production
 
-Rekomendasi production untuk VPS sendiri:
+Deployment production memakai GitHub Actions, release directories, PM2, health check, backup terenkripsi ke Google Drive, dan UptimeRobot. Setup lengkap dan prosedur recovery tersedia di [docs/OPERASIONAL-PRODUKSI.md](docs/OPERASIONAL-PRODUKSI.md).
 
-- Node.js `>=20.9.0`
-- MySQL/MariaDB via aaPanel
-- Nginx reverse proxy dengan SSL Let's Encrypt
-- Process manager aaPanel atau PM2 untuk menjalankan Next.js
-
-1. Buat database dan user khusus aplikasi:
-
-```sql
-CREATE DATABASE pospintar_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'pospintar_user'@'localhost' IDENTIFIED BY 'password-kuat';
-GRANT ALL PRIVILEGES ON pospintar_management.* TO 'pospintar_user'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-2. Set environment production di aaPanel:
-
-```env
-NODE_ENV=production
-DATABASE_URL="mysql://pospintar_user:password-kuat@localhost:3306/pospintar_management"
-AUTH_SECRET="random-secret-minimal-32-karakter-panjang"
-SEED_ADMIN_EMAIL="admin@pospintar.com"
-SEED_ADMIN_PASSWORD="password-admin-kuat"
-SEED_STAFF_EMAIL="staff@pospintar.com"
-SEED_STAFF_PASSWORD="password-staff-kuat"
-```
-
-3. Install, migrate, build, dan seed jika database masih kosong:
+Ringkasan pemeriksaan lokal:
 
 ```bash
-npm ci
-npx prisma migrate deploy
-npx prisma db seed
+npm audit --omit=dev --audit-level=high
+npm run lint
+npm run test
 npm run build
-npm run start
+npm run test:e2e
 ```
 
-4. Reverse proxy aaPanel/Nginx:
-
-- Jalankan app Next.js di port internal, misalnya `3000`.
-- Proxy domain ke `http://127.0.0.1:3000`.
-- Aktifkan SSL Let's Encrypt.
-- Jangan expose port Node langsung ke publik; publik cukup `80/443`.
-
-5. Backup production:
-
-- Backup MySQL harian.
-- Backup folder `public/uploads` karena gambar barang/logo disimpan lokal.
-- Simpan `.env` production di luar git.
-
-## CI/CD GitHub Actions
-
-Workflow `.github/workflows/deploy.yml` otomatis berjalan saat ada push ke branch `main`.
-
-GitHub Actions akan:
-
-- menjalankan `npm ci --include=dev`, `npm audit`, lint, unit test, dan build;
-- deploy ke VPS via SSH hanya jika CI sukses;
-- menjalankan `git reset --hard origin/main`, `npm ci --include=dev`, `npx prisma generate`, `npx prisma migrate deploy`, `npm run build`, lalu `pm2 restart pospintar`.
-
-Tambahkan repository secrets berikut di GitHub:
-
-```text
-SERVER_HOST=IP_ATAU_DOMAIN_VPS
-SERVER_USERNAME=root_atau_user_deploy
-SERVER_PORT=22
-SERVER_PASSWORD=PASSWORD_SSH_VPS
-SERVER_PROJECT_PATH=/www/wwwroot/pospintar
-```
-
-Catatan:
-
-- `.env` production tetap disimpan di VPS, bukan di GitHub.
-- CI memakai MySQL service sementara di GitHub Actions, jadi tidak perlu secret database CI.
-- Workflow tidak menjalankan `prisma db seed` otomatis agar data production tidak berubah.
-- PM2 process name harus `pospintar`.
-- Config Nginx `/uploads/` di aaPanel tetap dikelola manual di server.
-
-## Catatan Produksi
-
-- Ganti `AUTH_SECRET` sebelum deploy.
-- Untuk VPS single-server, upload lokal `public/uploads` bisa dipakai selama ikut backup.
-- Untuk multi-server/serverless, pindahkan storage ke object storage seperti S3/R2.
-- Review hasil `npm audit` sebelum deploy production.
+Production migration dijalankan dengan `npx prisma migrate deploy`. Seed tidak dijalankan otomatis.
