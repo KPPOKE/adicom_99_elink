@@ -10,6 +10,20 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
+test("login password visibility can be toggled", async ({ page }) => {
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  const password = page.locator('input[name="password"]');
+  await password.fill("password123");
+  await expect(password).toHaveAttribute("type", "password");
+
+  await page.getByRole("button", { name: "Lihat password" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(password).toHaveValue("password123");
+
+  await page.getByRole("button", { name: "Sembunyikan password" }).click();
+  await expect(password).toHaveAttribute("type", "password");
+});
+
 test("health endpoint reports application and database readiness", async ({ request }) => {
   const response = await request.get("/api/health");
   expect(response.status()).toBe(200);

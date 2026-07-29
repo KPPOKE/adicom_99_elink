@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { ArrowRight, Lock, Mail, ShieldCheck } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const email = localStorage.getItem("pospintar_remember_email");
@@ -73,14 +74,23 @@ export default function LoginPage() {
                 <Label>Email</Label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="pl-10 h-11" name="email" type="email" placeholder="email@pospintar.com" required />
+                  <Input className="h-11 pl-10" name="email" type="email" autoComplete="email" placeholder="email@pospintar.com" required />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Password</Label>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="pl-10 h-11" name="password" type="password" placeholder="********" required />
+                  <Input className="h-11 px-10" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="********" required />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Sembunyikan password" : "Lihat password"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
@@ -102,4 +112,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
