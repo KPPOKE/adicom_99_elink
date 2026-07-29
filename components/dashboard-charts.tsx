@@ -103,33 +103,56 @@ export function ReportChart({ data }: { data: { name: string; income: number; ex
 }
 
 export function OutletProfitChart({ data }: { data: { date: string; profit: number; expense: number; netProfit: number }[] }) {
+  const [visible, setVisible] = useState({ profit: true, expense: true, netProfit: true });
+  const series = [
+    { key: "profit", label: "Profit", color: "#38bdf8" },
+    { key: "expense", label: "Pengeluaran", color: "#fb7185" },
+    { key: "netProfit", label: "Profit Bersih", color: "#34d399" }
+  ] as const;
+
   return (
     <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Grafik Laporan Bulanan</CardTitle>
       </CardHeader>
-      <CardContent className="h-80 min-h-80 min-w-0">
-        <ChartFrame>
-          {(width) => (
-            <LineChart data={data} width={width} height={300}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
-              <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
-              <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
-                formatter={(value) => formatCurrency(Number(value))}
-              />
-              <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
-              <Line type="monotone" dataKey="profit" name="Profit" stroke="#38bdf8" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="expense" name="Pengeluaran" stroke="#fb7185" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-              <Line type="monotone" dataKey="netProfit" name="Profit Bersih" stroke="#34d399" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
-            </LineChart>
-          )}
-        </ChartFrame>
+      <CardContent className="min-w-0 pb-4">
+        <div className="h-72 min-h-72 min-w-0">
+          <ChartFrame>
+            {(width) => (
+              <LineChart data={data} width={width} height={280}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
+                <Tooltip
+                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  formatter={(value) => formatCurrency(Number(value))}
+                />
+                <Line hide={!visible.profit} type="monotone" dataKey="profit" name="Profit" stroke="#38bdf8" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+                <Line hide={!visible.expense} type="monotone" dataKey="expense" name="Pengeluaran" stroke="#fb7185" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+                <Line hide={!visible.netProfit} type="monotone" dataKey="netProfit" name="Profit Bersih" stroke="#34d399" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+              </LineChart>
+            )}
+          </ChartFrame>
+        </div>
+        <div className="mt-3 flex flex-wrap justify-center gap-2" role="group" aria-label="Pilih data grafik">
+          {series.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={visible[item.key]}
+              onClick={() => setVisible((current) => ({ ...current, [item.key]: !current[item.key] }))}
+              className={`flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium transition ${visible[item.key] ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}
+            >
+              <span className="h-0.5 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+              {item.label}
+            </button>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
 }
+
 function ChartFrame({ children }: { children: (width: number) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);

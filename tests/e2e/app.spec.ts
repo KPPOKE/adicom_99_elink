@@ -234,8 +234,14 @@ test("admin opens the monthly report from an outlet card", async ({ page }) => {
   for (const label of ["Transaksi Digital", "Transaksi Fisik", "Profit", "Pengeluaran", "Profit Bersih"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
-  await expect(page.getByLabel("Periode")).toHaveValue(/^\d{4}-\d{2}$/);
+  const periodInput = page.getByLabel("Periode");
+  await expect(periodInput).toHaveValue(/^\d{4}-\d{2}$/);
+  await expect(periodInput).toHaveCSS("color-scheme", "dark");
   await expect(page.getByRole("heading", { name: "Grafik Laporan Bulanan" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ringkasan Harian" })).toBeVisible();
+  const profitToggle = page.getByRole("button", { name: "Profit", exact: true });
+  await expect(profitToggle).toHaveAttribute("aria-pressed", "true");
+  await profitToggle.click();
+  await expect(profitToggle).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByText("Total Aset", { exact: true })).toHaveCount(0);
 });
