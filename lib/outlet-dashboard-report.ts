@@ -2,6 +2,9 @@ export type OutletReportDay = {
   date: Date;
   digitalTransactions: number;
   physicalTransactions: number;
+  grossProfit: number;
+  bankFee: number;
+  operational: number;
   profit: number;
   expense: number;
   netProfit: number;
@@ -26,7 +29,8 @@ type ReportFinance = {
   referenceType: string | null;
 };
 
-type ReportMiniAtm = { date: Date };
+type ReportMiniAtm = { date: Date; grossProfit: number; bankFee: number };
+type ReportOperational = { date: Date; amount: number };
 
 function monthValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -53,6 +57,7 @@ export function buildOutletReport(input: {
   services: ReportService[];
   finance: ReportFinance[];
   miniAtm: ReportMiniAtm[];
+  operations: ReportOperational[];
 }) {
   const days: OutletReportDay[] = [];
   const byDate = new Map<string, OutletReportDay>();
@@ -62,6 +67,9 @@ export function buildOutletReport(input: {
       date: new Date(date),
       digitalTransactions: 0,
       physicalTransactions: 0,
+      grossProfit: 0,
+      bankFee: 0,
+      operational: 0,
       profit: 0,
       expense: 0,
       netProfit: 0
@@ -75,31 +83,37 @@ export function buildOutletReport(input: {
     if (!day) continue;
     if (transaction.items.some((item) => item.categoryName === "Produk Digital")) day.digitalTransactions += 1;
     else day.physicalTransactions += 1;
-    day.profit += transaction.items.reduce((sum, item) => sum + item.qty * (item.price - item.cost), 0) - transaction.discount;
+    day.grossProfit += transaction.items.reduce((sum, item) => sum + item.qty * (item.price - item.cost), 0) - transaction.discount;
   }
 
   for (const service of input.services) {
     const day = byDate.get(dayKey(service.date));
     if (!day) continue;
-    day.profit += service.laborCost + service.parts.reduce((sum, part) => sum + part.qty * (part.price - part.cost), 0);
+    day.grossProfit += service.laborCost + service.parts.reduce((sum, part) => sum + part.qty * (part.price - part.cost), 0);
   }
 
   for (const record of input.finance) {
     const day = byDate.get(dayKey(record.date));
-    if (!day) continue;
-    if (record.referenceType === "bank_transfer") {
-      day.profit += record.type === "income" ? record.amount : -record.amount;
-    } else if (record.type === "expense") {
-      day.expense += record.amount;
-    }
+    if (day && record.type === "expense" && record.referenceType !== "bank_transfer") day.expense += record.amount;
   }
 
   for (const transaction of input.miniAtm) {
     const day = byDate.get(dayKey(transaction.date));
-    if (day) day.digitalTransactions += 1;
+    if (!day) continue;
+    day.digitalTransactions += 1;
+    day.grossProfit += transaction.grossProfit;
+    day.bankFee += transaction.bankFee;
   }
 
-  for (const day of days) day.netProfit = day.profit - day.expense;
+  for (const operation of input.operations) {
+    const day = byDate.get(dayKey(operation.date));
+    if (day) day.operational += operation.amount;
+  }
+
+  for (const day of days) {
+    day.profit = day.grossProfit - day.bankFee - day.operational;
+    day.netProfit = day.profit - day.expense;
+  }
 
   return {
     days,
@@ -107,11 +121,14 @@ export function buildOutletReport(input: {
       (sum, day) => ({
         digitalTransactions: sum.digitalTransactions + day.digitalTransactions,
         physicalTransactions: sum.physicalTransactions + day.physicalTransactions,
+        grossProfit: sum.grossProfit + day.grossProfit,
+        bankFee: sum.bankFee + day.bankFee,
+        operational: sum.operational + day.operational,
         profit: sum.profit + day.profit,
         expense: sum.expense + day.expense,
         netProfit: sum.netProfit + day.netProfit
       }),
-      { digitalTransactions: 0, physicalTransactions: 0, profit: 0, expense: 0, netProfit: 0 }
+      { digitalTransactions: 0, physicalTransactions: 0, grossProfit: 0, bankFee: 0, operational: 0, profit: 0, expense: 0, netProfit: 0 }
     )
   };
 }

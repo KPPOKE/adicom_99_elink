@@ -239,6 +239,10 @@ test("admin opens the monthly report from an outlet card", async ({ page }) => {
   await expect(periodInput).toHaveCSS("color-scheme", "dark");
   await expect(page.getByRole("heading", { name: "Grafik Laporan Bulanan" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ringkasan Harian" })).toBeVisible();
+  for (const label of ["Profit Kotor", "Potongan Bank", "Operasional"]) {
+    await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+  }
+  await expect(page.getByText("#1", { exact: true })).toBeVisible();
   const profitToggle = page.getByRole("button", { name: "Profit", exact: true });
   await expect(profitToggle).toHaveAttribute("aria-pressed", "true");
   await profitToggle.click();
