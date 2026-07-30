@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
   const [showPassword, setShowPassword] = useState(false);
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   useEffect(() => {
     const email = localStorage.getItem("pospintar_remember_email");
@@ -86,6 +87,7 @@ export default function LoginPage() {
                     type="button"
                     aria-label={showPassword ? "Sembunyikan password" : "Lihat password"}
                     aria-pressed={showPassword}
+                    disabled={!hydrated}
                     onClick={() => setShowPassword((visible) => !visible)}
                     className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                   >

@@ -2,7 +2,8 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { outletSchema } from "@/lib/validators";
 import { assertTrustedOrigin } from "@/lib/security";
@@ -32,6 +33,21 @@ export async function setActiveOutletAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+export async function openOutletBankTransfersAction(formData: FormData) {
+  await assertTrustedOrigin();
+  const user = await requireUser();
+  const outletId = Number(formData.get("outletId"));
+  if (!Number.isInteger(outletId) || outletId < 1) throw new Error("Cabang tidak valid");
+  if (user.role.name === "staff") {
+    if (user.outletId !== outletId) throw new Error("Cabang tidak dapat diakses");
+  } else {
+    const outlet = await prisma.outlet.findUnique({ where: { id: outletId }, select: { id: true } });
+    if (!outlet) throw new Error("Cabang tidak ditemukan");
+    const store = await cookies();
+    store.set(COOKIE_NAME, String(outlet.id), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  }
+  redirect("/bank-transfers");
+}
 export async function upsertOutlet(formData: FormData) {
   try {
     await assertTrustedOrigin();

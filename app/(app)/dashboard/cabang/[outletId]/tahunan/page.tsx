@@ -3,7 +3,7 @@ import { ArrowLeft, Download, Filter } from "lucide-react";
 import { OutletAnnualChart } from "@/components/dashboard-charts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { buildOutletAnnualReport, outletAnnualReportYear } from "@/lib/outlet-dashboard-report";
@@ -27,6 +27,7 @@ export default async function DashboardOutletAnnualPage({
     canCurrentUser("reports.export")
   ]);
   const annual = buildOutletAnnualReport(report.days);
+  const years = Array.from({ length: Number(period.current) - 2019 }, (_, index) => Number(period.current) - index);
 
   return (
     <>
@@ -40,7 +41,9 @@ export default async function DashboardOutletAnnualPage({
           <form className="flex items-end gap-2">
             <div className="space-y-1.5">
               <Label htmlFor="tahun">Tahun</Label>
-              <Input id="tahun" name="tahun" type="number" min="2000" max={period.current} defaultValue={period.value} className="w-32" />
+              <Select id="tahun" name="tahun" defaultValue={period.value} className="w-32">
+                {years.map((year) => <option key={year} value={year}>{year}</option>)}
+              </Select>
             </div>
             <Button type="submit" variant="outline"><Filter className="h-4 w-4" />Terapkan</Button>
           </form>
@@ -52,7 +55,7 @@ export default async function DashboardOutletAnnualPage({
             </Button>
           ) : null}
           <Button asChild variant="outline">
-            <Link href={`/dashboard/cabang/${outlet.id}?periode=${period.year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`}>
+            <Link href={`/dashboard/cabang/${outlet.id}/bulanan?periode=${period.year}-${String(Math.min(new Date().getMonth() + 1, 12)).padStart(2, "0")}`}>
               <ArrowLeft className="h-4 w-4" />Laporan Bulanan
             </Link>
           </Button>

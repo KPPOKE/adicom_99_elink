@@ -17,35 +17,37 @@ export async function requireDashboardOutlet(outletId: number) {
   return { user, outlet };
 }
 
-export async function loadOutletReport(outletId: number, start: Date, end: Date, visibleEnd = end) {
+export async function loadOutletReport(outletId: number, start: Date, end: Date, visibleEnd = end, userId?: number) {
   const dateRange = { gte: start, lt: end };
   const [transactions, services, finance, miniAtm, operations] = await Promise.all([
     prisma.transaction.findMany({
-      where: { outletId, status: "Berhasil", createdAt: dateRange },
+      where: { outletId, status: "Berhasil", createdAt: dateRange, ...(userId ? { userId } : {}) },
       select: {
         createdAt: true,
+        grandTotal: true,
         diskon: true,
         items: { select: { qty: true, price: true, item: { select: { hargaModal: true, category: { select: { name: true } } } } } }
       }
     }),
     prisma.service.findMany({
-      where: { outletId, paymentStatus: "paid", paidAt: dateRange },
+      where: { outletId, paymentStatus: "paid", paidAt: dateRange, ...(userId ? { userId } : {}) },
       select: {
         paidAt: true,
+        finalCost: true,
         laborCost: true,
         parts: { select: { qty: true, price: true, item: { select: { hargaModal: true } } } }
       }
     }),
     prisma.financeRecord.findMany({
-      where: { outletId, date: dateRange, type: "expense", OR: [{ referenceType: null }, { referenceType: { not: "bank_transfer" } }] },
+      where: { outletId, date: dateRange, type: "expense", ...(userId ? { userId } : {}), OR: [{ referenceType: null }, { referenceType: { not: "bank_transfer" } }] },
       select: { date: true, type: true, amount: true, referenceType: true }
     }),
     prisma.bankTransfer.findMany({
-      where: { outletId, status: "Berhasil", completedAt: dateRange },
-      select: { completedAt: true, kind: true, adminFee: true, adminBankFee: true, externalAdminFee: true }
+      where: { outletId, status: "Berhasil", completedAt: dateRange, ...(userId ? { userId } : {}) },
+      select: { completedAt: true, kind: true, amount: true, adminFee: true, adminBankFee: true, externalAdminFee: true }
     }),
     prisma.fundMutation.findMany({
-      where: { outletId, createdAt: dateRange, adminFee: { gt: 0 }, bankTransferId: null },
+      where: { outletId, createdAt: dateRange, adminFee: { gt: 0 }, bankTransferId: null, ...(userId ? { userId } : {}) },
       select: { createdAt: true, adminFee: true }
     })
   ]);
@@ -55,6 +57,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
     visibleEnd,
     transactions: transactions.map((transaction) => ({
       date: transaction.createdAt,
+      total: toNumber(transaction.grandTotal),
       discount: toNumber(transaction.diskon),
       items: transaction.items.map((item) => ({
         qty: item.qty,
@@ -65,6 +68,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
     })),
     services: services.flatMap((service) => service.paidAt ? [{
       date: service.paidAt,
+      total: toNumber(service.finalCost),
       laborCost: toNumber(service.laborCost),
       parts: service.parts.map((part) => ({ qty: part.qty, price: toNumber(part.price), cost: toNumber(part.item.hargaModal) }))
     }] : []),
@@ -76,6 +80,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
     })),
     miniAtm: miniAtm.flatMap((transaction) => transaction.completedAt ? [{
       date: transaction.completedAt,
+      amount: toNumber(transaction.amount),
       grossProfit: toNumber(transaction.adminFee) + (transaction.kind === "Tarik_Tunai" ? toNumber(transaction.externalAdminFee) : 0),
       bankFee: transaction.kind === "Transfer" ? toNumber(transaction.adminBankFee) : 0
     }] : []),

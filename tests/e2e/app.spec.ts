@@ -53,10 +53,9 @@ test("admin can open the main operational pages", async ({ page }) => {
   }
 });
 
-test("bank transfer records only the admin fee as income", async ({ page }, testInfo) => {
+test("MiniATM processes a transfer and fund mutations atomically", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "Mutation smoke test runs once");
   const marker = `mini-atm-${Date.now()}`;
-  const depositNote = `${marker}-deposit`;
   const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@adicom99.com" } });
   const outlet = admin.outletId
     ? await prisma.outlet.findUniqueOrThrow({ where: { id: admin.outletId } })
@@ -66,34 +65,26 @@ test("bank transfer records only the admin fee as income", async ({ page }, test
   const briBalance = bri.balance;
   const laciBalance = laci.balance;
   let transferId: number | undefined;
-  let depositId: number | undefined;
 
   try {
+    await prisma.fundAccount.update({ where: { id: bri.id }, data: { balance: Number(bri.balance) + 200_000 } });
     await login(page);
     await page.goto("/bank-transfers");
-    await page.locator('select[name="fundAccountId"]').selectOption(String(bri.id));
-    await page.getByPlaceholder("Nominal deposit").fill("200000");
-    await page.getByPlaceholder("Catatan deposit").fill(depositNote);
-    await page.getByRole("button", { name: "Tambah Deposit" }).click();
-    await expect(page.getByText("Deposit transfer disimpan")).toBeVisible();
-    depositId = (await prisma.bankTransferDeposit.findFirstOrThrow({ where: { note: depositNote }, orderBy: { id: "desc" } })).id;
-
-    await page.locator('select[name="sourceFundId"]').selectOption(String(bri.id));
-    await page.locator('select[name="targetFundId"]').selectOption(String(laci.id));
+    await page.getByRole("button", { name: "Tambah Transaksi" }).click();
+    await page.getByLabel("Sumber Dana", { exact: true }).selectOption(String(bri.id));
+    await page.getByLabel("Terima Dana").selectOption(String(laci.id));
     await page.getByLabel("Bank Tujuan").fill("BCA");
     await page.getByLabel("Nominal", { exact: true }).fill("100000");
     await page.getByLabel("Admin Loket").fill("5000");
     await page.getByLabel("Catatan").fill(marker);
-    await page.getByRole("button", { name: "Simpan Transfer" }).click();
-    await expect(page.getByText("MiniATM disimpan sebagai Pending")).toBeVisible();
+    await page.getByRole("button", { name: "Proses", exact: true }).click();
+    await expect(page.getByText("MiniATM berhasil diproses")).toBeVisible();
 
     const transfer = await prisma.bankTransfer.findFirstOrThrow({ where: { note: marker }, orderBy: { id: "desc" } });
     transferId = transfer.id;
+    expect(transfer.status).toBe("Berhasil");
     expect(Number(transfer.totalReceived)).toBe(105000);
-    await page.getByTitle("Transfer berhasil").first().click();
-    await page.getByRole("button", { name: "Berhasil", exact: true }).click();
-    await expect(page.getByText("MiniATM berhasil diselesaikan")).toBeVisible();
-
+    expect(await prisma.fundMutation.count({ where: { bankTransferId: transfer.id, referenceType: "bank_transfer" } })).toBe(2);
     const finance = await prisma.financeRecord.findUniqueOrThrow({ where: { bankTransferId: transfer.id } });
     expect(Number(finance.amount)).toBe(5000);
     expect(finance.referenceType).toBe("bank_transfer");
@@ -104,16 +95,10 @@ test("bank transfer records only the admin fee as income", async ({ page }, test
       await prisma.auditLog.deleteMany({ where: { entity: "bank_transfer", entityId: transferId } });
       await prisma.bankTransfer.deleteMany({ where: { id: transferId } });
     }
-    await prisma.fundMutation.deleteMany({ where: { referenceType: "manual_deposit", note: depositNote } });
-    if (depositId) {
-      await prisma.auditLog.deleteMany({ where: { entity: "bank_transfer_deposit", entityId: depositId } });
-      await prisma.bankTransferDeposit.deleteMany({ where: { id: depositId } });
-    }
     await prisma.fundAccount.update({ where: { id: bri.id }, data: { balance: briBalance } });
     await prisma.fundAccount.update({ where: { id: laci.id }, data: { balance: laciBalance } });
   }
 });
-
 test("exports and invoices respond for admin", async ({ page }) => {
   await login(page);
   await page.goto("/reports");
@@ -143,6 +128,10 @@ test("staff only sees and opens cashier pages", async ({ page }, testInfo) => {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/dashboard/);
   }
+
+  await page.goto(`/dashboard/cabang/${staff.outletId}`);
+  await expect(page.getByText("Total Transaksi", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Transaksi oleh")).toHaveCount(0);
 });
 
 test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo) => {
@@ -236,34 +225,38 @@ test("audit date range controls are clearly labeled", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Terapkan" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Reset" })).toBeVisible();
 });
-test("admin opens the monthly report from an outlet card", async ({ page }) => {
+test("admin opens the branch summary and monthly report from an outlet card", async ({ page }) => {
   await login(page);
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
 
   const outletCard = page.locator('a[href^="/dashboard/cabang/"]').first();
   await expect(outletCard).toBeVisible();
   await outletCard.click();
-  await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+/);
+  await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+$/);
 
-  for (const label of ["Transaksi Digital", "Transaksi Fisik", "Profit", "Pengeluaran", "Profit Bersih"]) {
+  for (const label of ["Total Transaksi", "Omset", "Profit Kotor", "Potongan Bank + Ops", "Pengeluaran", "Profit Bersih", "Aset Cash", "Aset Saldo", "Total Aset"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
-  const periodInput = page.getByLabel("Periode");
-  await expect(periodInput).toHaveValue(/^\d{4}-\d{2}$/);
-  await expect(periodInput).toHaveCSS("color-scheme", "dark");
+  await expect(page.getByLabel("Transaksi oleh")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Laporan Bulanan" })).toBeVisible();
+  await page.getByRole("link", { name: "Laporan Bulanan" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+\/bulanan/);
+
+  const previousYear = String(new Date().getFullYear() - 1);
+  await page.getByLabel("Bulan").selectOption("1");
+  await page.getByLabel("Tahun").selectOption(previousYear);
+  await page.getByRole("button", { name: "Terapkan" }).click();
+  await expect(page).toHaveURL(new RegExp(`tahun=${previousYear}`));
   await expect(page.getByRole("heading", { name: "Grafik Laporan Bulanan" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ringkasan Harian" })).toBeVisible();
   for (const label of ["Profit Kotor", "Potongan Bank", "Operasional"]) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
-  await expect(page.getByText("#1", { exact: true })).toBeVisible();
   const profitToggle = page.getByRole("button", { name: "Profit", exact: true });
   await expect(profitToggle).toHaveAttribute("aria-pressed", "true");
   await profitToggle.click();
   await expect(profitToggle).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByText("Total Aset", { exact: true })).toHaveCount(0);
 });
-
 test("annual outlet report is scoped and export follows permission", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const outlet = await prisma.outlet.findFirstOrThrow({ orderBy: { id: "asc" } });

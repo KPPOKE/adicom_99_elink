@@ -60,12 +60,12 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="min-w-0 space-y-4">
-      <Toolbar className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <Toolbar className="flex flex-col gap-3">
         <div className="relative w-full max-w-sm">
           <Input className={cn(serverPagination ? "pr-11" : undefined)} name={serverPagination ? "q" : undefined} placeholder={searchPlaceholder} defaultValue={serverPagination?.query.q} value={serverPagination ? undefined : globalFilter} onChange={serverPagination ? undefined : (event) => setGlobalFilter(event.target.value)} />
           {serverPagination ? <Button type="submit" variant="ghost" size="icon" aria-label="Cari" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-cyan-300 hover:bg-cyan-500/10"><Search className="h-4 w-4" /></Button> : null}
         </div>
-        {filters ? <div className="flex flex-wrap gap-2">{filters}</div> : null}
+        {filters ? <div className="flex w-full flex-wrap items-end gap-3">{filters}</div> : null}
       </Toolbar>
       <div className="relative overflow-hidden rounded-xl border border-slate-700/60 bg-slate-900/60 shadow-lg">
         <div className="min-w-0 overflow-x-auto">

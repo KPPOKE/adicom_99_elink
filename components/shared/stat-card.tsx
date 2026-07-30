@@ -26,11 +26,11 @@ export function StatCard({
 
   return (
     <Card className="overflow-hidden">
-      <CardContent className="flex min-h-[108px] items-center justify-between gap-4 p-5">
+      <CardContent className="flex min-h-[124px] items-center justify-between gap-4 p-5">
         <div className="min-w-0 flex-1 @container">
-          <p className="truncate text-sm text-slate-400">{title}</p>
-          <p className="mt-2 truncate font-semibold text-slate-100 text-[clamp(1.125rem,11cqw,1.5rem)] tracking-tight">{value}</p>
-          {helper ? <p className="mt-1 truncate text-xs text-slate-500">{helper}</p> : null}
+          <p className="text-sm leading-snug text-slate-400">{title}</p>
+          <p className="mt-2 break-words font-semibold leading-tight text-slate-100 text-[clamp(1.125rem,11cqw,1.5rem)] tracking-tight">{value}</p>
+          {helper ? <p className="mt-1 text-xs leading-snug text-slate-500">{helper}</p> : null}
         </div>
         <div className={cn("shrink-0 rounded-lg border p-3", tones[tone])}>
           <Icon className="h-5 w-5" />

@@ -1,14 +1,26 @@
 import Link from "next/link";
-import { ArrowLeft, Banknote, BarChart3, CalendarDays, CircleDollarSign, Filter, PackageCheck, Smartphone, TrendingDown } from "lucide-react";
-import { OutletProfitChart } from "@/components/dashboard-charts";
+import { redirect } from "next/navigation";
+import { ArrowLeft, Banknote, BarChart3, BriefcaseBusiness, CalendarDays, CircleDollarSign, CreditCard, Filter, Landmark, ReceiptText, Send, TrendingDown, Wallet } from "lucide-react";
+import { openOutletBankTransfersAction } from "@/app/actions/outlets";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
-import { outletReportPeriod } from "@/lib/outlet-dashboard-report";
-import { cn, formatCurrency } from "@/lib/utils";
+import { outletReportDate } from "@/lib/outlet-dashboard-report";
+import { canCurrentUser } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+import { formatCurrency, toNumber } from "@/lib/utils";
+
+const months = Array.from({ length: 12 }, (_, month) => ({
+  value: month + 1,
+  label: new Date(2000, month, 1).toLocaleDateString("id-ID", { month: "long" })
+}));
+
+function queryValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function DashboardOutletDetailPage({
   params,
   searchParams
@@ -18,122 +30,107 @@ export default async function DashboardOutletDetailPage({
 }) {
   const { outletId } = await params;
   const query = (await searchParams) ?? {};
-  const rawPeriod = Array.isArray(query.periode) ? query.periode[0] : query.periode;
-  const period = outletReportPeriod(rawPeriod);
-  const { outlet: selectedOutlet } = await requireDashboardOutlet(Number(outletId));
-  const report = await loadOutletReport(selectedOutlet.id, period.start, period.end, period.visibleEnd);
-  const monthLabel = period.start.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
-  const chartData = report.days.map((day) => ({
-    date: day.date.toLocaleDateString("id-ID", { day: "2-digit" }),
-    profit: day.profit,
-    expense: day.expense,
-    netProfit: day.netProfit
-  }));
+  const legacyPeriod = queryValue(query.periode);
+  if (legacyPeriod) redirect(`/dashboard/cabang/${outletId}/bulanan?periode=${encodeURIComponent(legacyPeriod)}`);
+
+  const { user, outlet } = await requireDashboardOutlet(Number(outletId));
+  const period = outletReportDate(queryValue(query.tahun), queryValue(query.bulan), queryValue(query.tanggal));
+  const staff = user.role.name === "admin"
+    ? await prisma.user.findMany({
+        where: { outletId: outlet.id, role: { name: "staff" } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" }
+      })
+    : [];
+  const requestedStaffId = Number(queryValue(query.pegawai));
+  const selectedStaff = staff.find((item) => item.id === requestedStaffId);
+  const [report, funds, canOpenMiniAtm] = await Promise.all([
+    loadOutletReport(outlet.id, period.start, period.end, period.end, selectedStaff?.id),
+    prisma.fundAccount.findMany({
+      where: { outletId: outlet.id, isActive: true },
+      select: { type: true, balance: true }
+    }),
+    canCurrentUser("bankTransfers.view")
+  ]);
+  const summary = report.summary;
+  const cashAsset = funds.filter((fund) => fund.type === "Cash").reduce((sum, fund) => sum + toNumber(fund.balance), 0);
+  const balanceAsset = funds.filter((fund) => fund.type !== "Cash").reduce((sum, fund) => sum + toNumber(fund.balance), 0);
+  const selectedDate = period.start.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+  const daysInMonth = new Date(period.year, period.month, 0).getDate();
+  const reportPeriod = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   return (
     <>
-      <h1 className="sr-only">Detail Dasbor Cabang</h1>
-      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-lg font-semibold text-slate-100">{selectedOutlet.name}</p>
-          <p className="mt-1 text-sm text-slate-400">Laporan operasional {monthLabel}.</p>
+      <h1 className="sr-only">Ringkasan Cabang</h1>
+      <form className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+        <div className="flex w-full flex-col gap-1.5 sm:w-40">
+          <Label htmlFor="tahun">Tahun</Label>
+          <Select id="tahun" name="tahun" defaultValue={String(period.year)}>
+            {period.years.map((year) => <option key={year} value={year}>{year}</option>)}
+          </Select>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <form className="flex items-end gap-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="periode">Periode</Label>
-              <Input id="periode" name="periode" type="month" defaultValue={period.value} max={period.current} className="w-44" />
-            </div>
-            <Button type="submit" variant="outline">
-              <Filter className="h-4 w-4" />
-              Terapkan
-            </Button>
-          </form>
-          <Button asChild variant="outline">
-            <Link href={`/dashboard/cabang/${selectedOutlet.id}/tahunan`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Semua Cabang</Link>
-          </Button>
+        <div className="flex w-full flex-col gap-1.5 sm:w-40">
+          <Label htmlFor="bulan">Bulan</Label>
+          <Select id="bulan" name="bulan" defaultValue={String(period.month)}>
+            {months.map((month) => <option key={month.value} value={month.value}>{month.label}</option>)}
+          </Select>
         </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Transaksi Digital" value={String(report.summary.digitalTransactions)} icon={Smartphone} tone="cyan" helper={monthLabel} />
-        <StatCard title="Transaksi Fisik" value={String(report.summary.physicalTransactions)} icon={PackageCheck} tone="blue" helper={monthLabel} />
-        <StatCard title="Profit" value={formatCurrency(report.summary.profit)} icon={CircleDollarSign} tone="blue" helper="Kotor - potongan - operasional" />
-        <StatCard title="Pengeluaran" value={formatCurrency(report.summary.expense)} icon={TrendingDown} tone="red" helper="Pengeluaran tercatat" />
-        <StatCard title="Profit Bersih" value={formatCurrency(report.summary.netProfit)} icon={Banknote} tone="green" helper="Profit - pengeluaran" />
-      </div>
-
-      <div className="mt-6">
-        <OutletProfitChart data={chartData} />
-      </div>
-
-      <section className="mt-6" aria-labelledby="daily-report-title">
-        <div className="mb-4">
-          <h2 id="daily-report-title" className="text-lg font-semibold text-slate-100">Ringkasan Harian</h2>
-          <p className="mt-1 text-sm text-slate-400">Rincian operasional setiap hari pada {monthLabel}.</p>
+        <div className="flex w-full flex-col gap-1.5 sm:w-40">
+          <Label htmlFor="tanggal">Tanggal</Label>
+          <Select id="tanggal" name="tanggal" defaultValue={String(period.day)}>
+            {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => <option key={day} value={day}>{day}</option>)}
+          </Select>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[...report.days].reverse().map((day, index) => (
-            <Card key={day.date.toISOString()} className="overflow-hidden">
-              <CardHeader className="flex-row items-center justify-between gap-3 p-4 pb-3">
-                <CardTitle className="flex min-w-0 items-center gap-2 text-sm">
-                  <CalendarDays className="h-4 w-4 shrink-0 text-cyan-400" />
-                  {day.date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}
-                </CardTitle>
-                <span className="shrink-0 rounded-md bg-orange-500/10 px-2 py-1 text-xs font-semibold text-orange-300">#{index + 1}</span>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <div className="grid grid-cols-2 gap-3 border-b border-slate-700/70 pb-3 text-xs">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Smartphone className="h-4 w-4 shrink-0 text-cyan-400" />
-                    <span>Transaksi Digital</span>
-                    <strong className="ml-auto text-cyan-300">{day.digitalTransactions}</strong>
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <PackageCheck className="h-4 w-4 shrink-0 text-emerald-400" />
-                    <span>Transaksi Fisik</span>
-                    <strong className="ml-auto text-emerald-300">{day.physicalTransactions}</strong>
-                  </div>
-                </div>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <DailyRow label="Profit Kotor" value={formatCurrency(day.grossProfit)} />
-                  <DailyRow label="Potongan Bank" value={formatCurrency(day.bankFee)} valueClassName="text-amber-300" />
-                  <DailyRow label="Operasional" value={formatCurrency(day.operational)} valueClassName="text-orange-300" />
-                  <DailyRow className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2" label="Profit" value={formatCurrency(day.profit)} strong labelClassName="text-emerald-200" valueClassName="text-emerald-200" />
-                  <DailyRow label="Pengeluaran" value={formatCurrency(day.expense)} valueClassName="text-rose-300" />
-                  <DailyRow className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2" label="Profit Bersih" value={formatCurrency(day.netProfit)} strong labelClassName="text-cyan-200" valueClassName="text-cyan-200" />
-                </dl>
-              </CardContent>
-            </Card>
-          ))}
+        {user.role.name === "admin" ? (
+          <div className="flex w-full flex-col gap-1.5 sm:min-w-52 sm:flex-1 lg:max-w-64">
+            <Label htmlFor="pegawai">Transaksi oleh</Label>
+            <Select id="pegawai" name="pegawai" defaultValue={selectedStaff ? String(selectedStaff.id) : ""}>
+              <option value="">Semua Pegawai</option>
+              {staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </Select>
+          </div>
+        ) : null}
+        <Button type="submit" variant="outline" className="w-full sm:w-auto"><Filter className="h-4 w-4" />Terapkan</Button>
+        <Button asChild variant="ghost" className="w-full sm:w-auto"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Semua Cabang</Link></Button>
+      </form>
+
+      <section className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50" aria-labelledby="outlet-summary-title">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-slate-900/80 px-5 py-4">
+          <div>
+            <h2 id="outlet-summary-title" className="text-lg font-semibold text-slate-100">{outlet.name}</h2>
+            <p className="mt-1 flex items-center gap-2 text-sm text-slate-400"><CalendarDays className="h-4 w-4" />{selectedDate}</p>
+          </div>
+          {selectedStaff ? <span className="text-sm text-cyan-300">{selectedStaff.name}</span> : null}
+        </div>
+
+        <div className="space-y-6 p-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions)} icon={ReceiptText} tone="cyan" helper="Digital dan fisik" />
+            <StatCard title="Omset" value={formatCurrency(summary.turnover)} icon={CreditCard} tone="green" helper="Nilai transaksi" />
+            <StatCard title="Profit Kotor" value={formatCurrency(summary.grossProfit)} icon={CircleDollarSign} tone="blue" helper="Sebelum potongan" />
+            <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" />
+            <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" />
+            <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard title="Aset Cash" value={formatCurrency(cashAsset)} icon={Wallet} tone="blue" helper="Saldo kas tunai" />
+            <StatCard title="Aset Saldo" value={formatCurrency(balanceAsset)} icon={Landmark} tone="green" helper="Bank dan e-wallet" />
+            <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh sumber dana" />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Button asChild variant="secondary" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/tahunan?tahun=${period.year}`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link></Button>
+            <Button asChild variant="outline" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/bulanan?periode=${reportPeriod}`}><CalendarDays className="h-4 w-4" />Laporan Bulanan</Link></Button>
+            {canOpenMiniAtm ? (
+              <form action={openOutletBankTransfersAction}>
+                <input type="hidden" name="outletId" value={outlet.id} />
+                <Button type="submit" className="w-full"><Send className="h-4 w-4" />Mode Transaksi</Button>
+              </form>
+            ) : null}
+          </div>
         </div>
       </section>
     </>
-  );
-}
-
-function DailyRow({
-  label,
-  value,
-  className,
-  strong = false,
-  labelClassName,
-  valueClassName
-}: {
-  label: string;
-  value: string;
-  className?: string;
-  strong?: boolean;
-  labelClassName?: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className={cn("flex items-center justify-between gap-3", className)}>
-      <dt className={cn(strong ? "font-medium" : "text-slate-400", labelClassName)}>{label}</dt>
-      <dd className={cn(strong ? "font-semibold" : "font-medium text-slate-200", valueClassName)}>{value}</dd>
-    </div>
   );
 }
