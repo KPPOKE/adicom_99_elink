@@ -89,6 +89,16 @@ enum OperationalBearer {
   Tidak_Ada
 }
 
+enum ReceivableStatus {
+  Belum_Lunas
+  Lunas
+}
+
+enum PayrollStatus {
+  Pending
+  Dibayar
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   name      RoleName @unique
@@ -113,6 +123,10 @@ model Outlet {
   fundMutations        FundMutation[]
   items                Item[]
   financeRecords       FinanceRecord[]
+  receivables          Receivable[]
+  payrolls             Payroll[]
+  receiptBanks         ReceiptBankAccount[]
+  receiptSetting       ReceiptSetting?
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
@@ -135,6 +149,9 @@ model User {
   fundMutations        FundMutation[]
   financeRecords       FinanceRecord[]
   permissions          UserPermission[]
+  receivablesCreated   Receivable[]          @relation("ReceivableCreator")
+  payrolls             Payroll[]             @relation("PayrollEmployee")
+  payrollsCreated      Payroll[]             @relation("PayrollCreator")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
@@ -187,6 +204,7 @@ model Customer {
   transactions  Transaction[]
   services      Service[]
   bankTransfers BankTransfer[]
+  receivables   Receivable[]
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
@@ -414,6 +432,7 @@ model FundAccount {
   sourceTransfers BankTransfer[]  @relation("BankTransferSourceFund")
   targetTransfers BankTransfer[]  @relation("BankTransferTargetFund")
   mutations       FundMutation[]
+  receivables     Receivable[]
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
@@ -500,6 +519,84 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model Receivable {
+  id            Int              @id @default(autoincrement())
+  outletId      Int              @map("outlet_id")
+  outlet        Outlet           @relation(fields: [outletId], references: [id])
+  customerId    Int              @map("customer_id")
+  customer      Customer         @relation(fields: [customerId], references: [id])
+  loanDate      DateTime         @map("loan_date")
+  amount        Decimal          @db.Decimal(14, 2)
+  description   String?          @db.Text
+  status        ReceivableStatus @default(Belum_Lunas)
+  paidAt        DateTime?        @map("paid_at")
+  recordExpense Boolean          @default(false) @map("record_expense")
+  sourceFundId  Int?             @map("source_fund_id")
+  sourceFund    FundAccount?     @relation(fields: [sourceFundId], references: [id])
+  createdById   Int              @map("created_by_id")
+  createdBy     User             @relation("ReceivableCreator", fields: [createdById], references: [id])
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  @@index([outletId, status, loanDate])
+  @@index([customerId])
+  @@index([sourceFundId])
+  @@map("receivables")
+}
+
+model Payroll {
+  id          Int           @id @default(autoincrement())
+  outletId    Int           @map("outlet_id")
+  outlet      Outlet        @relation(fields: [outletId], references: [id])
+  employeeId  Int           @map("employee_id")
+  employee    User          @relation("PayrollEmployee", fields: [employeeId], references: [id])
+  period      DateTime      @db.Date
+  baseSalary  Decimal       @map("base_salary") @db.Decimal(14, 2)
+  allowance   Decimal       @default(0) @db.Decimal(14, 2)
+  deduction   Decimal       @default(0) @db.Decimal(14, 2)
+  totalSalary Decimal       @map("total_salary") @db.Decimal(14, 2)
+  paymentDate DateTime?     @map("payment_date") @db.Date
+  status      PayrollStatus @default(Pending)
+  note        String?       @db.Text
+  createdById Int           @map("created_by_id")
+  createdBy   User          @relation("PayrollCreator", fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@unique([outletId, employeeId, period])
+  @@index([outletId, status, period])
+  @@map("payrolls")
+}
+
+model ReceiptBankAccount {
+  id            Int      @id @default(autoincrement())
+  outletId      Int      @map("outlet_id")
+  outlet        Outlet   @relation(fields: [outletId], references: [id])
+  bankName      String   @map("bank_name")
+  accountName   String   @map("account_name")
+  accountNumber String   @map("account_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([outletId, bankName, accountNumber])
+  @@index([outletId, bankName])
+  @@map("receipt_bank_accounts")
+}
+
+model ReceiptSetting {
+  id        Int      @id @default(autoincrement())
+  outletId  Int      @unique @map("outlet_id")
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  storeName String   @map("store_name")
+  address   String?  @db.Text
+  footer    String?  @db.Text
+  logo      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("receipt_settings")
 }
 
 model Setting {

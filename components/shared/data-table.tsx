@@ -63,14 +63,14 @@ export function DataTable<TData, TValue>({
       <Toolbar className="flex flex-col gap-3">
         <div className="relative w-full max-w-sm">
           <Input className={cn(serverPagination ? "pr-11" : undefined)} name={serverPagination ? "q" : undefined} placeholder={searchPlaceholder} defaultValue={serverPagination?.query.q} value={serverPagination ? undefined : globalFilter} onChange={serverPagination ? undefined : (event) => setGlobalFilter(event.target.value)} />
-          {serverPagination ? <Button type="submit" variant="ghost" size="icon" aria-label="Cari" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-cyan-300 hover:bg-cyan-500/10"><Search className="h-4 w-4" /></Button> : null}
+          {serverPagination ? <Button type="submit" variant="ghost" size="icon" aria-label="Cari" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-blue-600 hover:bg-blue-50"><Search className="h-4 w-4" /></Button> : null}
         </div>
         {filters ? <div className="flex w-full flex-wrap items-end gap-3">{filters}</div> : null}
       </Toolbar>
-      <div className="relative overflow-hidden rounded-xl border border-slate-700/60 bg-slate-900/60 shadow-lg">
+      <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="min-w-0 overflow-x-auto">
           <table className={cn("w-full min-w-[760px] text-sm", tableClassName)}>
-            <thead className="bg-slate-900/80 text-left text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/60">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600 border-b border-slate-200">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
@@ -85,15 +85,15 @@ export function DataTable<TData, TValue>({
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-200">
               {table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="transition-colors hover:bg-slate-800/50 group">
+                  <tr key={row.id} className="transition-colors hover:bg-slate-100 group">
                     {row.getVisibleCells().map((cell) => {
                       const meta = cell.column.columnDef.meta as ColumnMeta | undefined;
 
                       return (
-                        <td key={cell.id} className={cn("px-4 py-3 align-middle text-slate-300", meta?.cellClassName)}>
+                        <td key={cell.id} className={cn("px-4 py-3 align-middle text-slate-700", meta?.cellClassName)}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       );
@@ -111,7 +111,7 @@ export function DataTable<TData, TValue>({
           </table>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 text-sm text-slate-400">
+      <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
         <span>
           {serverPagination?.total ?? table.getFilteredRowModel().rows.length} data, halaman {page} dari {pageCount}
         </span>

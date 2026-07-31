@@ -76,7 +76,7 @@ export async function upsertOutlet(formData: FormData) {
         await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: outlet.id, action: "create", entity: "outlet", entityId: outlet.id, metadata: { code: outlet.code, name: outlet.name } } });
       }
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings/store");
     revalidatePath("/", "layout");
   } catch (error) {
     handleActionError(error);
@@ -91,7 +91,7 @@ export async function deleteOutlet(id: number) {
     if (count <= 1) throw new Error("Minimal harus ada satu cabang aktif");
     const outlet = await prisma.outlet.findUnique({
       where: { id },
-      include: { _count: { select: { users: true, items: true, transactions: true, services: true, financeRecords: true, bankTransfers: true, fundAccounts: true } } }
+      include: { _count: { select: { users: true, items: true, transactions: true, services: true, financeRecords: true, bankTransfers: true, fundAccounts: true, receivables: true, payrolls: true, receiptBanks: true, receiptSetting: true } } }
     });
     if (!outlet) throw new Error("Cabang tidak ditemukan");
     const used = Object.values(outlet._count).some((value) => value > 0);
@@ -100,7 +100,7 @@ export async function deleteOutlet(id: number) {
       await tx.outlet.delete({ where: { id } });
       await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: id, action: "delete", entity: "outlet", entityId: id, metadata: { code: outlet.code, name: outlet.name } } });
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings/store");
     revalidatePath("/", "layout");
   } catch (error) {
     handleActionError(error);

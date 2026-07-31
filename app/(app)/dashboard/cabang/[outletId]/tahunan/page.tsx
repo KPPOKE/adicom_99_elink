@@ -34,8 +34,8 @@ export default async function DashboardOutletAnnualPage({
       <h1 className="sr-only">Laporan Tahunan Cabang</h1>
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-lg font-semibold text-slate-100">{outlet.name}</p>
-          <p className="mt-1 text-sm text-slate-400">Laporan tahunan {period.year}.</p>
+          <p className="text-lg font-semibold text-slate-900">{outlet.name}</p>
+          <p className="mt-1 text-sm text-slate-600">Laporan tahunan {period.year}.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <form className="flex items-end gap-2">
@@ -68,7 +68,7 @@ export default async function DashboardOutletAnnualPage({
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[820px] text-sm">
-            <thead className="border-y border-slate-700 bg-slate-900/70 text-xs uppercase text-slate-400">
+            <thead className="border-y border-slate-300 bg-white text-xs uppercase text-slate-600">
               <tr>
                 <th className="px-4 py-3 text-left">Bulan</th>
                 <th className="px-4 py-3 text-right">Potongan Bank</th>
@@ -78,12 +78,12 @@ export default async function DashboardOutletAnnualPage({
                 <th className="px-4 py-3 text-right">Profit Bersih</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200">
               {annual.months.map((month) => (
                 <AnnualRow key={month.month} label={month.name} values={month} />
               ))}
             </tbody>
-            <tfoot className="border-t border-slate-700 bg-slate-900/70 font-semibold">
+            <tfoot className="border-t border-slate-300 bg-white font-semibold">
               <AnnualRow label="Total" values={annual.total} />
             </tfoot>
           </table>
@@ -106,10 +106,10 @@ function AnnualRow({
 }) {
   return (
     <tr>
-      <th scope="row" className="px-4 py-3 text-left font-medium capitalize text-slate-200">{label}</th>
+      <th scope="row" className="px-4 py-3 text-left font-medium capitalize text-slate-800">{label}</th>
       <td className="px-4 py-3 text-right text-amber-300">{formatCurrency(values.bankFee)}</td>
       <td className="px-4 py-3 text-right text-orange-300">{formatCurrency(values.operational)}</td>
-      <td className="px-4 py-3 text-right text-cyan-300">{formatCurrency(values.profit)}</td>
+      <td className="px-4 py-3 text-right text-blue-600">{formatCurrency(values.profit)}</td>
       <td className="px-4 py-3 text-right text-rose-300">{formatCurrency(values.expense)}</td>
       <td className="px-4 py-3 text-right text-emerald-300">{formatCurrency(values.netProfit)}</td>
     </tr>

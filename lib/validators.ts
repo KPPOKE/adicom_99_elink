@@ -8,7 +8,7 @@ const money = numeric.pipe(z.number().min(0, "Nominal tidak boleh negatif"));
 
 export const loginSchema = z.object({
   email: z.string().email("Email tidak valid"),
-  password: z.string().min(6, "Password minimal 6 karakter"),
+  password: z.string().min(6, "Kata sandi minimal 6 karakter"),
   remember: z.coerce.boolean().default(false)
 });
 
@@ -32,14 +32,14 @@ export const userSchema = z.object({
     context.addIssue({
       code: "custom",
       path: ["password"],
-      message: "Password minimal 6 karakter"
+      message: "Kata sandi minimal 6 karakter"
     });
   }
   if (value.password && value.password.length > 0 && value.password.length < 6) {
     context.addIssue({
       code: "custom",
       path: ["password"],
-      message: "Password minimal 6 karakter"
+      message: "Kata sandi minimal 6 karakter"
     });
   }
   if (value.role === "staff" && !value.outletId) {
@@ -159,6 +159,54 @@ export const fundMutationSchema = z.object({
 });
 export type FundMutationFormValues = z.output<typeof fundMutationSchema>;
 
+export const receivableSchema = z.object({
+  id: z.coerce.number<number>().int().positive().optional(),
+  customerId: z.coerce.number<number>().int().min(1, "Pelanggan wajib dipilih"),
+  loanDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
+  description: z.string().trim().max(500, "Keterangan maksimal 500 karakter").optional(),
+  recordExpense: z.coerce.boolean().default(false),
+  sourceFundId: z.coerce.number<number>().int().positive().optional().nullable()
+}).superRefine((value, context) => {
+  if (value.recordExpense && !value.sourceFundId) {
+    context.addIssue({ code: "custom", path: ["sourceFundId"], message: "Sumber dana wajib dipilih" });
+  }
+});
+export type ReceivableFormValues = z.output<typeof receivableSchema>;
+
+export const payrollSchema = z.object({
+  id: z.coerce.number<number>().int().positive().optional(),
+  employeeId: z.coerce.number<number>().int().min(1, "Pegawai wajib dipilih"),
+  period: z.string().regex(/^\d{4}-\d{2}$/, "Periode tidak valid"),
+  baseSalary: money,
+  allowance: money.default(0),
+  deduction: money.default(0),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal bayar tidak valid").optional().or(z.literal("")),
+  status: z.enum(["Pending", "Dibayar"]),
+  note: z.string().trim().max(500, "Keterangan maksimal 500 karakter").optional()
+}).superRefine((value, context) => {
+  if (value.deduction > value.baseSalary + value.allowance) {
+    context.addIssue({ code: "custom", path: ["deduction"], message: "Potongan melebihi gaji dan tunjangan" });
+  }
+  if (value.status === "Dibayar" && !value.paymentDate) {
+    context.addIssue({ code: "custom", path: ["paymentDate"], message: "Tanggal bayar wajib diisi" });
+  }
+});
+export type PayrollFormValues = z.output<typeof payrollSchema>;
+
+export const receiptBankSchema = z.object({
+  id: z.coerce.number<number>().int().positive().optional(),
+  bankName: z.string().trim().min(2, "Nama bank wajib diisi").max(80),
+  accountName: z.string().trim().min(2, "Nama pemilik wajib diisi").max(100),
+  accountNumber: z.string().trim().min(3, "Nomor rekening wajib diisi").max(40)
+});
+
+export const receiptSettingSchema = z.object({
+  storeName: z.string().trim().min(2, "Nama toko wajib diisi").max(100),
+  address: z.string().trim().max(500, "Alamat maksimal 500 karakter").optional(),
+  footer: z.string().trim().max(300, "Footer maksimal 300 karakter").optional(),
+  logo: z.string().optional()
+});
 export const serviceSchema = z.object({
   id: z.coerce.number<number>().optional(),
   customerId: z.coerce.number<number>().optional().nullable(),

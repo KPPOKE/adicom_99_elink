@@ -6,7 +6,7 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill("password123");
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
@@ -16,12 +16,111 @@ test("login password visibility can be toggled", async ({ page }) => {
   await password.fill("password123");
   await expect(password).toHaveAttribute("type", "password");
 
-  await page.getByRole("button", { name: "Lihat password" }).click();
+  await page.getByRole("button", { name: "Lihat kata sandi" }).click();
   await expect(password).toHaveAttribute("type", "text");
   await expect(password).toHaveValue("password123");
 
-  await page.getByRole("button", { name: "Sembunyikan password" }).click();
+  await page.getByRole("button", { name: "Sembunyikan kata sandi" }).click();
   await expect(password).toHaveAttribute("type", "password");
+});
+
+test("login returns accessible field validation errors", async ({ page }) => {
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.locator("form").evaluate((form: HTMLFormElement) => { form.noValidate = true; });
+  await page.locator('input[name="email"]').fill("email-tidak-valid");
+  await page.locator('input[name="password"]').fill("123");
+  await page.locator('button[type="submit"]').click();
+
+  await expect(page.locator('input[name="email"]')).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#login-email-error")).toHaveText("Email tidak valid");
+  await expect(page.locator('input[name="password"]')).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#login-password-error")).toHaveText("Kata sandi minimal 6 karakter");
+});
+test("login remembers email without storing password", async ({ page }) => {
+  const email = `remember-${Date.now()}@example.com`;
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="password"]').fill("password-salah");
+  await page.getByRole("checkbox", { name: "Ingat email saya" }).check();
+  await page.getByRole("button", { name: "Masuk" }).click();
+  await expect(page.locator('form [role="alert"]')).toContainText("Email atau kata sandi salah");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator('input[name="email"]')).toHaveValue(email);
+  await expect(page.getByRole("checkbox", { name: "Ingat email saya" })).toBeChecked();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("pospintar_remember_email"))).toBe(email);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("pospintar_remember_password"))).toBeNull();
+
+  await page.locator('input[name="password"]').fill("password-salah");
+  await page.getByRole("checkbox", { name: "Ingat email saya" }).uncheck();
+  await page.getByRole("button", { name: "Masuk" }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("pospintar_remember_email"))).toBeNull();
+});
+
+test("login shows a stable loading state", async ({ page }) => {
+  let requestReached!: () => void;
+  let releaseRequest!: () => void;
+  const reached = new Promise<void>((resolve) => { requestReached = resolve; });
+
+  await page.route("**/login", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    requestReached();
+    await new Promise<void>((resolve) => { releaseRequest = resolve; });
+    await route.continue();
+  });
+
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.locator('input[name="email"]').fill(`loading-${Date.now()}@example.com`);
+  await page.locator('input[name="password"]').fill("password-salah");
+  const submit = page.locator('button[type="submit"]');
+  const submission = submit.click();
+  await reached;
+  await expect(submit).toBeDisabled();
+  await expect(submit).toContainText("Memeriksa...");
+  releaseRequest();
+  await submission;
+  await expect(page.locator('form [role="alert"]')).toContainText("Email atau kata sandi salah");
+});
+
+test("login keyboard order and minimum mobile viewport remain accessible", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  const email = page.locator('input[name="email"]');
+  const password = page.locator('input[name="password"]');
+  const passwordToggle = page.getByRole("button", { name: "Lihat kata sandi" });
+  const remember = page.getByRole("checkbox", { name: "Ingat email saya" });
+  const submit = page.locator('button[type="submit"]');
+
+  await expect(email).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(password).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(passwordToggle).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(remember).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(submit).toBeFocused();
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(email).not.toBeFocused();
+  await submit.click();
+  await expect(email).toBeFocused();
+  await email.fill(`mobile-${Date.now()}@example.com`);
+  await password.fill("password-salah");
+  await submit.click();
+  await expect(page.locator('form [role="alert"]')).toContainText("Email atau kata sandi salah");
+
+  const dimensions = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    documentWidth: document.documentElement.scrollWidth,
+    documentHeight: document.documentElement.scrollHeight,
+    mainScrollHeight: document.querySelector("main")?.scrollHeight ?? 0
+  }));
+  expect(dimensions.documentWidth).toBe(dimensions.viewportWidth);
+  expect(dimensions.documentHeight).toBe(dimensions.viewportHeight);
+  expect(dimensions.mainScrollHeight).toBeLessThanOrEqual(dimensions.viewportHeight);
 });
 
 test("health endpoint reports application and database readiness", async ({ request }) => {
@@ -45,9 +144,9 @@ async function createStaff(suffix: string) {
 }
 
 test("admin can open the main operational pages", async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   await login(page);
-  for (const path of ["/dashboard", "/inventory", "/categories", "/suppliers", "/customers", "/transactions", "/bank-transfers", "/funds", "/fund-mutations", "/services", "/finance", "/reports", "/settings"]) {
+  for (const path of ["/dashboard", "/inventory", "/categories", "/suppliers", "/customers", "/transactions", "/bank-transfers", "/funds", "/fund-mutations", "/services", "/receivables", "/receipts", "/receipts/banks", "/receipts/settings", "/finance", "/payroll", "/reports", "/settings/store", "/settings/access", "/settings/activity", "/settings/data"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main")).toBeVisible();
   }
@@ -115,18 +214,19 @@ test("exports and invoices respond for admin", async ({ page }) => {
 });
 
 test("staff only sees and opens cashier pages", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   const staff = await createStaff(`staff-${Date.now()}-${testInfo.project.name}`);
   await login(page, staff.email);
 
-  for (const path of ["/dashboard", "/customers", "/transactions", "/bank-transfers", "/services", "/settings"]) {
+  for (const path of ["/dashboard", "/customers", "/transactions", "/bank-transfers", "/services", "/settings/data"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(new RegExp(`${path.replace("?", "\\?")}$`));
     await expect(page.getByRole("main")).toBeVisible();
   }
 
-  for (const path of ["/inventory", "/categories", "/suppliers", "/funds", "/fund-mutations", "/finance", "/reports"]) {
-    await page.goto(path, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/dashboard/);
+  for (const path of ["/inventory", "/categories", "/suppliers", "/funds", "/fund-mutations", "/finance", "/reports", "/receivables", "/receipts", "/payroll", "/settings/store", "/settings/access", "/settings/activity"]) {
+    await page.evaluate((target) => { window.location.href = target; }, path);
+    await expect(page).toHaveURL(/\/dashboard$/);
   }
 
   await page.goto(`/dashboard/cabang/${staff.outletId}`);
@@ -135,7 +235,7 @@ test("staff only sees and opens cashier pages", async ({ page }, testInfo) => {
 });
 
 test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   test.skip(testInfo.project.name !== "mobile", "Mobile drawer is only visible on mobile viewport");
 
   await login(page);
@@ -148,8 +248,9 @@ test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo)
 
   await menuButton.evaluate((element: HTMLElement) => element.click());
   await expect(menuButton).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("link", { name: "Pengaturan" })).toBeVisible();
+  await expect(page.locator("#mobile-navigation summary").filter({ hasText: "Pengaturan" })).toBeVisible();
 
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).click();
   await page.getByRole("link", { name: "Inventori" }).evaluate((element: HTMLElement) => element.click());
   await expect(page).toHaveURL(/\/inventory/);
   await expect(menuButton).toHaveAttribute("aria-expanded", "false");
@@ -161,12 +262,22 @@ test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo)
   await login(page, staff.email);
   await page.getByRole("button", { name: "Buka menu" }).click();
 
-  for (const name of ["Inventori", "Kategori", "Supplier", "Sumber Dana", "Mutasi Saldo", "Keuangan", "Laporan"]) {
+  for (const name of ["Inventori", "Kategori", "Supplier", "Saldo Awal", "Pindah Saldo", "Catat Hutang", "Cetak Struk", "Penggajian Pegawai", "Kelola Toko", "Riwayat Aktivitas", "Laporan Transaksi"]) {
     await expect(page.getByRole("link", { name, exact: true })).toHaveCount(0);
   }
-  for (const name of ["Dasbor", "Pelanggan", "Transaksi", "MiniATM", "Service", "Pengaturan"]) {
+  for (const name of ["Dasbor", "MiniATM", "Service"]) {
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   }
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).click();
+  await expect(page.getByRole("link", { name: "Transaksi Fisik", exact: true })).toBeVisible();
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Utang Piutang" }).click();
+  await expect(page.getByRole("link", { name: "Pelanggan", exact: true })).toBeVisible();
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Pengaturan" }).click();
+  await expect(page.getByRole("link", { name: "Backup Data", exact: true })).toBeVisible();
+
+  await prisma.auditLog.deleteMany({ where: { userId: staff.id } });
+  await prisma.userPermission.deleteMany({ where: { userId: staff.id } });
+  await prisma.user.delete({ where: { id: staff.id } });
 });
 test("admin sees balance audit and staff cannot open activity history", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "Audit mutation test runs once");
@@ -235,7 +346,7 @@ test("admin opens the branch summary and monthly report from an outlet card", as
   await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+$/);
 
   for (const label of ["Total Transaksi", "Omset", "Profit Kotor", "Potongan Bank + Ops", "Pengeluaran", "Profit Bersih", "Aset Cash", "Aset Saldo", "Total Aset"]) {
-    await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+    await expect(page.locator("main").getByText(label, { exact: true }).first()).toBeVisible();
   }
   await expect(page.getByLabel("Transaksi oleh")).toBeVisible();
   await expect(page.getByRole("link", { name: "Laporan Bulanan" })).toBeVisible();
@@ -250,7 +361,7 @@ test("admin opens the branch summary and monthly report from an outlet card", as
   await expect(page.getByRole("heading", { name: "Grafik Laporan Bulanan" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ringkasan Harian" })).toBeVisible();
   for (const label of ["Profit Kotor", "Potongan Bank", "Operasional"]) {
-    await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+    await expect(page.locator("main").getByText(label, { exact: true }).first()).toBeVisible();
   }
   const profitToggle = page.getByRole("button", { name: "Profit", exact: true });
   await expect(profitToggle).toHaveAttribute("aria-pressed", "true");
@@ -258,7 +369,7 @@ test("admin opens the branch summary and monthly report from an outlet card", as
   await expect(profitToggle).toHaveAttribute("aria-pressed", "false");
 });
 test("annual outlet report is scoped and export follows permission", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   const outlet = await prisma.outlet.findFirstOrThrow({ orderBy: { id: "asc" } });
   const staff = await createStaff(`annual-${Date.now()}-${testInfo.project.name}`);
 

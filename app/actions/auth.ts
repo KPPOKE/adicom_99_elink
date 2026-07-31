@@ -9,9 +9,25 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validators";
 
+export type LoginActionState = {
+  error?: string;
+  fieldErrors?: {
+    email?: string;
+    password?: string;
+  };
+};
+
 export async function loginAction(_: unknown, formData: FormData) {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Login tidak valid" };
+  if (!parsed.success) {
+    const errors = parsed.error.flatten().fieldErrors;
+    return {
+      fieldErrors: {
+        email: errors.email?.[0],
+        password: errors.password?.[0]
+      }
+    } satisfies LoginActionState;
+  }
 
   const headerStore = await headers();
   const forwardedFor = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -24,7 +40,7 @@ export async function loginAction(_: unknown, formData: FormData) {
       action: "login_rate_limited",
       entity: "auth",
       metadata: { ip, retryAfter: rate.retryAfter }
-  });
+    });
     return { error: `Terlalu banyak percobaan login. Coba lagi dalam ${rate.retryAfter} detik.` };
   }
 
@@ -34,13 +50,13 @@ export async function loginAction(_: unknown, formData: FormData) {
   });
   if (!user) {
     await writeAuditLog({ userEmail: parsed.data.email, action: "login_failed", entity: "auth", metadata: { ip } });
-    return { error: "Email atau password salah" };
+    return { error: "Email atau kata sandi salah" };
   }
 
   const valid = await compare(parsed.data.password, user.passwordHash);
   if (!valid) {
     await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.outletId, action: "login_failed", entity: "auth", metadata: { ip } });
-    return { error: "Email atau password salah" };
+    return { error: "Email atau kata sandi salah" };
   }
 
   resetRateLimit(rateKey);

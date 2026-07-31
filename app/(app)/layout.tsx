@@ -15,9 +15,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const permissions = await getUserPermissionKeys(user);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(37,99,235,0.20),transparent_34rem),linear-gradient(135deg,#070b14_0%,#0b1220_48%,#111827_100%)] text-slate-100">
+    <div className="min-h-screen bg-slate-100 text-slate-900">
       <Sidebar userName={user.name} role={user.role.name} outletName={activeOutlet.name} permissions={permissions} />
-      <div className="lg:pl-64">
+      <div className="lg:pl-[230px]">
         <Topbar userName={user.name} role={user.role.name} outletName={activeOutlet.name} activeOutletId={activeOutlet.id} selectedOutlet={selectedOutlet} outlets={outlets} permissions={permissions} />
         <main className="min-w-0 p-4 lg:p-6 xl:p-8">{children}</main>
       </div>

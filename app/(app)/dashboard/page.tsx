@@ -42,15 +42,15 @@ export default async function DashboardPage() {
   return (
     <>
       <h1 className="sr-only">Dasbor</h1>
-      <p className="mb-4 text-sm text-slate-400">{description}</p>
+      <p className="mb-4 text-sm text-slate-600">{description}</p>
       <Card>
         <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {summaries.map((outlet) => (
-            <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3 transition hover:border-cyan-400/70 hover:bg-slate-900/60">
-              <p className="font-medium text-slate-100">{outlet.name}</p>
-              <p className="mt-2 text-sm text-slate-400">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
-              <p className="mt-1 text-sm text-slate-400">Laba bersih {formatCurrency(outlet.net)}</p>
+            <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:border-blue-500/70 hover:bg-white">
+              <p className="font-medium text-slate-900">{outlet.name}</p>
+              <p className="mt-2 text-sm text-slate-600">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
+              <p className="mt-1 text-sm text-slate-600">Laba bersih {formatCurrency(outlet.net)}</p>
               <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
                 <span>{outlet.transactions} transaksi</span>
                 <span>{outlet.transferCount} transfer dana</span>

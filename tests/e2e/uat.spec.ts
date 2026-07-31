@@ -6,7 +6,7 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
   await page.goto("/login");
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill("password123");
-  await page.getByRole("button", { name: "Login" }).click();
+  await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
@@ -216,7 +216,7 @@ test.describe("UAT operational workflow", () => {
     }).toEqual([2, 0]);
 
     await page.goto("/finance");
-    await openDialog(page, "Catat Manual");
+    await openDialog(page, "Tambah Pengeluaran");
     await page.locator('select[name="type"]').selectOption("expense");
     await page.locator('input[name="category"]').fill(`${suffix}-Expense`);
     await page.locator('input[name="amount"]').fill("12000");
@@ -234,13 +234,13 @@ test.describe("UAT operational workflow", () => {
       expect(response.headers()["content-disposition"]).toMatch(/\.(xls|xlsx|pdf)"/);
     }
 
-    await page.goto("/settings");
-    await expect(page.getByText("Data User")).toBeVisible();
+    await page.goto("/settings/access");
+    await expect(page.getByRole("button", { name: "Tambah User" })).toBeVisible();
 
     await page.goto("/login");
     await login(page, staffEmail);
-    await page.goto("/settings");
-    await expect(page.getByRole("heading", { name: "Backup Data", exact: true })).toBeVisible();
-    await expect(page.getByText("Data User")).toHaveCount(0);
+    await page.goto("/settings/data");
+    await expect(page.locator("main").getByRole("heading", { name: "Backup Data", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tambah User" })).toHaveCount(0);
   });
 });

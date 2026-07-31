@@ -15,8 +15,8 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.15)]">
         <AlertTriangle className="h-10 w-10 text-red-400" />
       </div>
-      <h2 className="text-2xl font-bold text-slate-100 mb-2">Terjadi Kesalahan Sistem</h2>
-      <p className="max-w-md text-sm text-slate-400 mb-8 leading-relaxed">
+      <h2 className="text-2xl font-bold text-slate-900 mb-2">Terjadi Kesalahan Sistem</h2>
+      <p className="max-w-md text-sm text-slate-600 mb-8 leading-relaxed">
         Maaf, sistem tidak dapat memproses permintaan atau merender antarmuka halaman ini. Silakan coba muat ulang halaman.
       </p>
       <div className="flex gap-4">

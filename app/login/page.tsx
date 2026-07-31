@@ -1,113 +1,259 @@
 "use client";
 
-import { useActionState, useEffect, useState, useSyncExternalStore } from "react";
-import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
+import Image from "next/image";
+import { useActionState, useEffect, useRef, useState } from "react";
+import {
+  AlertCircle,
+  ArrowRight,
+  BarChart3,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  Lock,
+  Mail,
+  ShieldCheck,
+  UsersRound
+} from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const benefits = [
+  {
+    icon: ShieldCheck,
+    title: "Aman & Terpusat",
+    description: "Data tersimpan dan dikelola dalam satu sistem."
+  },
+  {
+    icon: UsersRound,
+    title: "Akses Terpisah",
+    description: "Hak akses disesuaikan dengan peran karyawan."
+  },
+  {
+    icon: BarChart3,
+    title: "Laporan Waktu Nyata",
+    description: "Pantau aktivitas dan performa operasional."
+  }
+];
+
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
   const [showPassword, setShowPassword] = useState(false);
-  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const rememberRef = useRef<HTMLInputElement>(null);
+  const emailError = state?.fieldErrors?.email;
+  const passwordError = state?.fieldErrors?.password;
 
   useEffect(() => {
-    const email = localStorage.getItem("pospintar_remember_email");
-    if (!email) return;
-    const emailInput = document.querySelector<HTMLInputElement>('input[name="email"]');
-    const rememberInput = document.querySelector<HTMLInputElement>('input[name="remember"]');
-    if (emailInput) emailInput.value = email;
-    if (rememberInput) rememberInput.checked = true;
+    const savedEmail = localStorage.getItem("pospintar_remember_email");
+    if (savedEmail) {
+      if (emailRef.current) emailRef.current.value = savedEmail;
+      if (rememberRef.current) rememberRef.current.checked = true;
+      return;
+    }
+
+    if (window.matchMedia("(min-width: 768px) and (pointer: fine)").matches) {
+      emailRef.current?.focus();
+    }
   }, []);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    const form = event.currentTarget;
-    const email = form.email.value;
-    if (form.remember.checked) localStorage.setItem("pospintar_remember_email", email);
-    else localStorage.removeItem("pospintar_remember_email");
+    const data = new FormData(event.currentTarget);
+    const email = String(data.get("email") ?? "");
+    if (data.get("remember") === "true") {
+      localStorage.setItem("pospintar_remember_email", email);
+    } else {
+      localStorage.removeItem("pospintar_remember_email");
+    }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_0%,rgba(37,99,235,0.22),transparent_34rem),linear-gradient(135deg,#070b14_0%,#0b1220_48%,#111827_100%)] p-4 text-slate-100 sm:p-6">
-      <div className="relative grid min-h-[min(720px,calc(100vh-3rem))] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/40 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="absolute inset-0 opacity-70 pointer-events-none">
-          <div className="absolute -left-28 top-36 h-64 w-[46rem] -rotate-12 rounded-[50%] border border-blue-500/30 transition-transform duration-[10000ms] animate-pulse" />
-          <div className="absolute -left-20 top-40 h-72 w-[50rem] -rotate-12 rounded-[50%] border border-blue-600/25 transition-transform duration-[12000ms] animate-pulse delay-150" />
-          <div className="absolute -left-10 top-44 h-80 w-[54rem] -rotate-12 rounded-[50%] border border-cyan-500/15 transition-transform duration-[15000ms] animate-pulse delay-300" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_36%,rgba(37,99,235,0.28),transparent_22rem)]" />
-        </div>
+    <main className="flex h-dvh items-center justify-center overflow-y-auto bg-slate-100 sm:p-4 lg:p-5 [@media(min-height:568px)]:overflow-hidden">
+      <div className="grid min-h-full w-full overflow-hidden bg-white shadow-xl sm:min-h-0 sm:max-w-[1280px] sm:rounded-lg sm:border sm:border-slate-200 sm:h-[min(760px,calc(100dvh-2rem))] lg:h-[min(760px,calc(100dvh-2.5rem))] lg:grid-cols-[minmax(0,3fr)_minmax(400px,2fr)]">
+        <section className="relative hidden min-h-0 overflow-hidden bg-blue-50 p-8 text-slate-950 lg:flex lg:flex-col xl:p-10 [@media(max-height:680px)]:p-6">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-8 top-0 h-full w-16 -skew-x-3 bg-blue-700" />
+            <div className="absolute left-8 right-10 top-24 h-px bg-blue-200/70" />
+            <div className="absolute left-12 top-28 h-32 w-32 rotate-12 border border-blue-200/60" />
+          </div>
 
-        <section className="relative flex min-h-[360px] flex-col justify-center px-8 py-10 sm:px-14 lg:px-20">
-          <div className="flex items-center">
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-blue-200 bg-white shadow-sm">
+              <Image src="/icon.svg" alt="" width={28} height={28} priority />
+            </div>
             <div>
-              <p className="text-3xl font-bold leading-none">
-                Pos<span className="text-blue-400">Pintar</span>
-              </p>
-              <p className="mt-1 text-sm text-slate-400">Sistem Manajemen</p>
+              <p className="font-heading text-2xl font-bold leading-none text-blue-700">PosPintar</p>
+              <p className="mt-1 text-xs font-medium text-slate-500">Sistem Manajemen</p>
             </div>
           </div>
 
-          <div className="mt-14 max-w-md">
-            <h1 className="text-2xl font-semibold leading-snug sm:text-3xl">
-              Kelola inventori, transaksi, service, dan keuangan dalam satu sistem.
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-400">
-              Solusi operasional internal untuk bisnis hardware, service perangkat, dan produk digital.
-            </p>
+          <div className="relative z-10 grid min-h-0 flex-1 grid-cols-[minmax(250px,0.9fr)_minmax(0,1.1fr)] items-center gap-1">
+            <div className="relative z-10 max-w-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-700">Satu kendali, seluruh cabang</p>
+              <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-slate-950 xl:text-5xl [@media(max-height:680px)]:text-3xl">
+                Operasional cabang dalam satu sistem.
+              </h1>
+              <p className="mt-5 text-sm font-medium leading-6 text-slate-600 [@media(max-height:680px)]:mt-3">
+                Kelola transaksi, MiniATM, service, stok, saldo, dan laporan dengan akses terpisah untuk setiap
+                karyawan.
+              </p>
+            </div>
+
+            <div aria-hidden="true" className="relative h-[min(46vh,360px)] min-h-56 w-full self-center pr-10">
+              <Image
+                src="/login-operations-transparent.webp"
+                alt=""
+                fill
+                priority
+                sizes="(min-width: 1280px) 420px, 34vw"
+                className="object-contain"
+              />
+            </div>
           </div>
 
-          <div className="mt-auto flex items-center gap-2 pt-10 text-xs text-slate-400">
-            <ShieldCheck className="h-4 w-4 text-blue-300" />
-            <span>Aman, cepat, dan terpercaya</span>
+          <div className="relative z-10 grid grid-cols-3 gap-4 border-t border-blue-200 pt-5 [@media(max-height:680px)]:gap-3 [@media(max-height:680px)]:pt-3">
+            {benefits.map(({ icon: Icon, title, description }) => (
+              <div key={title} className="min-w-0">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Icon aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+                  <p className="text-sm font-bold text-slate-900">{title}</p>
+                </div>
+                <p className="mt-1.5 text-[13px] leading-5 text-slate-500 [@media(max-height:560px)]:hidden">{description}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className="relative flex items-center justify-center border-t border-slate-800/50 bg-slate-900/30 p-5 sm:p-8 lg:border-l lg:border-t-0 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-2xl border border-slate-700/50 bg-slate-900/70 p-6 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-8 transition-transform hover:scale-[1.01] duration-500">
-            <div>
-              <h2 className="text-2xl font-semibold">Selamat datang kembali</h2>
-              <p className="mt-2 text-sm text-slate-400">Masuk untuk melanjutkan ke akun Anda</p>
+        <section className="flex min-h-0 items-center justify-center bg-slate-50/70 p-5 sm:p-8 lg:p-5 xl:p-8 [@media(max-height:640px)]:py-3">
+          <div className="w-full max-w-[440px]">
+            <div className="mb-5 lg:hidden">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-white shadow-sm">
+                  <Image src="/icon.svg" alt="" width={26} height={26} priority />
+                </div>
+                <div>
+                  <p className="font-heading text-2xl font-bold leading-none text-blue-700">PosPintar</p>
+                  <p className="mt-1 text-xs font-medium text-slate-500">Sistem Manajemen</p>
+                </div>
+              </div>
+              <p className="mt-5 text-xs font-bold uppercase tracking-widest text-blue-700 [@media(max-height:640px)]:mt-4">
+                Satu kendali, seluruh cabang
+              </p>
+              <h1 className="mt-2 max-w-sm font-heading text-2xl font-bold leading-tight text-slate-950">
+                Operasional cabang dalam satu sistem.
+              </h1>
             </div>
 
-            <form action={formAction} onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <div className="relative group">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="h-11 pl-10" name="email" type="email" autoComplete="email" placeholder="email@pospintar.com" required />
+            <div className="motion-safe:animate-fade-in-up bg-white sm:rounded-lg sm:border sm:border-slate-200 sm:p-8 sm:shadow-lg sm:shadow-slate-200/70 lg:p-8 [@media(max-height:640px)]:sm:p-6">
+              <header className="mb-6 [@media(max-height:640px)]:mb-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-blue-700">Portal operasional</p>
+                <h2 className="mt-2 font-heading text-2xl font-bold text-slate-950 sm:text-3xl">Masuk ke akun Anda</h2>
+                <p className="mt-2 text-sm text-slate-500">Gunakan email dan kata sandi yang terdaftar.</p>
+              </header>
+
+              <form action={formAction} onSubmit={handleSubmit} className="space-y-4" aria-busy={pending}>
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-email">Email</Label>
+                  <div className="relative">
+                    <Mail aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      ref={emailRef}
+                      id="login-email"
+                      className="h-11 pl-10 transition-shadow autofill:shadow-[inset_0_0_0_1000px_#fff]"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="email@pospintar.com"
+                      aria-invalid={Boolean(emailError)}
+                      aria-describedby={emailError ? "login-email-error" : undefined}
+                      required
+                    />
+                  </div>
+                  {emailError ? (
+                    <p id="login-email-error" role="alert" className="flex items-center gap-1.5 text-sm font-medium text-red-700">
+                      <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      {emailError}
+                    </p>
+                  ) : null}
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Password</Label>
-                <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-400" />
-                  <Input className="h-11 px-10" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="********" required />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Sembunyikan password" : "Lihat password"}
-                    aria-pressed={showPassword}
-                    disabled={!hydrated}
-                    onClick={() => setShowPassword((visible) => !visible)}
-                    className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-password">Kata Sandi</Label>
+                  <div className="relative">
+                    <Lock aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="login-password"
+                      className="h-11 px-10 transition-shadow autofill:shadow-[inset_0_0_0_1000px_#fff]"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="********"
+                      minLength={6}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={passwordError ? "login-password-error" : undefined}
+                      required
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Sembunyikan kata sandi" : "Lihat kata sandi"}
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 motion-reduce:transition-none"
+                    >
+                      {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {passwordError ? (
+                    <p id="login-password-error" role="alert" className="flex items-center gap-1.5 text-sm font-medium text-red-700">
+                      <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      {passwordError}
+                    </p>
+                  ) : null}
                 </div>
-              </div>
-              <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                <label className="flex items-center gap-2">
-                  <input className="h-4 w-4 rounded border-slate-700 bg-slate-950 accent-blue-500" type="checkbox" name="remember" value="true" />
-                  Ingat saya
+
+                <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-slate-600">
+                  <input
+                    ref={rememberRef}
+                    className="h-4 w-4 rounded border-slate-300 accent-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    type="checkbox"
+                    name="remember"
+                    value="true"
+                  />
+                  Ingat email saya
                 </label>
-                <span className="text-blue-400">Lupa password?</span>
-              </div>
-              {state?.error ? <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{state.error}</p> : null}
-              <Button className="w-full h-11 text-base mt-2" disabled={pending}>
-                {pending ? "Memeriksa..." : "Login"}
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </form>
+
+                {state?.error ? (
+                  <p role="alert" className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+                    <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                    {state.error}
+                  </p>
+                ) : null}
+
+                <Button
+                  type="submit"
+                  className="h-11 w-full text-base shadow-sm active:bg-blue-800 motion-reduce:transition-none"
+                  disabled={pending}
+                >
+                  {pending ? (
+                    <>
+                      <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                      Memeriksa...
+                    </>
+                  ) : (
+                    <>
+                      Masuk
+                      <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </form>
+
+              <footer className="mt-6 border-t border-slate-100 pt-4 text-center [@media(max-height:640px)]:mt-3 [@media(max-height:640px)]:pt-2">
+                <p className="text-xs font-medium text-slate-500">Sistem internal PosPintar</p>
+                <p className="mt-1 hidden text-xs text-slate-400 sm:block">Akses hanya untuk pengguna terdaftar.</p>
+              </footer>
+            </div>
           </div>
         </section>
       </div>

@@ -12,17 +12,17 @@ export function DialogContent({ className, children, ...props }: React.Component
   const { "aria-describedby": ariaDescribedBy = undefined, ...contentProps } = props;
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm" />
       <DialogPrimitive.Content
         aria-describedby={ariaDescribedBy}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-2xl shadow-black/40",
+          "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg border border-slate-300 bg-white p-5 text-slate-900 shadow-xl",
           className
         )}
         {...contentProps}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-white">
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-950">
           <X className="h-4 w-4" />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -35,9 +35,9 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 }
 
 export function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn("text-lg font-semibold text-slate-100", className)} {...props} />;
+  return <DialogPrimitive.Title className={cn("text-lg font-semibold text-slate-900", className)} {...props} />;
 }
 
 export function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  return <DialogPrimitive.Description className={cn("text-sm text-slate-400", className)} {...props} />;
+  return <DialogPrimitive.Description className={cn("text-sm text-slate-600", className)} {...props} />;
 }

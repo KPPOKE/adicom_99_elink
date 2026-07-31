@@ -39,8 +39,8 @@ export default async function DashboardOutletDetailPage({
       <h1 className="sr-only">Detail Dasbor Cabang</h1>
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-lg font-semibold text-slate-100">{selectedOutlet.name}</p>
-          <p className="mt-1 text-sm text-slate-400">Laporan operasional {monthLabel}.</p>
+          <p className="text-lg font-semibold text-slate-900">{selectedOutlet.name}</p>
+          <p className="mt-1 text-sm text-slate-600">Laporan operasional {monthLabel}.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <form className="flex items-end gap-2">
@@ -81,8 +81,8 @@ export default async function DashboardOutletDetailPage({
 
       <section className="mt-6" aria-labelledby="daily-report-title">
         <div className="mb-4">
-          <h2 id="daily-report-title" className="text-lg font-semibold text-slate-100">Ringkasan Harian</h2>
-          <p className="mt-1 text-sm text-slate-400">Rincian operasional setiap hari pada {monthLabel}.</p>
+          <h2 id="daily-report-title" className="text-lg font-semibold text-slate-900">Ringkasan Harian</h2>
+          <p className="mt-1 text-sm text-slate-600">Rincian operasional setiap hari pada {monthLabel}.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[...report.days].reverse().map((day, index) => (
@@ -95,13 +95,13 @@ export default async function DashboardOutletDetailPage({
                 <span className="shrink-0 rounded-md bg-orange-500/10 px-2 py-1 text-xs font-semibold text-orange-300">#{index + 1}</span>
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <div className="grid grid-cols-2 gap-3 border-b border-slate-700/70 pb-3 text-xs">
-                  <div className="flex items-center gap-2 text-slate-400">
+                <div className="grid grid-cols-2 gap-3 border-b border-slate-300/70 pb-3 text-xs">
+                  <div className="flex items-center gap-2 text-slate-600">
                     <Smartphone className="h-4 w-4 shrink-0 text-cyan-400" />
                     <span>Transaksi Digital</span>
-                    <strong className="ml-auto text-cyan-300">{day.digitalTransactions}</strong>
+                    <strong className="ml-auto text-blue-600">{day.digitalTransactions}</strong>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-400">
+                  <div className="flex items-center gap-2 text-slate-600">
                     <PackageCheck className="h-4 w-4 shrink-0 text-emerald-400" />
                     <span>Transaksi Fisik</span>
                     <strong className="ml-auto text-emerald-300">{day.physicalTransactions}</strong>
@@ -113,7 +113,7 @@ export default async function DashboardOutletDetailPage({
                   <DailyRow label="Operasional" value={formatCurrency(day.operational)} valueClassName="text-orange-300" />
                   <DailyRow className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2" label="Profit" value={formatCurrency(day.profit)} strong labelClassName="text-emerald-200" valueClassName="text-emerald-200" />
                   <DailyRow label="Pengeluaran" value={formatCurrency(day.expense)} valueClassName="text-rose-300" />
-                  <DailyRow className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2" label="Profit Bersih" value={formatCurrency(day.netProfit)} strong labelClassName="text-cyan-200" valueClassName="text-cyan-200" />
+                  <DailyRow className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2" label="Profit Bersih" value={formatCurrency(day.netProfit)} strong labelClassName="text-blue-700" valueClassName="text-blue-700" />
                 </dl>
               </CardContent>
             </Card>
@@ -141,8 +141,8 @@ function DailyRow({
 }) {
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>
-      <dt className={cn(strong ? "font-medium" : "text-slate-400", labelClassName)}>{label}</dt>
-      <dd className={cn(strong ? "font-semibold" : "font-medium text-slate-200", valueClassName)}>{value}</dd>
+      <dt className={cn(strong ? "font-medium" : "text-slate-600", labelClassName)}>{label}</dt>
+      <dd className={cn(strong ? "font-semibold" : "font-medium text-slate-800", valueClassName)}>{value}</dd>
     </div>
   );
 }

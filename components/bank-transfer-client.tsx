@@ -79,9 +79,9 @@ function emptyValues(funds: FundOption[]): BankTransferFormValues {
 
 function SummaryCard({ label, value, helper, icon }: { label: string; value: number; helper: string; icon: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-4">
-      <div className="flex items-center justify-between gap-3"><p className="text-sm text-slate-400">{label}</p><div className="rounded-md border border-cyan-500/20 bg-cyan-500/10 p-2 text-cyan-300">{icon}</div></div>
-      <p className="mt-3 text-xl font-semibold text-slate-100">{formatCurrency(value)}</p>
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3"><p className="text-sm text-slate-600">{label}</p><div className="rounded-md border border-cyan-500/20 bg-cyan-500/10 p-2 text-blue-600">{icon}</div></div>
+      <p className="mt-3 text-xl font-semibold text-slate-900">{formatCurrency(value)}</p>
       <p className="mt-1 text-xs text-slate-500">{helper}</p>
     </div>
   );
@@ -173,10 +173,10 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
   };
 
   const columns: ColumnDef<TransferRow>[] = [
-    { header: "Transaksi", cell: ({ row }) => <div><p className="font-medium text-slate-100">{row.original.kodeTransfer}</p><p className="text-xs text-slate-500">{formatDate(row.original.createdAt)} · {row.original.userName}</p></div> },
+    { header: "Transaksi", cell: ({ row }) => <div><p className="font-medium text-slate-900">{row.original.kodeTransfer}</p><p className="text-xs text-slate-500">{formatDate(row.original.createdAt)} · {row.original.userName}</p></div> },
     { header: "Alur Dana", cell: ({ row }) => <div><p>{row.original.sourceFundName || "-"} → {row.original.targetFundName || "-"}</p><p className="mt-1 text-xs text-slate-500">{row.original.kind === "Transfer" ? row.original.destinationBank : row.original.transactionType || "Tarik Tunai"}</p></div> },
     { header: "Jenis", cell: ({ row }) => <Badge variant={row.original.kind === "Transfer" ? "blue" : "orange"}>{row.original.kind === "Transfer" ? "Transfer" : "Tarik Tunai"}</Badge> },
-    { header: "Nominal", cell: ({ row }) => <div><p className="font-semibold text-slate-100">{formatCurrency(row.original.amount)}</p><p className="text-xs text-slate-500">Admin {formatCurrency(row.original.adminFee + row.original.adminBankFee + row.original.externalAdminFee)}</p></div> },
+    { header: "Nominal", cell: ({ row }) => <div><p className="font-semibold text-slate-900">{formatCurrency(row.original.amount)}</p><p className="text-xs text-slate-500">Admin {formatCurrency(row.original.adminFee + row.original.adminBankFee + row.original.externalAdminFee)}</p></div> },
     { header: "Perubahan Saldo", cell: ({ row }) => {
       const sourceMutation = row.original.mutations.find((item) => item.fundAccountId === row.original.sourceFundId);
       const targetMutation = row.original.mutations.find((item) => item.fundAccountId === row.original.targetFundId);
@@ -204,8 +204,8 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
       <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} />
     </section>
 
-    <section className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-5">
-      <div className="mb-4"><h2 className="font-semibold text-slate-100">Aset {outletName}</h2><p className="mt-1 text-sm text-slate-500">Saldo kas, bank, dan e-wallet aktif.</p></div>
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <div className="mb-4"><h2 className="font-semibold text-slate-900">Aset {outletName}</h2><p className="mt-1 text-sm text-slate-500">Saldo kas, bank, dan e-wallet aktif.</p></div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryCard label="Aset Cash" value={cashAsset} helper="Kas tunai" icon={<Wallet className="h-4 w-4" />} />
         <SummaryCard label="Aset Saldo" value={balanceAsset} helper="Bank dan e-wallet" icon={<Landmark className="h-4 w-4" />} />
@@ -214,8 +214,8 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
       </div>
     </section>
 
-    <section className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-5">
-      <div className="mb-5 flex items-center justify-between gap-4"><div><h2 className="font-semibold text-slate-100">Riwayat Transaksi</h2><p className="mt-1 text-sm text-slate-500">Transfer dan tarik tunai cabang aktif.</p></div></div>
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <div className="mb-5 flex items-center justify-between gap-4"><div><h2 className="font-semibold text-slate-900">Riwayat Transaksi</h2><p className="mt-1 text-sm text-slate-500">Transfer dan tarik tunai cabang aktif.</p></div></div>
       <DataTable
         data={transfers}
         columns={columns}
@@ -223,11 +223,11 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
         serverPagination={pagination}
         tableClassName="min-w-[1080px]"
         filters={<>
-          <label className="flex w-full flex-col gap-1.5 sm:w-44"><span className="text-xs text-slate-400">Tanggal</span><Input type="date" name="date" aria-label="Filter tanggal" defaultValue={filterValues.date === "all" ? "" : filterValues.date} /></label>
-          <label className="flex w-full flex-col gap-1.5 sm:w-40"><span className="text-xs text-slate-400">Jenis</span><Select name="kind" aria-label="Filter jenis" defaultValue={filterValues.kind}><option value="">Semua Jenis</option><option value="Transfer">Transfer</option><option value="Tarik_Tunai">Tarik Tunai</option></Select></label>
-          <label className="flex w-full flex-col gap-1.5 sm:w-44"><span className="text-xs text-slate-400">Sumber dana</span><Select name="fund" aria-label="Filter sumber dana" defaultValue={filterValues.fund}><option value="">Semua Dana</option>{funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name}</option>)}</Select></label>
-          {role === "admin" ? <label className="flex w-full flex-col gap-1.5 sm:min-w-48 sm:flex-1 lg:max-w-64"><span className="text-xs text-slate-400">Transaksi oleh</span><Select name="pegawai" aria-label="Filter pegawai" defaultValue={filterValues.pegawai}><option value="">Semua Pegawai</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label> : null}
-          <label className="flex w-full flex-col gap-1.5 sm:w-40"><span className="text-xs text-slate-400">Status</span><Select name="status" aria-label="Filter status" defaultValue={filterValues.status}><option value="">Semua Status</option><option value="Berhasil">Berhasil</option><option value="Pending">Pending</option><option value="Gagal">Gagal</option></Select></label>
+          <label className="flex w-full flex-col gap-1.5 sm:w-44"><span className="text-xs text-slate-600">Tanggal</span><Input type="date" name="date" aria-label="Filter tanggal" defaultValue={filterValues.date === "all" ? "" : filterValues.date} /></label>
+          <label className="flex w-full flex-col gap-1.5 sm:w-40"><span className="text-xs text-slate-600">Jenis</span><Select name="kind" aria-label="Filter jenis" defaultValue={filterValues.kind}><option value="">Semua Jenis</option><option value="Transfer">Transfer</option><option value="Tarik_Tunai">Tarik Tunai</option></Select></label>
+          <label className="flex w-full flex-col gap-1.5 sm:w-44"><span className="text-xs text-slate-600">Sumber dana</span><Select name="fund" aria-label="Filter sumber dana" defaultValue={filterValues.fund}><option value="">Semua Dana</option>{funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name}</option>)}</Select></label>
+          {role === "admin" ? <label className="flex w-full flex-col gap-1.5 sm:min-w-48 sm:flex-1 lg:max-w-64"><span className="text-xs text-slate-600">Transaksi oleh</span><Select name="pegawai" aria-label="Filter pegawai" defaultValue={filterValues.pegawai}><option value="">Semua Pegawai</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label> : null}
+          <label className="flex w-full flex-col gap-1.5 sm:w-40"><span className="text-xs text-slate-600">Status</span><Select name="status" aria-label="Filter status" defaultValue={filterValues.status}><option value="">Semua Status</option><option value="Berhasil">Berhasil</option><option value="Pending">Pending</option><option value="Gagal">Gagal</option></Select></label>
           <Button type="submit" variant="outline" className="w-full sm:w-auto">Terapkan</Button>
           <Button asChild type="button" variant="ghost" className="w-full sm:w-auto"><Link href="?date=all">Semua Tanggal</Link></Button>
           {canManage ? <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setEditing(null); form.reset(defaults); } }}><DialogTrigger asChild><Button type="button"><Plus className="h-4 w-4" />Tambah Transaksi</Button></DialogTrigger><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>{editing ? `Proses ${editing.kodeTransfer}` : "Input Transaksi MiniATM"}</DialogTitle><DialogDescription>Pilih jenis transaksi, isi nominal, lalu periksa estimasi saldo sebelum diproses.</DialogDescription></DialogHeader><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -242,7 +242,7 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
               {kind === "Transfer" ? <FormField control={form.control} name="adminBankFee" render={({ field }) => <FormItem><FormLabel>Admin Bank</FormLabel><FormControl><CurrencyInput name="adminBankFee" value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} /> : <FormField control={form.control} name="externalAdminFee" render={({ field }) => <FormItem><FormLabel>Admin Luar</FormLabel><FormControl><CurrencyInput name="externalAdminFee" value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} />}
               <FormField control={form.control} name="note" render={({ field }) => <FormItem className="md:col-span-2"><FormLabel>Catatan</FormLabel><FormControl><Input placeholder="Keterangan transaksi" {...field} /></FormControl><FormMessage /></FormItem>} />
             </div>
-            <div className="grid gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm md:grid-cols-3"><div><p className="text-xs text-slate-400">Sumber Dana</p><p className="mt-1 font-medium">{source?.name ?? "-"}</p><p className="text-xs text-slate-400">{formatCurrency(source?.balance ?? 0)} → {formatCurrency((source?.balance ?? 0) + ledger.sourceDelta)}</p></div><div><p className="text-xs text-slate-400">Terima Dana</p><p className="mt-1 font-medium">{target?.name ?? "-"}</p><p className="text-xs text-slate-400">{formatCurrency(target?.balance ?? 0)} → {formatCurrency((target?.balance ?? 0) + ledger.targetDelta)}</p></div><div><p className="text-xs text-slate-400">Estimasi Profit</p><p className="mt-1 font-semibold text-emerald-300">{formatCurrency(ledger.profit)}</p></div></div>
+            <div className="grid gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm md:grid-cols-3"><div><p className="text-xs text-slate-600">Sumber Dana</p><p className="mt-1 font-medium">{source?.name ?? "-"}</p><p className="text-xs text-slate-600">{formatCurrency(source?.balance ?? 0)} → {formatCurrency((source?.balance ?? 0) + ledger.sourceDelta)}</p></div><div><p className="text-xs text-slate-600">Terima Dana</p><p className="mt-1 font-medium">{target?.name ?? "-"}</p><p className="text-xs text-slate-600">{formatCurrency(target?.balance ?? 0)} → {formatCurrency((target?.balance ?? 0) + ledger.targetDelta)}</p></div><div><p className="text-xs text-slate-600">Estimasi Profit</p><p className="mt-1 font-semibold text-emerald-300">{formatCurrency(ledger.profit)}</p></div></div>
             <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={closeForm}>Batal</Button><Button type="submit" disabled={isPending}>{isPending ? "Memproses..." : "Proses"}</Button></div>
           </form></Form></DialogContent></Dialog> : null}
         </>}

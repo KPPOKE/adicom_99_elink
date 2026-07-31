@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { bankTransferDepositSchema, bankTransferSchema, financeSchema, serviceSchema, transactionSchema, userSchema } from "@/lib/validators";
+import {
+  bankTransferDepositSchema,
+  bankTransferSchema,
+  financeSchema,
+  payrollSchema,
+  receivableSchema,
+  serviceSchema,
+  transactionSchema,
+  userSchema
+} from "@/lib/validators";
 
 describe("validators", () => {
   it("rejects cash transaction when paid amount is lower than grand total", () => {
@@ -102,6 +111,30 @@ describe("validators", () => {
     });
     expect(resultService.success).toBe(false);
   });
+  it("requires a fund source when a receivable is recorded as an expense", () => {
+    const input = {
+      customerId: 1,
+      loanDate: "2026-07-31",
+      amount: 100_000,
+      recordExpense: true
+    };
+
+    expect(receivableSchema.safeParse(input).success).toBe(false);
+    expect(receivableSchema.safeParse({ ...input, sourceFundId: 1 }).success).toBe(true);
+  });
+
+  it("validates payroll totals and paid dates", () => {
+    const input = {
+      employeeId: 1,
+      period: "2026-07",
+      baseSalary: 2_000_000,
+      allowance: 200_000,
+      deduction: 100_000,
+      status: "Dibayar"
+    };
+
+    expect(payrollSchema.safeParse(input).success).toBe(false);
+    expect(payrollSchema.safeParse({ ...input, paymentDate: "2026-07-31" }).success).toBe(true);
+    expect(payrollSchema.safeParse({ ...input, deduction: 2_300_000, paymentDate: "2026-07-31" }).success).toBe(false);
+  });
 });
-
-

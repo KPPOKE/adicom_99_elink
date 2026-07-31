@@ -33,7 +33,7 @@ export function DashboardCharts({
                 <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
                 <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
                 <Tooltip
-                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
                 <Line type="monotone" dataKey="income" stroke="url(#incomeLine)" strokeWidth={4} dot={{ r: 4, fill: "#0ea5e9", stroke: "#6366f1", strokeWidth: 2 }} activeDot={{ r: 6, fill: "#fff", stroke: "#6366f1" }} />
@@ -56,14 +56,14 @@ export function DashboardCharts({
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
                   formatter={(value) => Number(value)}
-                  itemStyle={{ color: "#e2e8f0" }}
+                  itemStyle={{ color: "#0f172a" }}
                 />
                 <Legend 
                   verticalAlign="bottom" 
                   height={36} 
-                  wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }}
+                  wrapperStyle={{ fontSize: "12px", color: "#475569" }}
                 />
               </PieChart>
             )}
@@ -88,7 +88,7 @@ export function ReportChart({ data }: { data: { name: string; income: number; ex
               <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
               <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
               <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
                 formatter={(value) => formatCurrency(Number(value))}
                 cursor={{ fill: "transparent" }}
               />
@@ -124,7 +124,7 @@ export function OutletProfitChart({ data }: { data: { date: string; profit: numb
                 <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
                 <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
                 <Tooltip
-                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
                 <Line hide={!visible.profit} type="monotone" dataKey="profit" name="Profit" stroke="#38bdf8" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
@@ -141,7 +141,7 @@ export function OutletProfitChart({ data }: { data: { date: string; profit: numb
               type="button"
               aria-pressed={visible[item.key]}
               onClick={() => setVisible((current) => ({ ...current, [item.key]: !current[item.key] }))}
-              className={`flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium transition ${visible[item.key] ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}
+              className={`flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium transition ${visible[item.key] ? "border-slate-300 bg-white text-slate-800" : "border-slate-200 bg-slate-50 text-slate-500"}`}
             >
               <span className="h-0.5 w-3 rounded-full" style={{ backgroundColor: item.color }} />
               {item.label}
@@ -181,7 +181,7 @@ export function OutletAnnualChart({
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
                 <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
                 <Tooltip
-                  contentStyle={{ background: "#0f172a", border: "1px solid rgba(148,163,184,0.24)", borderRadius: 8, color: "#e2e8f0" }}
+                  contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
                   formatter={(value) => formatCurrency(Number(value))}
                 />
                 {series.map((item) => (
@@ -208,7 +208,7 @@ export function OutletAnnualChart({
               type="button"
               aria-pressed={visible[item.key]}
               onClick={() => setVisible((current) => ({ ...current, [item.key]: !current[item.key] }))}
-              className={`flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium transition ${visible[item.key] ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-800 bg-slate-950/40 text-slate-500"}`}
+              className={`flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium transition ${visible[item.key] ? "border-slate-300 bg-white text-slate-800" : "border-slate-200 bg-slate-50 text-slate-500"}`}
             >
               <span className="h-0.5 w-3 rounded-full" style={{ backgroundColor: item.color }} />
               {item.label}
@@ -241,5 +241,5 @@ function ChartFrame({ children }: { children: (width: number) => React.ReactNode
 }
 
 function ChartSkeleton() {
-  return <div className="h-full w-full animate-pulse rounded-md bg-slate-800" />;
+  return <div className="h-full w-full animate-pulse rounded-md bg-slate-100" />;
 }

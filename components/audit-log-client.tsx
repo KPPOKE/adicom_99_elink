@@ -103,10 +103,10 @@ function valueLabel(key: string, value: unknown): React.ReactNode {
   if (Array.isArray(value)) {
     if (!value.length) return "-";
     if (key === "permissions") return value.map((item) => permissionLabels.get(String(item)) ?? String(item)).join(", ");
-    return <div className="space-y-2">{value.map((item, index) => <div key={index} className="border-l border-slate-700 pl-3">{valueLabel(key, item)}</div>)}</div>;
+    return <div className="space-y-2">{value.map((item, index) => <div key={index} className="border-l border-slate-300 pl-3">{valueLabel(key, item)}</div>)}</div>;
   }
   if (typeof value === "object") {
-    return <dl className="grid gap-1.5">{Object.entries(value).map(([childKey, childValue]) => <div key={childKey} className="grid grid-cols-[130px_minmax(0,1fr)] gap-2"><dt className="text-slate-500">{FIELD_LABELS[childKey] ?? childKey}</dt><dd className="min-w-0 break-words text-slate-300">{valueLabel(childKey, childValue)}</dd></div>)}</dl>;
+    return <dl className="grid gap-1.5">{Object.entries(value).map(([childKey, childValue]) => <div key={childKey} className="grid grid-cols-[130px_minmax(0,1fr)] gap-2"><dt className="text-slate-500">{FIELD_LABELS[childKey] ?? childKey}</dt><dd className="min-w-0 break-words text-slate-700">{valueLabel(childKey, childValue)}</dd></div>)}</dl>;
   }
   const text = String(value);
   return VALUE_LABELS[text] ?? text.replaceAll("_", " ");
@@ -116,9 +116,9 @@ function AuditDetails({ metadata }: { metadata: AuditRow["metadata"] }) {
   if (!metadata || !Object.keys(metadata).length) return <span className="text-slate-500">-</span>;
   return (
     <details className="max-w-xl">
-      <summary className="cursor-pointer text-cyan-300 hover:text-cyan-200">Lihat detail</summary>
-      <dl className="mt-3 grid min-w-[320px] gap-2 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs">
-        {Object.entries(metadata).map(([key, value]) => <div key={key} className="grid grid-cols-[130px_minmax(0,1fr)] gap-2"><dt className="text-slate-500">{FIELD_LABELS[key] ?? key}</dt><dd className="min-w-0 break-words text-slate-300">{valueLabel(key, value)}</dd></div>)}
+      <summary className="cursor-pointer text-blue-600 hover:text-blue-700">Lihat detail</summary>
+      <dl className="mt-3 grid min-w-[320px] gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs">
+        {Object.entries(metadata).map(([key, value]) => <div key={key} className="grid grid-cols-[130px_minmax(0,1fr)] gap-2"><dt className="text-slate-500">{FIELD_LABELS[key] ?? key}</dt><dd className="min-w-0 break-words text-slate-700">{valueLabel(key, value)}</dd></div>)}
       </dl>
     </details>
   );
@@ -152,8 +152,8 @@ export function AuditLogClient({ rows, outlets, filters, pagination }: {
         <Select name="action" aria-label="Filter aktivitas" defaultValue={filters.action} className="w-48"><option value="">Semua aktivitas</option>{Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
         <div className="flex basis-full flex-wrap items-end gap-2">
           <fieldset aria-label="Rentang tanggal" className="grid w-full min-w-0 grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
-            <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-400">Dari<Input type="date" name="from" aria-label="Dari tanggal" defaultValue={filters.from} className="w-full min-w-0 sm:w-36" /></label>
-            <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-400">Sampai<Input type="date" name="to" aria-label="Sampai tanggal" defaultValue={filters.to} className="w-full min-w-0 sm:w-36" /></label>
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">Dari<Input type="date" name="from" aria-label="Dari tanggal" defaultValue={filters.from} className="w-full min-w-0 sm:w-36" /></label>
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">Sampai<Input type="date" name="to" aria-label="Sampai tanggal" defaultValue={filters.to} className="w-full min-w-0 sm:w-36" /></label>
           </fieldset>
           <div className="flex w-full gap-2 sm:w-auto">
             <Button type="submit" variant="outline" className="flex-1 sm:w-28 sm:flex-none"><Filter className="h-4 w-4" />Terapkan</Button>

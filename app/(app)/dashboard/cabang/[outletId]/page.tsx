@@ -62,7 +62,7 @@ export default async function DashboardOutletDetailPage({
   return (
     <>
       <h1 className="sr-only">Ringkasan Cabang</h1>
-      <form className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+      <form className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex w-full flex-col gap-1.5 sm:w-40">
           <Label htmlFor="tahun">Tahun</Label>
           <Select id="tahun" name="tahun" defaultValue={String(period.year)}>
@@ -94,13 +94,13 @@ export default async function DashboardOutletDetailPage({
         <Button asChild variant="ghost" className="w-full sm:w-auto"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Semua Cabang</Link></Button>
       </form>
 
-      <section className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50" aria-labelledby="outlet-summary-title">
-        <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-slate-900/80 px-5 py-4">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="outlet-summary-title">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
           <div>
-            <h2 id="outlet-summary-title" className="text-lg font-semibold text-slate-100">{outlet.name}</h2>
-            <p className="mt-1 flex items-center gap-2 text-sm text-slate-400"><CalendarDays className="h-4 w-4" />{selectedDate}</p>
+            <h2 id="outlet-summary-title" className="text-lg font-semibold text-slate-900">{outlet.name}</h2>
+            <p className="mt-1 flex items-center gap-2 text-sm text-slate-600"><CalendarDays className="h-4 w-4" />{selectedDate}</p>
           </div>
-          {selectedStaff ? <span className="text-sm text-cyan-300">{selectedStaff.name}</span> : null}
+          {selectedStaff ? <span className="text-sm text-blue-600">{selectedStaff.name}</span> : null}
         </div>
 
         <div className="space-y-6 p-5">

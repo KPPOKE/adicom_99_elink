@@ -216,7 +216,7 @@ export function TransactionClient({
           </div>
           <div className="space-y-3">
             {cart.lines.map((line, index) => (
-              <div key={index} className="grid gap-2 rounded-lg border border-slate-700 bg-slate-950/30 p-3">
+              <div key={index} className="grid gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3">
                 <Select name="itemId" value={line.itemId} onChange={(event) => handleLineItemChange(index, Number(event.target.value))}>
                   {items.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -263,7 +263,7 @@ export function TransactionClient({
               <Label>Dibayar</Label>
               <CurrencyInput name="paidAmount" value={cart.paidAmount} onChange={cart.setPaidAmount} />
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">Kembalian</p>
               <p className="font-semibold">{formatCurrency(change)}</p>
             </div>
@@ -297,7 +297,7 @@ export function TransactionClient({
             </div>
           ) : null}
           <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
-            <div className="flex justify-between text-sm text-slate-400">
+            <div className="flex justify-between text-sm text-slate-600">
               <span>Subtotal</span>
               <span>{formatCurrency(total)}</span>
             </div>

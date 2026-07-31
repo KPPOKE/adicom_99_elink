@@ -124,11 +124,11 @@ function ReportTable({ title, rows }: { title: string; rows: string[][] }) {
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200">
               {rows.slice(0, 8).map((row, index) => (
                 <tr key={index}>
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="py-2 pr-3 text-slate-300">
+                    <td key={cellIndex} className="py-2 pr-3 text-slate-700">
                       {cell}
                     </td>
                   ))}

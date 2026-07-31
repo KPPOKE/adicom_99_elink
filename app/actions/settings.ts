@@ -39,7 +39,7 @@ export async function updateSettings(formData: FormData) {
         after: { storeName: setting.storeName, address: setting.address, whatsapp: setting.whatsapp, email: setting.email, invoicePrefix: setting.invoicePrefix, defaultPrintFormat: setting.defaultPrintFormat }
       }
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings/store");
   } catch (error) {
     handleActionError(error);
   }

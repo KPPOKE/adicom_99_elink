@@ -171,7 +171,7 @@ export function ServiceClient({
       header: "Customer",
       cell: ({ row }) => (
         <div>
-          <p className="font-medium text-slate-100">{row.original.customerName}</p>
+          <p className="font-medium text-slate-900">{row.original.customerName}</p>
           <p className="text-xs text-slate-500">{row.original.customerPhone || "-"}</p>
         </div>
       )
@@ -421,10 +421,10 @@ export function ServiceClient({
                   )}
                 />
 
-                <section className="space-y-3 rounded-lg border border-slate-700/60 bg-slate-950/25 p-4 sm:col-span-2">
+                <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-100">Inventori Sparepart</h3>
+                      <h3 className="text-sm font-semibold text-slate-900">Inventori Sparepart</h3>
                       <p className="text-xs text-slate-500">Barang dicadangkan sampai service mulai diproses.</p>
                     </div>
                     <Button
@@ -442,13 +442,13 @@ export function ServiceClient({
                     </Button>
                   </div>
                   {partFields.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-slate-700 p-4 text-center text-sm text-slate-500">Belum ada sparepart.</p>
+                    <p className="rounded-md border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">Belum ada sparepart.</p>
                   ) : (
                     <div className="space-y-3">
                       {partFields.map((partField, index) => {
                         const value = watchedParts[index];
                         return (
-                          <div key={partField.id} className="grid gap-2 rounded-md border border-slate-800 p-3 sm:grid-cols-[minmax(180px,1fr)_90px_160px_140px_36px] sm:items-end">
+                          <div key={partField.id} className="grid gap-2 rounded-md border border-slate-200 p-3 sm:grid-cols-[minmax(180px,1fr)_90px_160px_140px_36px] sm:items-end">
                             <FormField
                               control={form.control}
                               name={`parts.${index}.itemId`}
@@ -500,7 +500,7 @@ export function ServiceClient({
                             />
                             <div className="pb-2">
                               <p className="text-xs text-slate-500">Subtotal</p>
-                              <p className="mt-1 text-sm font-medium text-slate-200">{formatCurrency((Number(value?.qty) || 0) * (Number(value?.price) || 0))}</p>
+                              <p className="mt-1 text-sm font-medium text-slate-800">{formatCurrency((Number(value?.qty) || 0) * (Number(value?.price) || 0))}</p>
                             </div>
                             <Button type="button" variant="outline" size="icon" disabled={costLocked} onClick={() => removePart(index)} title="Hapus sparepart">
                               <Trash2 className="h-4 w-4 text-red-300" />
@@ -510,9 +510,9 @@ export function ServiceClient({
                       })}
                     </div>
                   )}
-                  <div className="flex flex-col gap-1 border-t border-slate-800 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-1 border-t border-slate-200 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-slate-500">Sparepart: {formatCurrency(partsTotal)} | Jasa: {formatCurrency(Number(laborCost))}</span>
-                    <strong className="text-base text-cyan-300">Biaya Final: {formatCurrency(partsTotal + Number(laborCost))}</strong>
+                    <strong className="text-base text-blue-600">Biaya Final: {formatCurrency(partsTotal + Number(laborCost))}</strong>
                   </div>
                 </section>
 

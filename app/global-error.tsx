@@ -11,12 +11,12 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   return (
     <html lang="id">
-      <body className="bg-slate-950 text-slate-100 flex min-h-screen flex-col items-center justify-center p-6 text-center antialiased">
+      <body className="bg-white text-slate-900 flex min-h-screen flex-col items-center justify-center p-6 text-center antialiased">
         <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-red-600/10 border border-red-500/20 shadow-[0_0_50px_rgba(220,38,38,0.2)]">
           <AlertOctagon className="h-12 w-12 text-red-500" />
         </div>
         <h1 className="text-3xl font-bold mb-3 tracking-tight">Aplikasi Gagal Dimuat</h1>
-        <p className="max-w-md text-slate-400 mb-8 leading-relaxed">
+        <p className="max-w-md text-slate-600 mb-8 leading-relaxed">
           Terjadi kegagalan kritis yang mencegah aplikasi dimuat dengan benar. Kami meminta maaf atas ketidaknyamanan ini.
         </p>
         <button

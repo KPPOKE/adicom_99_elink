@@ -32,9 +32,9 @@ type FinanceRow = {
   referenceType: string | null;
 };
 
-export function FinanceClient({ records, role, pagination, filterValues, categories, summary }: {
+export function FinanceClient({ records, canManage, pagination, filterValues, categories, summary }: {
   records: FinanceRow[];
-  role: "admin" | "staff";
+  canManage: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { type: string; category: string };
   categories: string[];
@@ -117,7 +117,7 @@ export function FinanceClient({ records, role, pagination, filterValues, categor
       id: "actions",
       header: "",
       cell: ({ row }) =>
-        role === "admin" && (row.original.referenceType === "manual" || !row.original.referenceType) ? (
+        canManage && (row.original.referenceType === "manual" || !row.original.referenceType) ? (
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
@@ -177,17 +177,17 @@ export function FinanceClient({ records, role, pagination, filterValues, categor
                 </option>
               ))}
             </Select>
-            {role === "admin" ? (
+            {canManage ? (
               <Dialog open={open} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
                   <Button type="button" onClick={() => handleOpenChange(true)}>
                     <Plus className="h-4 w-4" />
-                    Catat Manual
+                    Tambah Pengeluaran
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-lg">
                   <DialogHeader>
-                    <DialogTitle>{editing ? "Edit Catatan Keuangan" : "Catatan Keuangan Manual"}</DialogTitle>
+                    <DialogTitle>{editing ? "Edit Pengeluaran" : "Tambah Pengeluaran"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
@@ -277,9 +277,9 @@ export function FinanceClient({ records, role, pagination, filterValues, categor
 
 function Summary({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-5 shadow-[0_18px_45px_rgba(2,6,23,0.18)]">
+    <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-[0_18px_45px_rgba(2,6,23,0.18)]">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-slate-100">{formatCurrency(value)}</p>
+      <p className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(value)}</p>
     </div>
   );
 }

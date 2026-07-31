@@ -40,9 +40,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent className="space-y-3">
             {customer.transactions.length ? customer.transactions.map((transaction) => (
-              <Link key={transaction.id} href={`/transactions/${transaction.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3 hover:bg-blue-950/20">
+              <Link key={transaction.id} href={`/transactions/${transaction.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 hover:bg-blue-950/20">
                 <div>
-                  <p className="font-medium text-slate-100">{transaction.kodeTransaksi}</p>
+                  <p className="font-medium text-slate-900">{transaction.kodeTransaksi}</p>
                   <p className="text-xs text-slate-500">{formatDateTime(transaction.createdAt)}</p>
                 </div>
                 <div className="text-right">
@@ -59,9 +59,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent className="space-y-3">
             {customer.services.length ? customer.services.map((service) => (
-              <Link key={service.id} href={`/services/${service.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/35 p-3 hover:bg-blue-950/20">
+              <Link key={service.id} href={`/services/${service.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 hover:bg-blue-950/20">
                 <div>
-                  <p className="font-medium text-slate-100">{service.kodeService}</p>
+                  <p className="font-medium text-slate-900">{service.kodeService}</p>
                   <p className="text-xs text-slate-500">{[service.deviceType, service.deviceBrand, service.deviceModel].filter(Boolean).join(" ")}</p>
                 </div>
                 <ServiceStatusBadge status={service.status} />

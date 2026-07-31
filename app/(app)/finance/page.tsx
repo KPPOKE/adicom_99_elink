@@ -1,7 +1,8 @@
 import { FinanceType, Prisma } from "@prisma/client";
 import { FinanceClient } from "@/components/finance-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/permissions";
+import { getUserPermissionKeys, requirePermission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permission-keys";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -11,8 +12,9 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
-  const type = query.type === "income" ? FinanceType.income : query.type === "expense" ? FinanceType.expense : undefined;
+  const type = FinanceType.expense;
   const user = await requirePermission("finance.view");
+  const permissions = await getUserPermissionKeys(user);
   const { activeOutlet } = await outletContext(user);
   const where: Prisma.FinanceRecordWhereInput = { AND: [
     { outletId: activeOutlet.id },
@@ -29,9 +31,9 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
   ]);
   return (
     <>
-      <PageHeader title="Keuangan" description="Pantau pemasukan, pengeluaran, laba bersih, dan catatan manual." />
+      <PageHeader title="Pengeluaran" description={`Catatan biaya operasional cabang ${activeOutlet.name}.`} />
       <FinanceClient
-        role={user?.role.name ?? "staff"}
+        canManage={hasPermission(user.role.name, permissions, "finance.manage")}
         records={records.map((record) => ({
           id: record.id,
           type: record.type,
@@ -42,7 +44,7 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
           referenceType: record.referenceType
         }))}
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
-        filterValues={{ type: query.type ?? "", category: query.category ?? "" }}
+        filterValues={{ type: "expense", category: query.category ?? "" }}
         categories={categories.map((item) => item.category)}
         summary={{ income: toNumber(income._sum.amount), expense: toNumber(expense._sum.amount) }}
       />

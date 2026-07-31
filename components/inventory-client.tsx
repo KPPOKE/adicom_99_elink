@@ -158,11 +158,11 @@ export function InventoryClient({
       header: "Barang",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <div className="relative h-11 w-11 overflow-hidden rounded-md border border-slate-700 bg-slate-800">
+          <div className="relative h-11 w-11 overflow-hidden rounded-md border border-slate-300 bg-slate-100">
             {row.original.gambar ? <Image src={row.original.gambar} alt="" fill className="object-cover" /> : null}
           </div>
           <div>
-            <p className="font-medium text-slate-100">{row.original.namaBarang}</p>
+            <p className="font-medium text-slate-900">{row.original.namaBarang}</p>
             <p className="text-xs text-slate-500">{row.original.kodeBarang}</p>
           </div>
         </div>

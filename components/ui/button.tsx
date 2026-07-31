@@ -6,16 +6,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md hover:from-blue-500 hover:to-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]",
-        secondary: "border border-slate-700 bg-slate-800/80 text-slate-100 hover:bg-slate-700 hover:shadow-[0_0_15px_rgba(148,163,184,0.1)]",
-        accent: "bg-orange-500 text-white shadow-sm hover:bg-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.3)]",
-        outline: "border border-slate-700 bg-transparent text-slate-200 hover:border-blue-500/70 hover:bg-blue-500/10 hover:text-white",
-        ghost: "text-slate-300 hover:bg-slate-800/60 hover:text-white",
-        destructive: "bg-red-600 text-white shadow-sm hover:bg-red-500 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+        default: "bg-blue-600 text-white shadow-sm hover:bg-blue-700",
+        secondary: "border border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200",
+        accent: "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700",
+        outline: "border border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700",
+        ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+        destructive: "bg-red-600 text-white shadow-sm hover:bg-red-700"
       },
       size: {
         default: "h-10 px-4 py-2",

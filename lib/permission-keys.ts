@@ -22,6 +22,12 @@ export const PERMISSIONS = [
   { key: "finance.manage", label: "Kelola keuangan", group: "Keuangan" },
   { key: "reports.view", label: "Lihat laporan", group: "Laporan" },
   { key: "reports.export", label: "Export laporan", group: "Laporan" },
+  { key: "receivables.view", label: "Lihat utang piutang", group: "Utang Piutang" },
+  { key: "receivables.manage", label: "Kelola utang piutang", group: "Utang Piutang" },
+  { key: "receipts.view", label: "Lihat dan cetak struk", group: "Cetak Struk" },
+  { key: "receipts.manage", label: "Kelola master dan pengaturan struk", group: "Cetak Struk" },
+  { key: "payroll.view", label: "Lihat penggajian", group: "Penggajian" },
+  { key: "payroll.manage", label: "Kelola penggajian", group: "Penggajian" },
   { key: "settings.view", label: "Lihat pengaturan", group: "Pengaturan" },
   { key: "settings.backup", label: "Unduh backup", group: "Pengaturan" }
 ] as const;

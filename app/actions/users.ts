@@ -55,7 +55,7 @@ export async function upsertUser(formData: FormData) {
         }
       });
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings/access");
     revalidatePath("/", "layout");
   } catch (error) {
     handleActionError(error);
@@ -67,10 +67,10 @@ export async function deleteUser(id: number) {
     await assertTrustedOrigin();
     const current = await requireAdmin();
     if (current.id === id) throw new Error("User yang sedang login tidak bisa dihapus");
-    const target = await prisma.user.findUnique({ where: { id }, include: { role: true, permissions: true, _count: { select: { transactions: true, services: true, financeRecords: true } } } });
+    const target = await prisma.user.findUnique({ where: { id }, include: { role: true, permissions: true, _count: { select: { transactions: true, services: true, financeRecords: true, receivablesCreated: true, payrolls: true, payrollsCreated: true } } } });
     if (!target) throw new Error("User tidak ditemukan");
-    const used = target._count.transactions + target._count.services + target._count.financeRecords;
-    if (used > 0) throw new Error("User sudah dipakai di transaksi/service/keuangan dan tidak bisa dihapus");
+    const used = Object.values(target._count).reduce((sum, count) => sum + count, 0);
+    if (used > 0) throw new Error("User sudah memiliki data operasional dan tidak bisa dihapus");
     await prisma.$transaction(async (tx) => {
       await tx.user.delete({ where: { id } });
       await tx.auditLog.create({
@@ -85,7 +85,7 @@ export async function deleteUser(id: number) {
         }
       });
     });
-    revalidatePath("/settings");
+    revalidatePath("/settings/access");
   } catch (error) {
     handleActionError(error);
   }

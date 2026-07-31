@@ -53,7 +53,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
             <Section title="Catatan Teknisi">{service.technicianNote || "-"}</Section>
             <div>
               <p className="text-sm font-medium text-slate-500">Sparepart</p>
-              {service.parts.length ? <div className="mt-2 divide-y divide-slate-800 rounded-lg border border-slate-800">{service.parts.map((part) => <div key={part.id} className="flex justify-between gap-4 p-3 text-sm"><span>{part.item.namaBarang} x{part.qty}</span><span>{formatCurrency(toNumber(part.subtotal))}</span></div>)}</div> : <p className="mt-1 text-slate-200">-</p>}
+              {service.parts.length ? <div className="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200">{service.parts.map((part) => <div key={part.id} className="flex justify-between gap-4 p-3 text-sm"><span>{part.item.namaBarang} x{part.qty}</span><span>{formatCurrency(toNumber(part.subtotal))}</span></div>)}</div> : <p className="mt-1 text-slate-800">-</p>}
             </div>
           </CardContent>
         </Card>
@@ -88,7 +88,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
       <p className="text-sm font-medium text-slate-500">{title}</p>
-      <p className="mt-1 whitespace-pre-wrap text-slate-200">{children}</p>
+      <p className="mt-1 whitespace-pre-wrap text-slate-800">{children}</p>
     </div>
   );
 }
@@ -97,7 +97,7 @@ function Info({ label, value, strong }: { label: string; value: ReactNode; stron
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-slate-500">{label}</span>
-      <span className={strong ? "font-semibold text-blue-300" : "text-right font-medium text-slate-200"}>{value}</span>
+      <span className={strong ? "font-semibold text-blue-300" : "text-right font-medium text-slate-800"}>{value}</span>
     </div>
   );
 }

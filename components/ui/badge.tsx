@@ -2,12 +2,12 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const variants = {
-  slate: "border-slate-600 bg-slate-800/80 text-slate-300",
-  blue: "border-blue-500/30 bg-blue-500/15 text-blue-300",
-  cyan: "border-cyan-500/30 bg-cyan-500/15 text-cyan-300",
-  orange: "border-orange-500/30 bg-orange-500/15 text-orange-300",
-  red: "border-red-500/30 bg-red-500/15 text-red-300",
-  green: "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+  slate: "border-slate-300 bg-slate-100 text-slate-700",
+  blue: "border-blue-200 bg-blue-50 text-blue-700",
+  cyan: "border-cyan-200 bg-cyan-50 text-cyan-700",
+  orange: "border-orange-200 bg-orange-50 text-orange-700",
+  red: "border-red-200 bg-red-50 text-red-700",
+  green: "border-emerald-200 bg-emerald-50 text-emerald-700"
 };
 
 export function Badge({
