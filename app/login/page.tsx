@@ -40,6 +40,7 @@ const benefits = [
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null);
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
   const emailRef = useRef<HTMLInputElement>(null);
   const rememberRef = useRef<HTMLInputElement>(null);
   const emailError = state?.fieldErrors?.email;
@@ -48,9 +49,9 @@ export default function LoginPage() {
   useEffect(() => {
     const savedEmail = localStorage.getItem("pospintar_remember_email");
     if (savedEmail) {
-      if (emailRef.current) emailRef.current.value = savedEmail;
+      const frame = window.requestAnimationFrame(() => setEmail(savedEmail));
       if (rememberRef.current) rememberRef.current.checked = true;
-      return;
+      return () => window.cancelAnimationFrame(frame);
     }
 
     if (window.matchMedia("(min-width: 768px) and (pointer: fine)").matches) {
@@ -162,6 +163,8 @@ export default function LoginPage() {
                       id="login-email"
                       className="h-11 pl-10 transition-shadow autofill:shadow-[inset_0_0_0_1000px_#fff]"
                       name="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
                       type="email"
                       autoComplete="email"
                       placeholder="email@pospintar.com"

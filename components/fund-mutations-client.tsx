@@ -144,7 +144,7 @@ export function FundMutationsClient({ funds, filterFunds, mutations, initialMode
             {form.mode !== "Tambah" ? <div><p className="text-xs text-slate-600">Saldo {source?.name ?? "sumber"}</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(source?.balance ?? 0)} ? <span className={sourceAfter < 0 ? "text-red-600" : "text-blue-700"}>{formatCurrency(sourceAfter)}</span></p></div> : null}
             {form.mode !== "Ambil" ? <div><p className="text-xs text-slate-600">Saldo {target?.name ?? "tujuan"}</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(target?.balance ?? 0)} ? <span className="text-emerald-700">{formatCurrency(targetAfter)}</span></p></div> : null}
           </div>
-          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => setOpenMode(null)}>Batal</Button><Button type="submit" disabled={pending || funds.length === 0 || sourceAfter < 0}>{pending ? "Menyimpan..." : `Simpan ${form.mode}`}</Button></div>
+          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => setOpenMode(null)}>Batal</Button><Button type="submit" disabled={pending || funds.length === 0 || (form.mode !== "Tambah" && sourceAfter < 0)}>{pending ? "Menyimpan..." : `Simpan ${form.mode}`}</Button></div>
         </form>
       </DialogContent>
     </Dialog>
