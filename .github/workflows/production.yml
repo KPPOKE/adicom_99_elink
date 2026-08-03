@@ -46,6 +46,7 @@ jobs:
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=high
       - run: bash -n ops/*.sh
+      - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npm run prisma:seed
         env:
