@@ -40,13 +40,16 @@ test("login returns accessible field validation errors", async ({ page }) => {
 test("login remembers email without storing password", async ({ page }) => {
   const email = `remember-${Date.now()}@example.com`;
   await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("form")).toHaveAttribute("data-hydrated", "true");
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill("password-salah");
   await page.getByRole("checkbox", { name: "Ingat email saya" }).check();
   await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page.locator('form [role="alert"]')).toContainText("Email atau kata sandi salah");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("pospintar_remember_email"))).toBe(email);
 
   await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("form")).toHaveAttribute("data-hydrated", "true");
   await expect(page.locator('input[name="email"]')).toHaveValue(email);
   await expect(page.getByRole("checkbox", { name: "Ingat email saya" })).toBeChecked();
   await expect.poll(() => page.evaluate(() => localStorage.getItem("pospintar_remember_email"))).toBe(email);

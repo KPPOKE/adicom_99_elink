@@ -43,10 +43,12 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const emailRef = useRef<HTMLInputElement>(null);
   const rememberRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const emailError = state?.fieldErrors?.email;
   const passwordError = state?.fieldErrors?.password;
 
   useEffect(() => {
+    formRef.current?.setAttribute("data-hydrated", "true");
     const savedEmail = localStorage.getItem("pospintar_remember_email");
     if (savedEmail) {
       const frame = window.requestAnimationFrame(() => setEmail(savedEmail));
@@ -153,7 +155,7 @@ export default function LoginPage() {
                 <p className="mt-2 text-sm text-slate-500">Gunakan email dan kata sandi yang terdaftar.</p>
               </header>
 
-              <form action={formAction} onSubmit={handleSubmit} className="space-y-4" aria-busy={pending}>
+              <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-4" aria-busy={pending}>
                 <div className="space-y-1.5">
                   <Label htmlFor="login-email">Email</Label>
                   <div className="relative">
