@@ -32,16 +32,18 @@ export async function loginAction(_: unknown, formData: FormData) {
   const headerStore = await headers();
   const forwardedFor = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ip = forwardedFor || headerStore.get("x-real-ip") || "unknown";
-  const rateKey = `login:${ip}:${parsed.data.email.toLowerCase()}`;
-  const rate = checkRateLimit(rateKey, 20, 15 * 60 * 1000);
-  if (!rate.allowed) {
+  const accountKey = `login:account:${parsed.data.email.toLowerCase()}`;
+  const ipKey = `login:ip:${ip}`;
+  const rates = [checkRateLimit(accountKey, 20, 15 * 60 * 1000), checkRateLimit(ipKey, 100, 15 * 60 * 1000)];
+  const retryAfter = Math.max(...rates.map((rate) => rate.retryAfter));
+  if (rates.some((rate) => !rate.allowed)) {
     await writeAuditLog({
       userEmail: parsed.data.email,
       action: "login_rate_limited",
       entity: "auth",
-      metadata: { ip, retryAfter: rate.retryAfter }
+      metadata: { ip, retryAfter }
     });
-    return { error: `Terlalu banyak percobaan login. Coba lagi dalam ${rate.retryAfter} detik.` };
+    return { error: `Terlalu banyak percobaan login. Coba lagi dalam ${retryAfter} detik.` };
   }
 
   const user = await prisma.user.findUnique({
@@ -59,8 +61,14 @@ export async function loginAction(_: unknown, formData: FormData) {
     return { error: "Email atau kata sandi salah" };
   }
 
-  resetRateLimit(rateKey);
-  await setSession(user.id, user.role.name, parsed.data.remember);
+  resetRateLimit(accountKey);
+  resetRateLimit(ipKey);
+  if (!user.isActive) {
+    await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.outletId, action: "login_disabled", entity: "auth", metadata: { ip } });
+    return { error: "Akun tidak aktif. Hubungi admin." };
+  }
+
+  await setSession(user.id, user.role.name, user.sessionVersion, parsed.data.remember);
   await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: user.outletId, action: "login_success", entity: "auth", metadata: { ip } });
   redirect("/dashboard");
 }

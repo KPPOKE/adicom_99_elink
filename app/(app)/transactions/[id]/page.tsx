@@ -7,12 +7,16 @@ import { TransactionStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
+import { outletContext } from "@/lib/outlet";
+import { requirePermission } from "@/lib/permissions";
 import { formatCurrency, formatDateTime, toNumber } from "@/lib/utils";
 
 export default async function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const transaction = await prisma.transaction.findUnique({
-    where: { id: Number(id) },
+  const user = await requirePermission("transactions.view");
+  const { activeOutlet } = await outletContext(user);
+  const transaction = await prisma.transaction.findFirst({
+    where: { id: Number(id), outletId: activeOutlet.id },
     include: {
       customer: true,
       user: true,

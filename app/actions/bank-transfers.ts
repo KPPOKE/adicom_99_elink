@@ -106,6 +106,10 @@ export async function upsertBankTransfer(payload: unknown) {
   const user = await requirePermission("bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = bankTransferSchema.parse(payload);
+  if (parsed.customerId) {
+    const customer = await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.customerId, outletId: activeOutlet.id } } });
+    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+  }
   const data = {
     kind: parsed.kind,
     transactionType: parsed.transactionType || null,

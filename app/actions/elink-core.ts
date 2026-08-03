@@ -48,6 +48,8 @@ export async function upsertReceivable(payload: unknown) {
     const user = await requirePermission("receivables.manage");
     const { activeOutlet } = await outletContext(user);
     const parsed = receivableSchema.parse(payload);
+    const customer = await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.customerId, outletId: activeOutlet.id } } });
+    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
     await prisma.$transaction(async (tx) => {
       const existing = parsed.id ? await tx.receivable.findUnique({ where: { id: parsed.id } }) : null;
       if (parsed.id && (!existing || existing.outletId !== activeOutlet.id)) throw new Error("Piutang tidak ditemukan");

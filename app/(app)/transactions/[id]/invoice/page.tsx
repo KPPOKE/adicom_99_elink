@@ -5,6 +5,8 @@ import { PrintControls } from "@/components/print-controls";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { outletContext } from "@/lib/outlet";
+import { requirePermission } from "@/lib/permissions";
 import { cn, formatCurrency, formatDateTime, toNumber } from "@/lib/utils";
 
 export default async function TransactionInvoicePage({
@@ -16,9 +18,11 @@ export default async function TransactionInvoicePage({
 }) {
   const [{ id }, rawQuery] = await Promise.all([params, searchParams ?? Promise.resolve({})]);
   const query = rawQuery as Record<string, string | string[] | undefined>;
+  const user = await requirePermission("transactions.view");
+  const { activeOutlet } = await outletContext(user);
   const [transaction, setting] = await Promise.all([
-    prisma.transaction.findUnique({
-      where: { id: Number(id) },
+    prisma.transaction.findFirst({
+      where: { id: Number(id), outletId: activeOutlet.id },
       include: { user: true, customer: true, items: { include: { item: true } } }
     }),
     prisma.setting.findFirst()

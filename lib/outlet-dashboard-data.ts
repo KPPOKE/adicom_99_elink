@@ -26,7 +26,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
         createdAt: true,
         grandTotal: true,
         diskon: true,
-        items: { select: { qty: true, price: true, item: { select: { hargaModal: true, category: { select: { name: true } } } } } }
+        items: { select: { qty: true, price: true, costPrice: true, item: { select: { category: { select: { name: true } } } } } }
       }
     }),
     prisma.service.findMany({
@@ -35,7 +35,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
         paidAt: true,
         finalCost: true,
         laborCost: true,
-        parts: { select: { qty: true, price: true, item: { select: { hargaModal: true } } } }
+        parts: { select: { qty: true, price: true, costPrice: true } }
       }
     }),
     prisma.financeRecord.findMany({
@@ -62,7 +62,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
       items: transaction.items.map((item) => ({
         qty: item.qty,
         price: toNumber(item.price),
-        cost: toNumber(item.item.hargaModal),
+        cost: toNumber(item.costPrice),
         categoryName: item.item.category.name
       }))
     })),
@@ -70,7 +70,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
       date: service.paidAt,
       total: toNumber(service.finalCost),
       laborCost: toNumber(service.laborCost),
-      parts: service.parts.map((part) => ({ qty: part.qty, price: toNumber(part.price), cost: toNumber(part.item.hargaModal) }))
+      parts: service.parts.map((part) => ({ qty: part.qty, price: toNumber(part.price), cost: toNumber(part.costPrice) }))
     }] : []),
     finance: finance.map((record) => ({
       date: record.date,

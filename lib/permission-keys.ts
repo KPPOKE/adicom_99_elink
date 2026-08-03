@@ -33,6 +33,23 @@ export const PERMISSIONS = [
 ] as const;
 
 export type PermissionKey = typeof PERMISSIONS[number]["key"];
+export const PERMISSION_DEPENDENCIES: Partial<Record<PermissionKey, PermissionKey>> = {
+  "inventory.manage": "inventory.view",
+  "categories.manage": "categories.view",
+  "suppliers.manage": "suppliers.view",
+  "customers.manage": "customers.view",
+  "transactions.manage": "transactions.view",
+  "bankTransfers.manage": "bankTransfers.view",
+  "funds.manage": "funds.view",
+  "fundMutations.manage": "fundMutations.view",
+  "services.manage": "services.view",
+  "finance.manage": "finance.view",
+  "reports.export": "reports.view",
+  "receivables.manage": "receivables.view",
+  "receipts.manage": "receipts.view",
+  "payroll.manage": "payroll.view",
+  "settings.backup": "settings.view"
+};
 
 export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
   "dashboard.view",

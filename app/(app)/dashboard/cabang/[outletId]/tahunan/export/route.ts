@@ -30,6 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   return new Response(`\uFEFF${workbook}`, {
     headers: {
       "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+      "Cache-Control": "private, no-store",
       "Content-Disposition": `attachment; filename="laporan-tahunan-${code}-${period.year}.xls"`
     }
   });

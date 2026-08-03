@@ -26,7 +26,8 @@ export const userSchema = z.object({
   email: z.string().email("Email tidak valid"),
   role: z.enum(["admin", "staff"]),
   outletId: z.coerce.number<number>().optional().nullable(),
-  password: z.string().optional()
+  password: z.string().max(72, "Kata sandi maksimal 72 karakter").optional(),
+  isActive: z.preprocess((value) => value !== false && value !== "false", z.boolean())
 }).superRefine((value, context) => {
   if (!value.id && (!value.password || value.password.length < 6)) {
     context.addIssue({
@@ -135,6 +136,7 @@ export const fundAccountSchema = z.object({
   name: z.string().trim().min(2, "Nama sumber dana wajib diisi").max(80),
   type: z.enum(["Cash", "Bank", "Ewallet", "Pulsa_Server", "Other"]),
   balance: money.default(0),
+  adjustmentReason: z.string().trim().max(500, "Alasan penyesuaian maksimal 500 karakter").optional(),
   note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional(),
   isActive: z.coerce.boolean().default(true)
 });

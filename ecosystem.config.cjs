@@ -14,6 +14,8 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
+        HOSTNAME: "127.0.0.1",
+        TZ: "Asia/Jakarta",
         APP_VERSION: process.env.APP_VERSION || "unknown"
       }
     }

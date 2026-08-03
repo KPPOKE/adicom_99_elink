@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-
+import { DEFAULT_STAFF_PERMISSIONS } from "@/lib/permission-keys";
 async function login(page: import("@playwright/test").Page, email = "admin@adicom99.com") {
   await page.goto("/login");
   await page.locator('input[name="email"]').fill(email);
@@ -39,7 +39,8 @@ test.describe("UAT operational workflow", () => {
         email: staffEmail,
         passwordHash: await hash("password123", 10),
         roleId: staffRole.id,
-        outletId: defaultOutlet.id
+        outletId: defaultOutlet.id,
+        permissions: { create: DEFAULT_STAFF_PERMISSIONS.map((key) => ({ key })) }
       }
     });
 

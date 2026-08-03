@@ -22,6 +22,22 @@ export async function upsertFundAccount(payload: unknown) {
     if (parsed.id) {
       const existing = await tx.fundAccount.findUnique({ where: { id: parsed.id } });
       if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Sumber dana tidak ditemukan");
+      const before = toNumber(existing.balance);
+      const delta = parsed.balance - before;
+      if (delta !== 0 && !parsed.adjustmentReason) throw new Error("Alasan penyesuaian saldo wajib diisi");
+      if (delta !== 0 && !existing.isActive) throw new Error("Aktifkan sumber dana sebelum mengubah saldo");
+      if (!parsed.isActive && parsed.balance !== 0) throw new Error("Saldo harus nol sebelum dinonaktifkan");
+      if (delta !== 0) {
+        await applyFundDelta(tx, {
+          outletId: activeOutlet.id,
+          fundAccountId: existing.id,
+          type: "Adjustment",
+          delta,
+          referenceType: "manual_adjustment",
+          note: parsed.adjustmentReason,
+          userId: user.id
+        });
+      }
       await tx.fundAccount.update({ where: { id: parsed.id }, data: { name: parsed.name, type: parsed.type, note: parsed.note || null, isActive: parsed.isActive } });
       await tx.auditLog.create({
         data: {
@@ -33,8 +49,9 @@ export async function upsertFundAccount(payload: unknown) {
           entityId: existing.id,
           metadata: {
             name: existing.name,
-            before: { name: existing.name, type: existing.type, isActive: existing.isActive },
-            after: { name: parsed.name, type: parsed.type, isActive: parsed.isActive }
+            before: { name: existing.name, type: existing.type, balance: before, isActive: existing.isActive },
+            after: { name: parsed.name, type: parsed.type, balance: parsed.balance, isActive: parsed.isActive },
+            adjustmentReason: delta !== 0 ? parsed.adjustmentReason : undefined
           }
         }
       });
@@ -61,7 +78,7 @@ export async function upsertFundAccount(payload: unknown) {
 
 export async function createFundMutation(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requirePermission("funds.manage");
+  const user = await requirePermission("fundMutations.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = fundMutationSchema.parse(payload);
   await prisma.$transaction(async (tx) => {

@@ -14,6 +14,7 @@ type SessionPayload = {
   userId: number;
   role: "admin" | "staff";
   exp: number;
+  sessionVersion: number;
 };
 
 function secret() {
@@ -52,9 +53,9 @@ export function verifySessionToken(token?: string): SessionPayload | null {
   }
 }
 
-export async function setSession(userId: number, role: "admin" | "staff", remember = false) {
+export async function setSession(userId: number, role: "admin" | "staff", sessionVersion: number, remember = false) {
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, createSessionToken({ userId, role }, remember ? REMEMBER_SESSION : SHORT_SESSION), {
+  cookieStore.set(COOKIE_NAME, createSessionToken({ userId, role, sessionVersion }, remember ? REMEMBER_SESSION : SHORT_SESSION), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -76,10 +77,12 @@ export async function getSession() {
 export async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
     include: { role: true }
   });
+  if (!user?.isActive || user.sessionVersion !== session.sessionVersion) return null;
+  return user;
 }
 
 export async function requireUser() {

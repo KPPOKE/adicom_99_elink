@@ -5,6 +5,8 @@ import { PrintControls } from "@/components/print-controls";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { outletContext } from "@/lib/outlet";
+import { requirePermission } from "@/lib/permissions";
 import { cn, formatCurrency, formatDateTime, toNumber } from "@/lib/utils";
 
 export default async function ServiceInvoicePage({
@@ -16,9 +18,11 @@ export default async function ServiceInvoicePage({
 }) {
   const [{ id }, rawQuery] = await Promise.all([params, searchParams ?? Promise.resolve({})]);
   const query = rawQuery as Record<string, string | string[] | undefined>;
+  const user = await requirePermission("services.view");
+  const { activeOutlet } = await outletContext(user);
   const [service, setting] = await Promise.all([
-    prisma.service.findUnique({
-      where: { id: Number(id) },
+    prisma.service.findFirst({
+      where: { id: Number(id), outletId: activeOutlet.id },
       include: { user: true, customer: true, parts: { include: { item: true } } }
     }),
     prisma.setting.findFirst()

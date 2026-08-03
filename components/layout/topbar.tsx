@@ -5,7 +5,7 @@ import { Building2, CalendarDays, Loader2, Menu, UserRound, X } from "lucide-rea
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setActiveOutletAction } from "@/app/actions/outlets";
-import { NavList, canAccessNav, nav, navItemActive, SidebarFooter } from "@/components/layout/sidebar";
+import { NavList, canAccessNav, nav, resolveActiveNavItem, SidebarFooter } from "@/components/layout/sidebar";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets, pe
   const [mobileOpen, setMobileOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const menuItems = nav.filter((item) => canAccessNav(item, role, permissions));
-  const activeItem = menuItems.find((item) => navItemActive(item, pathname, searchParams));
+  const activeItem = resolveActiveNavItem(menuItems, pathname, searchParams);
   const dashboardPage = pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const hideOutletControl = dashboardPage || pathname === "/settings/activity";
   const [selectedValue, setSelectedValue] = useState(String(activeOutletId));

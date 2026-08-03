@@ -115,6 +115,7 @@ model Outlet {
   name                 String
   address              String?               @db.Text
   users                User[]
+  customers            CustomerOutlet[]
   transactions         Transaction[]
   services             Service[]
   bankTransfers        BankTransfer[]
@@ -138,6 +139,8 @@ model User {
   name                 String
   email                String                @unique
   passwordHash         String                @map("password_hash")
+  isActive             Boolean               @default(true) @map("is_active")
+  sessionVersion       Int                   @default(0) @map("session_version")
   roleId               Int                   @map("role_id")
   role                 Role                  @relation(fields: [roleId], references: [id])
   outletId             Int?                  @map("outlet_id")
@@ -196,21 +199,34 @@ model Supplier {
 }
 
 model Customer {
-  id            Int            @id @default(autoincrement())
+  id            Int              @id @default(autoincrement())
   name          String
   phone         String?
   email         String?
-  address       String?        @db.Text
+  address       String?          @db.Text
+  outlets       CustomerOutlet[]
   transactions  Transaction[]
   services      Service[]
   bankTransfers BankTransfer[]
   receivables   Receivable[]
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
 
   @@index([name])
   @@index([phone])
   @@map("customers")
+}
+
+model CustomerOutlet {
+  customerId Int      @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  outletId   Int      @map("outlet_id")
+  outlet     Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@id([customerId, outletId])
+  @@index([outletId, customerId])
+  @@map("customer_outlets")
 }
 
 model Item {
@@ -255,6 +271,7 @@ model Transaction {
   total          Decimal           @db.Decimal(14, 2)
   diskon         Decimal           @default(0) @db.Decimal(14, 2)
   grandTotal     Decimal           @map("grand_total") @db.Decimal(14, 2)
+  grossProfit    Decimal           @default(0) @map("gross_profit") @db.Decimal(14, 2)
   paymentMethod  PaymentMethod     @map("payment_method")
   paidAmount     Decimal           @default(0) @map("paid_amount") @db.Decimal(14, 2)
   changeAmount   Decimal           @default(0) @map("change_amount") @db.Decimal(14, 2)
@@ -281,6 +298,7 @@ model Transaction {
   @@index([status])
   @@index([createdAt, status])
   @@index([customerId, createdAt])
+  @@index([outletId, status, createdAt])
   @@map("transactions")
 }
 
@@ -292,6 +310,7 @@ model TransactionItem {
   item          Item        @relation(fields: [itemId], references: [id])
   qty           Int
   price         Decimal     @db.Decimal(14, 2)
+  costPrice     Decimal     @default(0) @map("cost_price") @db.Decimal(14, 2)
   subtotal      Decimal     @db.Decimal(14, 2)
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
@@ -316,6 +335,7 @@ model Service {
   estimatedCost      Decimal         @default(0) @map("estimated_cost") @db.Decimal(14, 2)
   laborCost          Decimal         @default(0) @map("labor_cost") @db.Decimal(14, 2)
   finalCost          Decimal         @default(0) @map("final_cost") @db.Decimal(14, 2)
+  grossProfit        Decimal         @default(0) @map("gross_profit") @db.Decimal(14, 2)
   status             ServiceStatus   @default(Masuk)
   paymentStatus      PaymentStatus   @default(unpaid) @map("payment_status")
   paidAt             DateTime?       @map("paid_at")
@@ -340,6 +360,8 @@ model Service {
   @@index([status])
   @@index([paymentStatus])
   @@index([status, paymentStatus, receivedDate])
+  @@index([outletId, paymentStatus, paidAt])
+  @@index([outletId, status, receivedDate])
   @@map("services")
 }
 
@@ -352,6 +374,7 @@ model ServicePart {
   qty       Int
   price     Decimal  @db.Decimal(14, 2)
   subtotal  Decimal  @db.Decimal(14, 2)
+  costPrice Decimal  @default(0) @map("cost_price") @db.Decimal(14, 2)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -399,6 +422,7 @@ model BankTransfer {
   @@index([status])
   @@index([createdAt])
   @@index([destinationBank])
+  @@index([outletId, status, completedAt])
   @@map("bank_transfers")
 }
 
@@ -499,6 +523,7 @@ model FinanceRecord {
   @@index([type])
   @@index([date, type])
   @@index([category])
+  @@index([outletId, type, date])
   @@map("finance_records")
 }
 
@@ -518,6 +543,7 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([action])
   @@index([createdAt])
+  @@index([action, userEmail, createdAt])
   @@map("audit_logs")
 }
 

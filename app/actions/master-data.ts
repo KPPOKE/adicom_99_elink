@@ -73,11 +73,15 @@ export async function upsertCustomer(formData: FormData) {
   try {
     await assertTrustedOrigin();
     const user = await requirePermission("customers.manage");
+    const { activeOutlet } = await outletContext(user);
     const parsed = customerSchema.parse(Object.fromEntries(formData));
     const data = { name: parsed.name, phone: parsed.phone || null, email: parsed.email || null, address: parsed.address || null };
-    if (parsed.id) await prisma.customer.update({ where: { id: parsed.id }, data });
-    else await prisma.customer.create({ data });
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "customer", entityId: parsed.id ?? null });
+    const existing = parsed.id ? await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.id, outletId: activeOutlet.id } } }) : null;
+    if (parsed.id && !existing) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+    const customer = parsed.id
+      ? await prisma.customer.update({ where: { id: parsed.id }, data })
+      : await prisma.customer.create({ data: { ...data, outlets: { create: { outletId: activeOutlet.id } } } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: parsed.id ? "update" : "create", entity: "customer", entityId: customer.id });
     revalidatePath("/customers");
   } catch (error) {
     handleActionError(error);
@@ -88,8 +92,14 @@ export async function deleteCustomer(id: number) {
   try {
     await assertTrustedOrigin();
     const user = await requirePermission("customers.manage");
-    await prisma.customer.delete({ where: { id } });
-    await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "customer", entityId: id });
+    const { activeOutlet } = await outletContext(user);
+    const customer = await prisma.customer.findFirst({ where: { id, outlets: { some: { outletId: activeOutlet.id } } }, include: { _count: { select: { outlets: true } } } });
+    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+    await prisma.$transaction(async (tx) => {
+      if (customer._count.outlets > 1) await tx.customerOutlet.delete({ where: { customerId_outletId: { customerId: id, outletId: activeOutlet.id } } });
+      else await tx.customer.delete({ where: { id } });
+      await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "customer", entityId: id } });
+    });
     revalidatePath("/customers");
   } catch (error) {
     handleActionError(error);

@@ -115,11 +115,11 @@ curl --fail http://127.0.0.1:3000/api/health/backup
 Tambahkan cron dengan `crontab -e`:
 
 ```cron
-0 2 * * * /bin/bash /www/adicom99-deploy/source/ops/backup.sh >> /var/log/adicom99-backup.log 2>&1
+0 * * * * /bin/bash /www/adicom99-deploy/source/ops/backup.sh >> /var/log/adicom99-backup.log 2>&1
 0 3 * * 0 /bin/bash /www/adicom99-deploy/source/ops/backup-check.sh >> /var/log/adicom99-backup-check.log 2>&1
 ```
 
-Retensi adalah 7 backup harian, 4 mingguan, dan 6 bulanan. Backup berisi dump MySQL, upload, dan `.env`; repository terenkripsi oleh restic.
+Retensi adalah 24 backup per jam, 7 harian, 4 mingguan, dan 6 bulanan. Backup berisi dump MySQL, upload, dan `.env`; repository terenkripsi oleh restic.
 
 Simpan salinan password restic di password manager di luar VPS. Backup tidak dapat dipulihkan tanpa password tersebut.
 
@@ -147,7 +147,7 @@ restic snapshots --tag adicom99
 Buat dua HTTP monitor dengan interval lima menit:
 
 - `https://DOMAIN/api/health` untuk proses aplikasi dan koneksi database.
-- `https://DOMAIN/api/health/backup` untuk memastikan backup terakhir berumur kurang dari 26 jam.
+- `https://DOMAIN/api/health/backup` untuk memastikan backup terakhir berumur kurang dari 3 jam.
 
 Aktifkan alert email dan kanal notifikasi operasional yang digunakan. Kedua endpoint mengembalikan HTTP `503` ketika pemeriksaan gagal dan tidak menampilkan detail error atau kredensial.
 

@@ -1,4 +1,4 @@
-export const MAX_BACKUP_AGE_MS = 26 * 60 * 60 * 1000;
+export const MAX_BACKUP_AGE_MS = 3 * 60 * 60 * 1000;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 export function isBackupFresh(timestampSeconds: number, now = Date.now()) {

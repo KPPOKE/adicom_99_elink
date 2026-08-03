@@ -1,7 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { DEFAULT_STAFF_PERMISSIONS, type PermissionKey } from "@/lib/permission-keys";
+import type { PermissionKey } from "@/lib/permission-keys";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -10,7 +10,7 @@ type PermissionUser = Awaited<ReturnType<typeof requireUser>>;
 export async function getUserPermissionKeys(user: PermissionUser) {
   if (user.role.name === "admin") return [];
   const rows = await prisma.userPermission.findMany({ where: { userId: user.id }, select: { key: true } });
-  return rows.length ? rows.map((row) => row.key) : DEFAULT_STAFF_PERMISSIONS;
+  return rows.map((row) => row.key);
 }
 
 export async function requirePermission(key: PermissionKey) {

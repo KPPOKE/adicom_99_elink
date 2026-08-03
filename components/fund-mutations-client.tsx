@@ -1,7 +1,8 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine } from "lucide-react";
+import { ArrowLeftRight, ArrowUpFromLine, Filter, Plus, Scale, TrendingDown, TrendingUp } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,68 +11,142 @@ import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { moveLedger } from "@/lib/fund-ledger";
 
 type FundOption = { id: number; name: string; balance: number };
 type MutationRow = { id: number; fundName: string; type: string; amount: number; adminFee: number; balanceBefore: number; balanceAfter: number; note: string | null; userName: string; createdAt: string };
 type MutationMode = "Tambah" | "Ambil" | "Pindah";
 type Bearer = "Pengirim" | "Penerima" | "Tidak_Ada";
 type MutationForm = { mode: MutationMode; sourceFundId: number; targetFundId: number; amount: number; adminFee: number; operationalBearer: Bearer; note: string };
+type Summary = { added: number; withdrawn: number; balance: number; moved: number };
 
-const empty: MutationForm = { mode: "Tambah", sourceFundId: 0, targetFundId: 0, amount: 0, adminFee: 0, operationalBearer: "Tidak_Ada", note: "" };
-const modes: Array<{ mode: MutationMode; label: string; icon: React.ReactNode }> = [
-  { mode: "Tambah", label: "Tambah Saldo", icon: <ArrowDownToLine className="h-4 w-4" /> },
-  { mode: "Ambil", label: "Ambil Saldo", icon: <ArrowUpFromLine className="h-4 w-4" /> },
-  { mode: "Pindah", label: "Pindah Saldo", icon: <ArrowLeftRight className="h-4 w-4" /> }
-];
+const empty = (mode: MutationMode, funds: FundOption[]): MutationForm => ({ mode, sourceFundId: funds[0]?.id ?? 0, targetFundId: (mode === "Pindah" ? funds[1] : funds[0])?.id ?? funds[0]?.id ?? 0, amount: 0, adminFee: 0, operationalBearer: "Tidak_Ada", note: "" });
+const typeLabels: Record<string, string> = {
+  Opening: "Saldo Awal",
+  Deposit_In: "Tambah Saldo",
+  Withdraw_Out: "Ambil Saldo",
+  Move_In: "Saldo Masuk",
+  Move_Out: "Saldo Keluar",
+  Adjustment: "Penyesuaian"
+};
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="space-y-1.5"><span className="block text-xs font-semibold uppercase tracking-wide text-slate-600">{label}</span>{children}</label>;
+  return <label className="space-y-1.5"><span className="block text-sm font-medium text-slate-700">{label}</span>{children}</label>;
 }
 
-export function FundMutationsClient({ funds, mutations, initialMode }: { funds: FundOption[]; mutations: MutationRow[]; initialMode: MutationMode }) {
+function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: typeof TrendingUp; tone: string }) {
+  return <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-xl font-semibold text-slate-950">{formatCurrency(value)}</p></div><div className={`flex h-11 w-11 items-center justify-center rounded-lg border ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div></div></div>;
+}
+
+export function FundMutationsClient({ funds, filterFunds, mutations, initialMode, canManage, summary, filters }: {
+  funds: FundOption[];
+  filterFunds: Array<{ id: number; name: string }>;
+  mutations: MutationRow[];
+  initialMode: MutationMode;
+  canManage: boolean;
+  summary: Summary;
+  filters: { from: string; to: string; fund: string };
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [form, setForm] = useState<MutationForm>({ ...empty, mode: initialMode, targetFundId: funds[0]?.id ?? 0, sourceFundId: funds[0]?.id ?? 0 });
+  const [openMode, setOpenMode] = useState<MutationMode | null>(null);
+  const [form, setForm] = useState<MutationForm>(empty(initialMode, funds));
   const source = funds.find((item) => item.id === form.sourceFundId);
   const target = funds.find((item) => item.id === form.targetFundId);
-  const run = () => startTransition(async () => {
-    try { await createFundMutation(form); toast.success("Mutasi saldo disimpan"); setForm({ ...empty, mode: initialMode, targetFundId: funds[0]?.id ?? 0, sourceFundId: funds[0]?.id ?? 0 }); router.refresh(); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Gagal menyimpan mutasi"); }
-  });
+  const moving = initialMode === "Pindah";
+  const move = moveLedger(form.amount, form.adminFee, form.operationalBearer);
+  const sourceAfter = source ? source.balance + (form.mode === "Pindah" ? move.sourceDelta : -(form.amount + form.adminFee)) : 0;
+  const targetAfter = target ? target.balance + (form.mode === "Pindah" ? move.targetDelta : form.amount) : 0;
+
+  function show(mode: MutationMode) {
+    setForm(empty(mode, funds));
+    setOpenMode(mode);
+  }
+
+  function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startTransition(async () => {
+      try {
+        await createFundMutation(form);
+        toast.success("Mutasi saldo disimpan");
+        setOpenMode(null);
+        setForm(empty(initialMode, funds));
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal menyimpan mutasi");
+      }
+    });
+  }
+
   const columns: ColumnDef<MutationRow>[] = [
-    { header: "Tanggal", cell: ({ row }) => <div><p>{formatDateTime(row.original.createdAt)}</p><p className="text-xs text-slate-500">{row.original.userName}</p></div> },
+    { header: "Tanggal", cell: ({ row }) => <div><p className="whitespace-nowrap">{formatDateTime(row.original.createdAt)}</p><p className="text-xs text-slate-500">{row.original.userName}</p></div> },
     { header: "Sumber Dana", cell: ({ row }) => <span className="font-medium text-slate-900">{row.original.fundName}</span> },
-    { header: "Tipe", cell: ({ row }) => <Badge variant={row.original.type.includes("Out") ? "red" : "green"}>{row.original.type.replaceAll("_", " ")}</Badge> },
-    { header: "Nominal", cell: ({ row }) => <div><p>{formatCurrency(row.original.amount)}</p><p className="text-xs text-slate-500">Admin {formatCurrency(row.original.adminFee)}</p></div> },
-    { header: "Saldo", cell: ({ row }) => <div><p>{formatCurrency(row.original.balanceBefore)}</p><p className="text-xs text-blue-600">-&gt; {formatCurrency(row.original.balanceAfter)}</p></div> },
-    { header: "Catatan", cell: ({ row }) => row.original.note || "-" }
+    { header: "Aktivitas", cell: ({ row }) => {
+      const outgoing = row.original.balanceAfter < row.original.balanceBefore;
+      const variant = row.original.type === "Adjustment" ? "orange" : outgoing ? "red" : row.original.type.includes("Move") ? "blue" : "green";
+      return <Badge variant={variant}>{typeLabels[row.original.type] ?? row.original.type.replaceAll("_", " ")}</Badge>;
+    } },
+    { header: "Nominal", cell: ({ row }) => <div><p>{formatCurrency(row.original.amount)}</p>{row.original.adminFee ? <p className="text-xs text-slate-500">Biaya {formatCurrency(row.original.adminFee)}</p> : null}</div> },
+    { header: "Perubahan Saldo", cell: ({ row }) => <div className="whitespace-nowrap"><p>{formatCurrency(row.original.balanceBefore)}</p><p className={`text-xs font-medium ${row.original.balanceAfter < row.original.balanceBefore ? "text-red-600" : "text-emerald-600"}`}>? {formatCurrency(row.original.balanceAfter)}</p></div> },
+    { header: "Keterangan", cell: ({ row }) => row.original.note || "-" }
   ];
-  const sourceNeeded = form.mode !== "Tambah";
-  const targetNeeded = form.mode !== "Ambil";
+
   return <div className="space-y-6">
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg sm:p-6">
-      <div className="mb-5"><h2 className="font-semibold text-slate-900">{initialMode === "Pindah" ? "Pindah Saldo" : "Ambil & Tambah Saldo"}</h2><p className="mt-1 text-sm text-slate-500">{initialMode === "Pindah" ? "Pindahkan saldo antar sumber dana." : "Catat penambahan atau pengambilan saldo."}</p></div>
-      <form action={run} className="space-y-5">
-        <div className="grid gap-2 sm:grid-cols-3">
-          {modes.filter((item) => initialMode === "Pindah" ? item.mode === "Pindah" : item.mode !== "Pindah").map((item) => <button key={item.mode} type="button" onClick={() => setForm({ ...form, mode: item.mode })} className={`flex h-11 items-center justify-center gap-2 rounded-lg border text-sm font-medium transition ${form.mode === item.mode ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-slate-50 text-slate-600 hover:border-slate-500"}`}>{item.icon}{item.label}</button>)}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-4">
-          {sourceNeeded ? <Field label="Dari Sumber Dana"><Select value={String(form.sourceFundId)} onChange={(e) => setForm({ ...form, sourceFundId: Number(e.target.value) })}>{funds.map((item) => <option key={item.id} value={item.id}>{item.name} - {formatCurrency(item.balance)}</option>)}</Select></Field> : null}
-          {targetNeeded ? <Field label="Ke Sumber Dana"><Select value={String(form.targetFundId)} onChange={(e) => setForm({ ...form, targetFundId: Number(e.target.value) })}>{funds.map((item) => <option key={item.id} value={item.id}>{item.name} - {formatCurrency(item.balance)}</option>)}</Select></Field> : null}
-          <Field label="Nominal"><CurrencyInput name="amount" value={form.amount} onChange={(amount) => setForm({ ...form, amount })} /></Field>
-          {form.mode !== "Tambah" ? <Field label="Biaya/Admin"><CurrencyInput name="adminFee" value={form.adminFee} onChange={(adminFee) => setForm({ ...form, adminFee })} /></Field> : null}
-          {form.mode === "Pindah" ? <Field label="Penanggung Biaya"><Select value={form.operationalBearer} onChange={(e) => setForm({ ...form, operationalBearer: e.target.value as Bearer })}><option value="Tidak_Ada">Tidak Ada</option><option value="Pengirim">Pengirim</option><option value="Penerima">Penerima</option></Select></Field> : null}
-          <Field label="Catatan"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Keterangan mutasi" /></Field>
-        </div>
-        <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-3"><div><p className="text-xs uppercase text-slate-500">Dari</p><p className="font-medium text-slate-800">{sourceNeeded ? source?.name ?? "-" : "Setoran baru"}</p></div><div><p className="text-xs uppercase text-slate-500">Ke</p><p className="font-medium text-slate-800">{targetNeeded ? target?.name ?? "-" : "Diambil keluar"}</p></div><div><p className="text-xs uppercase text-slate-500">Nominal</p><p className="font-semibold text-blue-600">{formatCurrency(form.amount)}</p></div></div>
-          <Button type="submit" disabled={pending || funds.length === 0}>{pending ? "Menyimpan..." : `Simpan ${form.mode}`}</Button>
-        </div>
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <form method="get" className="grid gap-4 md:grid-cols-[1fr_1fr_1.2fr_auto_auto] md:items-end">
+        <input type="hidden" name="mode" value={moving ? "pindah" : "saldo"} />
+        <Field label="Dari"><Input type="date" name="from" defaultValue={filters.from} max={filters.to} /></Field>
+        <Field label="Sampai"><Input type="date" name="to" defaultValue={filters.to} min={filters.from} /></Field>
+        <Field label="Sumber Dana"><Select name="fund" defaultValue={filters.fund}><option value="">Semua sumber dana</option>{filterFunds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name}</option>)}</Select></Field>
+        <Button type="submit" variant="outline"><Filter className="h-4 w-4" />Terapkan</Button>
+        <Button asChild type="button" variant="ghost"><Link href={`/fund-mutations?mode=${moving ? "pindah" : "saldo"}`}>Reset</Link></Button>
       </form>
     </section>
-    <DataTable columns={columns} data={mutations} searchPlaceholder="Cari mutasi saldo..." />
+
+    <section className={`grid gap-4 ${moving ? "md:grid-cols-1" : "md:grid-cols-3"}`}>
+      {moving ? <SummaryCard label="Total Pindah Saldo" value={summary.moved} icon={ArrowLeftRight} tone="border-violet-200 bg-violet-50 text-violet-700" /> : <>
+        <SummaryCard label="Total Penambahan" value={summary.added} icon={TrendingUp} tone="border-emerald-200 bg-emerald-50 text-emerald-700" />
+        <SummaryCard label="Total Pengurangan" value={summary.withdrawn} icon={TrendingDown} tone="border-red-200 bg-red-50 text-red-700" />
+        <SummaryCard label="Selisih" value={summary.balance} icon={Scale} tone="border-blue-200 bg-blue-50 text-blue-700" />
+      </>}
+    </section>
+
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="mb-5 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="text-lg font-semibold text-slate-950">{moving ? "Data Pindah Saldo" : "Data Ambil & Tambah Saldo"}</h2><p className="mt-1 text-sm text-slate-600">Setiap perubahan menyimpan saldo sebelum, saldo sesudah, dan pengguna pencatat.</p></div>
+        {canManage ? <div className="flex flex-wrap gap-2">
+          {moving ? <Button type="button" onClick={() => show("Pindah")}><ArrowLeftRight className="h-4 w-4" />Pindah Saldo</Button> : <>
+            <Button type="button" variant="destructive" onClick={() => show("Ambil")}><ArrowUpFromLine className="h-4 w-4" />Ambil Saldo</Button>
+            <Button type="button" variant="accent" onClick={() => show("Tambah")}><Plus className="h-4 w-4" />Tambah Saldo</Button>
+          </>}
+        </div> : null}
+      </div>
+      <DataTable columns={columns} data={mutations} searchPlaceholder="Cari sumber dana, pengguna, atau keterangan..." />
+    </section>
+
+    <Dialog open={Boolean(openMode)} onOpenChange={(next) => { if (!next) setOpenMode(null); }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>{form.mode === "Pindah" ? "Pindah Saldo Internal" : `${form.mode} Saldo`}</DialogTitle><DialogDescription>Pilih sumber dana dan periksa estimasi saldo sebelum menyimpan.</DialogDescription></DialogHeader>
+        <form onSubmit={save} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {form.mode !== "Tambah" ? <Field label="Dari Sumber Dana"><Select aria-label="Dari Sumber Dana" value={String(form.sourceFundId)} onChange={(event) => setForm({ ...form, sourceFundId: Number(event.target.value) })}>{funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name} ? {formatCurrency(fund.balance)}</option>)}</Select></Field> : null}
+            {form.mode !== "Ambil" ? <Field label="Ke Sumber Dana"><Select aria-label="Ke Sumber Dana" value={String(form.targetFundId)} onChange={(event) => setForm({ ...form, targetFundId: Number(event.target.value) })}>{funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name} ? {formatCurrency(fund.balance)}</option>)}</Select></Field> : null}
+            <Field label="Nominal"><CurrencyInput aria-label="Nominal" name="amount" value={form.amount} onChange={(amount) => setForm({ ...form, amount })} required /></Field>
+            {form.mode !== "Tambah" ? <Field label="Biaya / Admin"><CurrencyInput aria-label="Biaya / Admin" name="adminFee" value={form.adminFee} onChange={(adminFee) => setForm({ ...form, adminFee })} /></Field> : null}
+            {form.mode === "Pindah" ? <Field label="Penanggung Biaya"><Select value={form.operationalBearer} onChange={(event) => setForm({ ...form, operationalBearer: event.target.value as Bearer })}><option value="Tidak_Ada">Tidak Ada</option><option value="Pengirim">Pengirim</option><option value="Penerima">Penerima</option></Select></Field> : null}
+            <Field label="Keterangan"><Input value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="Keterangan mutasi" /></Field>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm sm:grid-cols-2">
+            {form.mode !== "Tambah" ? <div><p className="text-xs text-slate-600">Saldo {source?.name ?? "sumber"}</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(source?.balance ?? 0)} ? <span className={sourceAfter < 0 ? "text-red-600" : "text-blue-700"}>{formatCurrency(sourceAfter)}</span></p></div> : null}
+            {form.mode !== "Ambil" ? <div><p className="text-xs text-slate-600">Saldo {target?.name ?? "tujuan"}</p><p className="mt-1 font-medium text-slate-900">{formatCurrency(target?.balance ?? 0)} ? <span className="text-emerald-700">{formatCurrency(targetAfter)}</span></p></div> : null}
+          </div>
+          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => setOpenMode(null)}>Batal</Button><Button type="submit" disabled={pending || funds.length === 0 || sourceAfter < 0}>{pending ? "Menyimpan..." : `Simpan ${form.mode}`}</Button></div>
+        </form>
+      </DialogContent>
+    </Dialog>
   </div>;
 }

@@ -69,9 +69,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex h-dvh items-center justify-center overflow-y-auto bg-slate-100 sm:p-4 lg:p-5 [@media(min-height:568px)]:overflow-hidden">
-      <div className="grid min-h-full w-full overflow-hidden bg-white shadow-xl sm:min-h-0 sm:max-w-[1280px] sm:rounded-lg sm:border sm:border-slate-200 sm:h-[min(760px,calc(100dvh-2rem))] lg:h-[min(760px,calc(100dvh-2.5rem))] lg:grid-cols-[minmax(0,3fr)_minmax(400px,2fr)]">
-        <section className="relative hidden min-h-0 overflow-hidden bg-blue-50 p-8 text-slate-950 lg:flex lg:flex-col xl:p-10 [@media(max-height:680px)]:p-6">
+    <main className="h-dvh overflow-hidden bg-white">
+      <div className="grid h-full w-full overflow-hidden bg-white lg:grid-cols-[minmax(0,3fr)_minmax(400px,2fr)] xl:grid-cols-[minmax(0,8fr)_minmax(440px,5fr)]">
+        <section className="relative hidden min-h-0 overflow-hidden bg-blue-50 px-10 py-8 text-slate-950 lg:flex lg:flex-col xl:px-12 xl:py-10 2xl:px-16 [@media(max-height:680px)]:py-5">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
             <div className="absolute -right-8 top-0 h-full w-16 -skew-x-3 bg-blue-700" />
             <div className="absolute left-8 right-10 top-24 h-px bg-blue-200/70" />
@@ -88,7 +88,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="relative z-10 grid min-h-0 flex-1 grid-cols-[minmax(250px,0.9fr)_minmax(0,1.1fr)] items-center gap-1">
+          <div className="relative z-10 grid min-h-0 flex-1 grid-cols-[minmax(250px,0.9fr)_minmax(0,1.1fr)] items-center gap-4 xl:gap-6">
             <div className="relative z-10 max-w-sm">
               <p className="text-xs font-bold uppercase tracking-widest text-blue-700">Satu kendali, seluruh cabang</p>
               <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-slate-950 xl:text-5xl [@media(max-height:680px)]:text-3xl">
@@ -125,7 +125,7 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="flex min-h-0 items-center justify-center bg-slate-50/70 p-5 sm:p-8 lg:p-5 xl:p-8 [@media(max-height:640px)]:py-3">
+        <section className="flex min-h-0 items-center justify-center overflow-y-auto border-l border-slate-200 bg-slate-50/70 p-5 sm:p-8 lg:p-6 xl:p-10 [@media(max-height:640px)]:py-3">
           <div className="w-full max-w-[440px]">
             <div className="mb-5 lg:hidden">
               <div className="flex items-center gap-3">

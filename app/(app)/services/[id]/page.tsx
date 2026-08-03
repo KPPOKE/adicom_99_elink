@@ -7,12 +7,16 @@ import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/stat
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
+import { outletContext } from "@/lib/outlet";
+import { requirePermission } from "@/lib/permissions";
 import { formatCurrency, formatDateTime, toNumber } from "@/lib/utils";
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const service = await prisma.service.findUnique({
-    where: { id: Number(id) },
+  const user = await requirePermission("services.view");
+  const { activeOutlet } = await outletContext(user);
+  const service = await prisma.service.findFirst({
+    where: { id: Number(id), outletId: activeOutlet.id },
     include: { customer: true, user: true, financeRecords: true, parts: { include: { item: true } } }
   });
   if (!service) notFound();

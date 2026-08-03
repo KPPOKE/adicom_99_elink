@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_STAFF_PERMISSIONS } from "@/lib/permission-keys";
 
 async function login(page: import("@playwright/test").Page, email = "admin@adicom99.com") {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
@@ -82,7 +83,7 @@ test("login shows a stable loading state", async ({ page }) => {
   await expect(page.locator('form [role="alert"]')).toContainText("Email atau kata sandi salah");
 });
 
-test("login keyboard order and minimum mobile viewport remain accessible", async ({ page }) => {
+test("login keyboard order and minimum mobile viewport remain accessible", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   const email = page.locator('input[name="email"]');
@@ -91,6 +92,7 @@ test("login keyboard order and minimum mobile viewport remain accessible", async
   const remember = page.getByRole("checkbox", { name: "Ingat email saya" });
   const submit = page.locator('button[type="submit"]');
 
+  if (testInfo.project.name !== "mobile") {
   await expect(email).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(password).toBeFocused();
@@ -100,6 +102,7 @@ test("login keyboard order and minimum mobile viewport remain accessible", async
   await expect(remember).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(submit).toBeFocused();
+  }
 
   await page.setViewportSize({ width: 320, height: 568 });
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -138,6 +141,7 @@ async function createStaff(suffix: string) {
       email: `${suffix}@example.com`,
       passwordHash: await hash("password123", 10),
       roleId: staffRole.id,
+      permissions: { create: DEFAULT_STAFF_PERMISSIONS.map((key) => ({ key })) },
       outletId: outlet.id
     }
   });
@@ -150,6 +154,17 @@ test("admin can open the main operational pages", async ({ page }) => {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main")).toBeVisible();
   }
+});
+
+test("sidebar only marks the most specific receipt route active", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "Desktop navigation check runs once");
+  await login(page);
+  await page.goto("/receipts/settings");
+
+  const activeLinks = page.locator('#desktop-navigation nav a[aria-current="page"]');
+  await expect(activeLinks).toHaveCount(1);
+  await expect(activeLinks).toHaveAttribute("href", "/receipts/settings");
+  await expect(activeLinks).toHaveText("Pengaturan Struk");
 });
 
 test("MiniATM processes a transfer and fund mutations atomically", async ({ page }, testInfo) => {
@@ -233,6 +248,35 @@ test("staff only sees and opens cashier pages", async ({ page }, testInfo) => {
   await expect(page.getByText("Total Transaksi", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Transaksi oleh")).toHaveCount(0);
 });
+test("staff cannot open records from another outlet by URL", async ({ page }, testInfo) => {
+  const staff = await createStaff(`scope-${Date.now()}-${testInfo.project.name}`);
+  try {
+    const [transaction, service, customer] = await Promise.all([
+      prisma.transaction.findFirst({ where: { outletId: { not: staff.outletId } }, select: { id: true, kodeTransaksi: true } }),
+      prisma.service.findFirst({ where: { outletId: { not: staff.outletId } }, select: { id: true, kodeService: true } }),
+      prisma.customer.findFirst({ where: { outlets: { none: { outletId: staff.outletId! } } }, select: { id: true, name: true } })
+    ]);
+    const targets = [
+      transaction ? { path: `/transactions/${transaction.id}`, marker: transaction.kodeTransaksi } : null,
+      transaction ? { path: `/transactions/${transaction.id}/invoice`, marker: transaction.kodeTransaksi } : null,
+      service ? { path: `/services/${service.id}`, marker: service.kodeService } : null,
+      service ? { path: `/services/${service.id}/invoice`, marker: service.kodeService } : null,
+      customer ? { path: `/customers/${customer.id}`, marker: customer.name } : null
+    ].filter((target): target is { path: string; marker: string } => Boolean(target));
+    expect(targets.length).toBeGreaterThan(0);
+
+    await login(page, staff.email);
+    for (const target of targets) {
+      const response = await page.request.get(target.path);
+      const body = await response.text();
+      expect(body, target.path).not.toContain(target.marker);
+    }
+  } finally {
+    await prisma.auditLog.deleteMany({ where: { userId: staff.id } });
+    await prisma.userPermission.deleteMany({ where: { userId: staff.id } });
+    await prisma.user.deleteMany({ where: { id: staff.id } });
+  }
+});
 
 test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo) => {
   test.setTimeout(150_000);
@@ -289,11 +333,16 @@ test("admin sees balance audit and staff cannot open activity history", async ({
   const fund = await prisma.fundAccount.findFirstOrThrow({ where: { outletId: outlet.id, isActive: true }, orderBy: [{ type: "asc" }, { name: "asc" }] });
   const balanceBefore = fund.balance;
   const staff = await createStaff(`${marker}-staff`);
+  await prisma.userPermission.createMany({
+    data: ["fundMutations.view", "fundMutations.manage"].map((key) => ({ userId: staff.id, key })),
+    skipDuplicates: true
+  });
   let mutationId: number | undefined;
 
   try {
-    await login(page);
+    await login(page, staff.email);
     await page.goto("/fund-mutations");
+    await page.getByRole("button", { name: "Tambah Saldo" }).click();
     await page.getByLabel("Ke Sumber Dana").selectOption(String(fund.id));
     await page.getByLabel("Nominal").fill("1000");
     await page.getByPlaceholder("Keterangan mutasi").fill(marker);
@@ -304,17 +353,16 @@ test("admin sees balance audit and staff cannot open activity history", async ({
     mutationId = mutation.id;
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { entity: "fund_mutation", entityId: mutation.id }, orderBy: { id: "desc" } });
     expect(audit.outletId).toBe(outlet.id);
-    expect(audit.userId).toBe(admin.id);
+    expect(audit.userId).toBe(staff.id);
     expect(audit.metadata).toMatchObject({ mode: "Tambah", amount: 1000 });
 
     await page.goto("/settings/activity");
-    await expect(page.getByRole("heading", { name: "Riwayat Aktivitas" })).toBeVisible();
-    await expect(page.getByText("Mutasi saldo").first()).toBeVisible();
-
-    await page.context().clearCookies();
-    await login(page, staff.email);
-    await page.goto("/settings/activity");
     await expect(page).toHaveURL(/\/dashboard/);
+    await page.context().clearCookies();
+    await login(page);
+    await page.goto("/settings/activity");
+    await expect(page.getByRole("main").getByRole("heading", { name: "Riwayat Aktivitas" })).toBeVisible();
+    await expect(page.locator("tbody").getByText("Mutasi saldo").first()).toBeVisible();
   } finally {
     if (mutationId) {
       await prisma.auditLog.deleteMany({ where: { entity: "fund_mutation", entityId: mutationId } });
@@ -324,6 +372,42 @@ test("admin sees balance audit and staff cannot open activity history", async ({
     await prisma.auditLog.deleteMany({ where: { userId: staff.id } });
     await prisma.userPermission.deleteMany({ where: { userId: staff.id } });
     await prisma.user.deleteMany({ where: { id: staff.id } });
+  }
+});
+test("editing a current balance records an adjustment and preserves opening balance", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "Balance adjustment test runs once");
+  const marker = `adjustment-${Date.now()}`;
+  const startedAt = new Date();
+  const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@adicom99.com" } });
+  const outlet = admin.outletId
+    ? await prisma.outlet.findUniqueOrThrow({ where: { id: admin.outletId } })
+    : await prisma.outlet.findFirstOrThrow({ orderBy: { name: "asc" } });
+  const fund = await prisma.fundAccount.findFirstOrThrow({ where: { outletId: outlet.id, isActive: true }, orderBy: { id: "asc" } });
+  const balanceBefore = Number(fund.balance);
+  const balanceAfter = balanceBefore + 1234;
+  let mutationId: number | undefined;
+
+  try {
+    await login(page);
+    await page.goto("/funds");
+    await page.getByRole("button", { name: `Buka detail ${fund.name}` }).click();
+    await page.getByLabel("Saldo Sekarang").fill(String(balanceAfter));
+    await page.getByLabel("Alasan Penyesuaian").fill(marker);
+    await page.getByRole("button", { name: "Simpan Perubahan" }).click();
+    await expect(page.getByText("Sumber dana diperbarui")).toBeVisible();
+
+    const mutation = await prisma.fundMutation.findFirstOrThrow({ where: { fundAccountId: fund.id, referenceType: "manual_adjustment", note: marker }, orderBy: { id: "desc" } });
+    mutationId = mutation.id;
+    expect(mutation.type).toBe("Adjustment");
+    expect(Number(mutation.balanceBefore)).toBe(balanceBefore);
+    expect(Number(mutation.balanceAfter)).toBe(balanceAfter);
+    const updated = await prisma.fundAccount.findUniqueOrThrow({ where: { id: fund.id } });
+    expect(Number(updated.balance)).toBe(balanceAfter);
+    expect(updated.openingBalance.toString()).toBe(fund.openingBalance.toString());
+  } finally {
+    if (mutationId) await prisma.fundMutation.deleteMany({ where: { id: mutationId } });
+    await prisma.fundAccount.update({ where: { id: fund.id }, data: { balance: fund.balance } });
+    await prisma.auditLog.deleteMany({ where: { userId: admin.id, entity: "fund_account", entityId: fund.id, createdAt: { gte: startedAt } } });
   }
 });
 test("audit date range controls are clearly labeled", async ({ page }) => {

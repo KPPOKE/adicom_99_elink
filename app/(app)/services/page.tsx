@@ -24,7 +24,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
   const [services, total, customers, items] = await Promise.all([
     prisma.service.findMany({ where, include: { parts: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.service.count({ where }),
-    prisma.customer.findMany({ orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
+    prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.item.findMany({ where: { outletId: activeOutlet.id, category: { name: { not: "Produk Digital" } } }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT })
   ]);
   return (
@@ -40,6 +40,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
           finalCost: toNumber(service.finalCost),
           parts: service.parts.map((part) => ({ id: part.id, itemId: part.itemId, qty: part.qty, price: toNumber(part.price), subtotal: toNumber(part.subtotal) })),
           receivedDate: service.receivedDate.toISOString(),
+          grossProfit: toNumber(service.grossProfit),
           createdAt: service.createdAt.toISOString(),
           updatedAt: service.updatedAt.toISOString(),
           completedDate: service.completedDate?.toISOString() ?? null,

@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
+        "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${filenameBase}.pdf"`
       }
     });
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
     return new Response(`\uFEFF${csv}`, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
+        "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${filenameBase}.csv"`
       }
     });
@@ -48,6 +50,7 @@ export async function GET(request: NextRequest) {
   return new Response(`\uFEFF${workbook}`, {
     headers: {
       "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+      "Cache-Control": "private, no-store",
       "Content-Disposition": `attachment; filename="${filenameBase}.xls"`
     }
   });

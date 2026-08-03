@@ -29,13 +29,13 @@ function endExclusive(date: Date) {
 
 export const REPORT_EXPORT_ROW_LIMIT = 5000;
 
-type ProfitTransaction = { items: Array<{ qty: number; price: unknown; item: { hargaModal: unknown } }> };
-type ProfitService = { laborCost: unknown; parts?: Array<{ qty: number; price: unknown; item: { hargaModal: unknown } }> };
+type ProfitTransaction = { grossProfit: unknown; status: string };
+type ProfitService = { grossProfit: unknown; paymentStatus: string; status: string };
 type ProfitFinance = { type: "income" | "expense"; amount: unknown; referenceType: string | null };
 
 function grossProfitFrom(transactions: ProfitTransaction[], services: ProfitService[], finance: ProfitFinance[]) {
-  const sales = transactions.reduce((sum, transaction) => sum + transaction.items.reduce((lineSum, line) => lineSum + line.qty * (toNumber(line.price) - toNumber(line.item.hargaModal)), 0), 0);
-  const service = services.reduce((sum, item) => sum + toNumber(item.laborCost) + (item.parts ?? []).reduce((partSum, part) => partSum + part.qty * (toNumber(part.price) - toNumber(part.item.hargaModal)), 0), 0);
+  const sales = transactions.filter((item) => item.status === "Berhasil").reduce((sum, item) => sum + toNumber(item.grossProfit), 0);
+  const service = services.filter((item) => item.status !== "Batal" && item.paymentStatus === "paid").reduce((sum, item) => sum + toNumber(item.grossProfit), 0);
   const miniAtm = finance.filter((item) => item.referenceType === "bank_transfer").reduce((sum, item) => sum + (item.type === "income" ? toNumber(item.amount) : -toNumber(item.amount)), 0);
   return sales + service + miniAtm;
 }
@@ -122,16 +122,19 @@ export async function loadReportPreview(filters: ReportFilters) {
   const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
   const outletWhere = { outletId: activeOutlet.id };
   const financeWhere = dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere;
-  const [transactions, services, items, finance, totals, grouped] = await Promise.all([
+  const [transactions, services, items, finance, totals, grouped, transactionProfit, serviceProfit] = await Promise.all([
     prisma.transaction.findMany({ where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere, include: { items: { include: { item: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
     prisma.service.findMany({ where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere, include: { parts: { include: { item: true } } }, orderBy: { receivedDate: "desc" }, take: 8 }),
     prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
     prisma.financeRecord.findMany({ where: financeWhere, orderBy: { date: "desc" }, take: 8 }),
     prisma.financeRecord.groupBy({ by: ["type"], where: financeWhere, _sum: { amount: true } }),
-    prisma.financeRecord.groupBy({ by: ["type", "referenceType"], where: financeWhere, _sum: { amount: true } })
+    prisma.financeRecord.groupBy({ by: ["type", "referenceType"], where: financeWhere, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { ...outletWhere, status: "Berhasil", ...(dateWhere ? { createdAt: dateWhere } : {}) }, _sum: { grossProfit: true } }),
+    prisma.service.aggregate({ where: { ...outletWhere, status: { not: "Batal" }, paymentStatus: "paid", ...(dateWhere ? { receivedDate: dateWhere } : {}) }, _sum: { grossProfit: true } })
   ]);
   const total = (type: "income" | "expense") => toNumber(totals.find((item) => item.type === type)?._sum.amount);
-  const grossProfit = grossProfitFrom(transactions, services, finance);
+  const miniAtmProfit = grouped.filter((item) => item.referenceType === "bank_transfer").reduce((sum, item) => sum + (item.type === "income" ? toNumber(item._sum.amount) : -toNumber(item._sum.amount)), 0);
+  const grossProfit = toNumber(transactionProfit._sum.grossProfit) + toNumber(serviceProfit._sum.grossProfit) + miniAtmProfit;
   const netProfit = grossProfit - total("expense");
   const chartData = [
     { name: "Penjualan", ref: "transaction" },

@@ -17,7 +17,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const where = q ? { AND: [outletWhere, { OR: [{ kodeTransaksi: { contains: q } }, { customerName: { contains: q } }, { items: { some: { item: { namaBarang: { contains: q } } } } }] }] } : outletWhere;
   const [items, customers, transactions, total] = await Promise.all([
     prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
-    prisma.customer.findMany({ orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
+    prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
       where,
       include: { items: { include: { item: true } } },

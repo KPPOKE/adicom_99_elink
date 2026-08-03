@@ -34,7 +34,7 @@ trap 'rm -rf -- "$STAGING_DIR"' EXIT
 mysqldump --defaults-extra-file="$MYSQL_CNF_FILE" --single-transaction --quick --routines --triggers --events --hex-blob --no-tablespaces "$MYSQL_DATABASE" | gzip -9 > "$STAGING_DIR/mysql.sql.gz"
 gzip -t "$STAGING_DIR/mysql.sql.gz"
 restic backup --tag adicom99 "$STAGING_DIR/mysql.sql.gz" "$SHARED_DIR/uploads" "$SHARED_DIR/.env"
-restic forget --tag adicom99 --keep-daily 7 --keep-weekly 4 --keep-monthly 6
+restic forget --tag adicom99 --keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 6
 
 date -u +%s > "${STATUS_FILE}.tmp"
 chmod 644 "${STATUS_FILE}.tmp"

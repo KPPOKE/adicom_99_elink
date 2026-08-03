@@ -17,5 +17,5 @@ set +a
 : "${RESTIC_PASSWORD_FILE:?RESTIC_PASSWORD_FILE wajib diset}"
 
 restic check
-restic forget --tag adicom99 --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+restic forget --tag adicom99 --keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
 echo "Pemeriksaan repository backup selesai"

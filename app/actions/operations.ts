@@ -39,6 +39,11 @@ export async function createTransaction(payload: unknown) {
   const parsed = transactionSchema.parse(payload);
   const itemIds = parsed.items.map((item) => item.itemId);
   const stocks = await prisma.item.findMany({ where: { id: { in: itemIds }, outletId: activeOutlet.id } });
+  if (parsed.customerId) {
+    const customer = await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.customerId, outletId: activeOutlet.id } } });
+    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+  }
+
   for (const line of parsed.items) {
     const stock = stocks.find((item) => item.id === line.itemId);
     if (!stock) throw new Error("Barang tidak ditemukan");
@@ -49,6 +54,7 @@ export async function createTransaction(payload: unknown) {
     line.price = Number(stock.hargaJual);
   }
 
+  const grossProfit = parsed.items.reduce((sum, item) => sum + item.qty * (item.price - Number(stocks.find((stock) => stock.id === item.itemId)!.hargaModal)), 0) - parsed.diskon;
   const total = parsed.items.reduce((sum, item) => sum + item.qty * item.price, 0);
   const grandTotal = Math.max(0, total - parsed.diskon);
 
@@ -73,6 +79,7 @@ export async function createTransaction(payload: unknown) {
             customerName: parsed.customerName || null,
             total,
             diskon: parsed.diskon,
+            grossProfit,
             grandTotal,
             paymentMethod: parsed.paymentMethod,
             paidAmount: parsed.paidAmount,
@@ -90,6 +97,7 @@ export async function createTransaction(payload: unknown) {
                 itemId: item.itemId,
                 qty: item.qty,
                 price: item.price,
+                costPrice: stocks.find((stock) => stock.id === item.itemId)!.hargaModal,
                 subtotal: item.qty * item.price
               }))
             }
@@ -281,6 +289,7 @@ async function validateServiceParts(tx: Prisma.TransactionClient, outletId: numb
   const items = await tx.item.findMany({ where: { id: { in: ids }, outletId }, include: { category: true } });
   if (items.length !== ids.length) throw new Error("Sparepart tidak ditemukan");
   if (items.some((item) => item.category.name === "Produk Digital")) throw new Error("Produk Digital tidak dapat digunakan sebagai sparepart");
+  return items;
 }
 
 function parseServiceForm(formData: FormData) {
@@ -316,6 +325,10 @@ export async function upsertService(formData: FormData) {
   const { id, parts, ...fields } = parsed;
   const finalCost = fields.laborCost + parts.reduce((sum, part) => sum + part.qty * part.price, 0);
   const targetMode = serviceStockMode(fields.status);
+  if (fields.customerId) {
+    const customer = await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: fields.customerId, outletId: activeOutlet.id } } });
+    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+  }
 
   if (id) {
     await prisma.$transaction(async (tx) => {
@@ -328,7 +341,8 @@ export async function upsertService(formData: FormData) {
         if (fields.status !== existing.status && fields.status !== "Diambil") throw new Error("Service lunas hanya dapat diubah ke status Diambil");
       }
 
-      await validateServiceParts(tx, activeOutlet.id, parts);
+      const stockItems = await validateServiceParts(tx, activeOutlet.id, parts);
+      const grossProfit = fields.laborCost + parts.reduce((sum, part) => sum + part.qty * (part.price - Number(stockItems.find((item) => item.id === part.itemId)!.hargaModal)), 0);
       await releaseServiceParts(tx, activeOutlet.id, existing.parts, serviceStockMode(existing.status));
       await allocateServiceParts(tx, activeOutlet.id, parts, targetMode);
       await tx.service.update({
@@ -338,12 +352,13 @@ export async function upsertService(formData: FormData) {
           customerId: fields.customerId || null,
           finalCost,
           paymentStatus: fields.status === "Batal" ? "unpaid" : existing.paymentStatus,
+          grossProfit,
           paidAt: fields.status === "Batal" ? null : existing.paidAt,
           completedDate: ["Selesai", "Diambil"].includes(fields.status) ? existing.completedDate ?? new Date() : null,
           pickedUpDate: fields.status === "Diambil" ? existing.pickedUpDate ?? new Date() : null,
           parts: {
             deleteMany: {},
-            create: parts.map((part) => ({ ...part, subtotal: part.qty * part.price }))
+            create: parts.map((part) => ({ ...part, costPrice: stockItems.find((item) => item.id === part.itemId)!.hargaModal, subtotal: part.qty * part.price }))
           }
         }
       });
@@ -358,7 +373,8 @@ export async function upsertService(formData: FormData) {
       const kodeService = await nextCode("SRV", "service");
       try {
         await prisma.$transaction(async (tx) => {
-          await validateServiceParts(tx, activeOutlet.id, parts);
+          const stockItems = await validateServiceParts(tx, activeOutlet.id, parts);
+          const grossProfit = fields.laborCost + parts.reduce((sum, part) => sum + part.qty * (part.price - Number(stockItems.find((item) => item.id === part.itemId)!.hargaModal)), 0);
           await allocateServiceParts(tx, activeOutlet.id, parts, targetMode);
           const service = await tx.service.create({
             data: {
@@ -368,9 +384,10 @@ export async function upsertService(formData: FormData) {
               finalCost,
               userId: user.id,
               outletId: activeOutlet.id,
+              grossProfit,
               completedDate: ["Selesai", "Diambil"].includes(fields.status) ? new Date() : null,
               pickedUpDate: fields.status === "Diambil" ? new Date() : null,
-              parts: { create: parts.map((part) => ({ ...part, subtotal: part.qty * part.price })) }
+              parts: { create: parts.map((part) => ({ ...part, costPrice: stockItems.find((item) => item.id === part.itemId)!.hargaModal, subtotal: part.qty * part.price })) }
             }
           });
           await tx.auditLog.create({
