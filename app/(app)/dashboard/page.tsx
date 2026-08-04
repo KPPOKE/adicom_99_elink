@@ -78,6 +78,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href={`/dashboard/cabang/${outlet.id}`}
+            prefetch={false}
             className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             Lihat ringkasan cabang
@@ -109,7 +110,7 @@ export default async function DashboardPage() {
         <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {summaries.map((outlet) => (
-            <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} style={{ borderTopColor: outletCardColor(outlet) }} className="rounded-lg border border-t-4 border-slate-200 bg-slate-50 p-3 transition hover:bg-white hover:shadow-sm">
+            <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} prefetch={false} style={{ borderTopColor: outletCardColor(outlet) }} className="rounded-lg border border-t-4 border-slate-200 bg-slate-50 p-3 transition hover:bg-white hover:shadow-sm">
               <p className="font-medium text-slate-900">{outlet.name}</p>
               <p className="mt-2 text-sm text-slate-600">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
               {user.role.name === "admin" ? <p className="mt-1 text-sm text-slate-600">Laba bersih {formatCurrency(outlet.net)}</p> : null}

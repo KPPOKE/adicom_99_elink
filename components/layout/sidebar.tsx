@@ -84,7 +84,7 @@ export function NavList({ role, permissions, onNavigate }: { role: Role; permiss
       const items = group.items.filter((item) => canAccessNav(item, role, permissions));
       if (!items.length) return null;
       const tone = navToneStyles[group.tone];
-      const links = items.map((item) => { const active = activeItem?.href === item.href; return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={cn("flex min-h-10 items-center gap-3 border-l-[3px] px-4 py-2 text-sm transition-colors", active ? cn(tone.active, "font-semibold") : cn("border-transparent text-slate-600", tone.hover))}><item.icon className={cn("h-4 w-4 shrink-0", active && tone.icon)} /><span>{item.label}</span></Link>; });
+      const links = items.map((item) => { const active = activeItem?.href === item.href; return <Link key={item.href} href={item.href} prefetch={false} onClick={onNavigate} aria-current={active ? "page" : undefined} className={cn("flex min-h-10 items-center gap-3 border-l-[3px] px-4 py-2 text-sm transition-colors", active ? cn(tone.active, "font-semibold") : cn("border-transparent text-slate-600", tone.hover))}><item.icon className={cn("h-4 w-4 shrink-0", active && tone.icon)} /><span>{item.label}</span></Link>; });
       if (!group.label) return <div key={groupIndex}>{links}</div>;
       const activeGroup = items.some((item) => item.href === activeItem?.href);
       const GroupIcon = group.icon;
