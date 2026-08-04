@@ -105,12 +105,12 @@ export default async function DashboardOutletDetailPage({
 
         <div className="space-y-6 p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions)} icon={ReceiptText} tone="cyan" helper="Digital dan fisik" />
+            <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions + summary.serviceTransactions)} icon={ReceiptText} tone="cyan" helper="Digital, fisik, dan service" />
             <StatCard title="Omset" value={formatCurrency(summary.turnover)} icon={CreditCard} tone="green" helper="Nilai transaksi" />
-            <StatCard title="Profit Kotor" value={formatCurrency(summary.grossProfit)} icon={CircleDollarSign} tone="blue" helper="Sebelum potongan" />
-            <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" />
-            <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" />
-            <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" />
+            {user.role.name === "admin" ? <StatCard title="Profit Kotor" value={formatCurrency(summary.grossProfit)} icon={CircleDollarSign} tone="blue" helper="Sebelum potongan" /> : null}
+            {user.role.name === "admin" ? <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" /> : null}
+            {user.role.name === "admin" ? <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" /> : null}
+            {user.role.name === "admin" ? <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" /> : null}
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -119,9 +119,9 @@ export default async function DashboardOutletDetailPage({
             <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh sumber dana" />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <Button asChild variant="secondary" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/tahunan?tahun=${period.year}`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link></Button>
-            <Button asChild variant="outline" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/bulanan?periode=${reportPeriod}`}><CalendarDays className="h-4 w-4" />Laporan Bulanan</Link></Button>
+          <div className={`grid gap-3 ${user.role.name === "admin" ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
+            {user.role.name === "admin" ? <Button asChild variant="secondary" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/tahunan?tahun=${period.year}`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link></Button> : null}
+            {user.role.name === "admin" ? <Button asChild variant="outline" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/bulanan?periode=${reportPeriod}`}><CalendarDays className="h-4 w-4" />Laporan Bulanan</Link></Button> : null}
             {canOpenMiniAtm ? (
               <form action={openOutletBankTransfersAction}>
                 <input type="hidden" name="outletId" value={outlet.id} />

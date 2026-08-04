@@ -5,6 +5,7 @@ import { DEFAULT_STAFF_PERMISSIONS } from "@/lib/permission-keys";
 
 async function login(page: import("@playwright/test").Page, email = "admin@adicom99.com") {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("form")).toHaveAttribute("data-hydrated", "true");
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill("password123");
   await page.getByRole("button", { name: "Masuk" }).click();
@@ -13,6 +14,7 @@ async function login(page: import("@playwright/test").Page, email = "admin@adico
 
 test("login password visibility can be toggled", async ({ page }) => {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("form")).toHaveAttribute("data-hydrated", "true");
   const password = page.locator('input[name="password"]');
   await password.fill("password123");
   await expect(password).toHaveAttribute("type", "password");
@@ -27,6 +29,7 @@ test("login password visibility can be toggled", async ({ page }) => {
 
 test("login returns accessible field validation errors", async ({ page }) => {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("form")).toHaveAttribute("data-hydrated", "true");
   await page.locator("form").evaluate((form: HTMLFormElement) => { form.noValidate = true; });
   await page.locator('input[name="email"]').fill("email-tidak-valid");
   await page.locator('input[name="password"]').fill("123");
@@ -247,9 +250,51 @@ test("staff only sees and opens cashier pages", async ({ page }, testInfo) => {
     await expect(page).toHaveURL(/\/dashboard$/);
   }
 
+  const activity = page.getByLabel("Aktivitas Hari Ini");
+  await expect(activity.getByText("Penjualan Hari Ini", { exact: true })).toBeVisible();
+  await expect(activity.getByText("Transaksi Fisik", { exact: true })).toBeVisible();
+  await expect(activity.getByText("Service Dibayar", { exact: true })).toBeVisible();
+  await expect(activity.getByText("Transfer Dana", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Lihat ringkasan cabang" })).toBeVisible();
+  await expect(page.getByText(/Laba bersih/i)).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goto(`/dashboard/cabang/${staff.outletId}`);
   await expect(page.getByText("Total Transaksi", { exact: true })).toBeVisible();
+  await expect(page.getByText("Profit Kotor", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Profit Bersih", { exact: true })).toHaveCount(0);
+  await page.goto("/bank-transfers");
+  await expect(page.getByText("Estimasi Profit", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Transaksi oleh")).toHaveCount(0);
+});
+test("staff dashboard stays idle and loads notifications on demand", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Cukup diverifikasi pada satu browser");
+  const staff = await createStaff(`idle-${Date.now()}`);
+  await prisma.userPermission.deleteMany({ where: { userId: staff.id, key: "dashboard.view" } });
+  let dashboardGets = 0;
+  let eventGets = 0;
+  page.on("request", (request) => {
+    if (request.method() !== "GET") return;
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/dashboard") dashboardGets += 1;
+    if (pathname === "/api/events") eventGets += 1;
+  });
+
+  try {
+    await login(page, staff.email);
+    await expect(page.getByRole("link", { name: "Dasbor" })).toBeVisible();
+    await expect(page.getByText("Cabang Saya")).toBeVisible();
+    await expect(page.getByTitle("Notifikasi")).toBeVisible();
+    dashboardGets = 0;
+    eventGets = 0;
+    await page.waitForTimeout(5_000);
+    expect(dashboardGets).toBe(0);
+    expect(eventGets).toBe(0);
+    await page.getByTitle("Notifikasi").click();
+    await expect.poll(() => eventGets).toBe(1);
+    expect(dashboardGets).toBe(0);
+  } finally {
+    await prisma.user.delete({ where: { id: staff.id } });
+  }
 });
 test("staff cannot open records from another outlet by URL", async ({ page }, testInfo) => {
   const staff = await createStaff(`scope-${Date.now()}-${testInfo.project.name}`);
@@ -297,7 +342,7 @@ test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo)
   await expect(menuButton).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#mobile-navigation summary").filter({ hasText: "Pengaturan" })).toBeVisible();
 
-  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).click();
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).evaluate((element: HTMLElement) => element.click());
   await page.getByRole("link", { name: "Inventori" }).evaluate((element: HTMLElement) => element.click());
   await expect(page).toHaveURL(/\/inventory/);
   await expect(menuButton).toHaveAttribute("aria-expanded", "false");
@@ -315,11 +360,11 @@ test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo)
   for (const name of ["Dasbor", "MiniATM", "Service"]) {
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   }
-  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).click();
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).evaluate((element: HTMLElement) => element.click());
   await expect(page.getByRole("link", { name: "Transaksi Fisik", exact: true })).toBeVisible();
-  await page.locator("#mobile-navigation summary").filter({ hasText: "Utang Piutang" }).click();
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Utang Piutang" }).evaluate((element: HTMLElement) => element.click());
   await expect(page.getByRole("link", { name: "Pelanggan", exact: true })).toBeVisible();
-  await page.locator("#mobile-navigation summary").filter({ hasText: "Pengaturan" }).click();
+  await page.locator("#mobile-navigation summary").filter({ hasText: "Pengaturan" }).evaluate((element: HTMLElement) => element.click());
   await expect(page.getByRole("link", { name: "Backup Data", exact: true })).toBeVisible();
 
   await prisma.auditLog.deleteMany({ where: { userId: staff.id } });
@@ -427,8 +472,11 @@ test("admin opens the branch summary and monthly report from an outlet card", as
   await login(page);
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
 
-  const outletCard = page.locator('a[href^="/dashboard/cabang/"]').first();
-  await expect(outletCard).toBeVisible();
+  const outletCards = page.locator('a[href^="/dashboard/cabang/"]');
+  await expect(outletCards.first()).toBeVisible();
+  const cardColors = await outletCards.evaluateAll((cards) => cards.map((card) => getComputedStyle(card).borderTopColor));
+  expect(new Set(cardColors).size).toBeGreaterThan(1);
+  const outletCard = outletCards.first();
   await outletCard.click();
   await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+$/);
 
@@ -485,8 +533,8 @@ test("annual outlet report is scoped and export follows permission", async ({ pa
     await page.context().clearCookies();
     await login(page, staff.email);
     await page.goto(`/dashboard/cabang/${outlet.id}/tahunan`);
-    await expect(page.getByText(`Statistik Profit Tahun ${new Date().getFullYear()}`)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Unduh Excel" })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByText(`Statistik Profit Tahun ${new Date().getFullYear()}`)).toHaveCount(0);
     await page.goto(`/dashboard/cabang/${outlet.id}/tahunan/export`);
     await expect(page).toHaveURL(/\/dashboard$/);
   } finally {
@@ -494,4 +542,27 @@ test("annual outlet report is scoped and export follows permission", async ({ pa
     await prisma.userPermission.deleteMany({ where: { userId: staff.id } });
     await prisma.user.deleteMany({ where: { id: staff.id } });
   }
+});
+
+test("closing pecahan and new configuration controls are available", async ({ page }) => {
+  await login(page);
+  await page.goto("/bank-transfers");
+  await page.getByRole("button", { name: "Closing Pecahan" }).click();
+  await expect(page.getByRole("dialog").getByText("Total Closing")).toBeVisible();
+  await page.getByLabel("Jumlah pecahan Rp 1.000").fill("2");
+  await expect(page.getByRole("dialog").getByText("Rp 2.000", { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kirim WhatsApp" })).toBeEnabled();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/funds");
+  await page.locator("section button").first().click();
+  await expect(page.getByLabel("Gambar Bank / E-wallet")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/settings/store");
+  await page.getByRole("button", { name: "Tambah", exact: true }).click();
+  await expect(page.locator('input[type="color"]').first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.goto("/settings/data");
+  await expect(page.getByRole("heading", { name: "Load Data" })).toBeVisible();
 });

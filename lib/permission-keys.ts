@@ -66,5 +66,5 @@ export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
 ];
 
 export function hasPermission(role: "admin" | "staff", permissions: string[], key: PermissionKey) {
-  return role === "admin" || permissions.includes(key);
+  return role === "admin" || key === "dashboard.view" || permissions.includes(key);
 }

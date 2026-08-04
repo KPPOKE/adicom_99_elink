@@ -13,7 +13,7 @@ import { loadReportPreview, parseReportFilters, reportCurrency, reportTitle } fr
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export default async function ReportsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePermission("reports.view");
+  const user = await requirePermission("reports.view");
   const params = (await searchParams) ?? {};
   const filters = parseReportFilters(params);
   const query = new URLSearchParams();
@@ -29,12 +29,12 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
         description={`Periode: ${reportTitle(filters)}`}
         action={
           <>
-            <Button asChild variant="outline">
+            {user.role.name === "admin" ? <Button asChild variant="outline">
               <Link href={`/reports/export?${query.toString()}&kind=profit-loss&format=pdf`}>
                 <Printer className="h-4 w-4" />
                 PDF Laba/Rugi
               </Link>
-            </Button>
+            </Button> : null}
             <Button asChild variant="outline">
               <Link href={`/reports/export?${query.toString()}&kind=sales`}>
                 <Download className="h-4 w-4" />
@@ -99,11 +99,11 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Pemasukan" value={formatCurrency(income)} icon={Download} tone="green" />
         <StatCard title="Total Pengeluaran" value={formatCurrency(expense)} icon={Download} tone="red" />
-        <StatCard title="Keuntungan Kotor" value={formatCurrency(grossProfit)} icon={Download} tone="blue" />
-        <StatCard title="Keuntungan Bersih" value={formatCurrency(netProfit)} icon={Download} tone="cyan" />
+        {user.role.name === "admin" ? <StatCard title="Keuntungan Kotor" value={formatCurrency(grossProfit)} icon={Download} tone="blue" /> : null}
+        {user.role.name === "admin" ? <StatCard title="Keuntungan Bersih" value={formatCurrency(netProfit)} icon={Download} tone="cyan" /> : null}
       </div>
       <div className="mt-6">
-        <ReportChart data={chartData} />
+        {user.role.name === "admin" ? <ReportChart data={chartData} /> : null}
       </div>
       <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-2">
         <ReportTable title="Laporan Penjualan" rows={transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), item.status, formatCurrency(toNumber(item.grandTotal))])} />

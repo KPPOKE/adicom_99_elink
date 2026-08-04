@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, CheckCircle, Hammer, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { AppNotification } from "@/app/actions/notifications";
@@ -11,42 +11,32 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
-
-  useEffect(() => {
-    // SSE Real-time Listener (DB Polling via Server)
-    const eventSource = new EventSource("/api/events");
-
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.status === "ok") return; // Initial ping
-
-        if (payload.type === "SYNC") {
-          const newNotifications = payload.data as AppNotification[];
-          
-          setNotifications((prev) => {
-            // Hanya toast jika bukan initial load
-            if (initialized.current) {
-              const prevIds = new Set(prev.map(n => n.id));
-              newNotifications.forEach(notif => {
-                if (!prevIds.has(notif.id)) {
-                  toast.info(notif.title, { description: notif.description });
-                }
-              });
-            }
-            initialized.current = true;
-            return newNotifications;
+  const loadNotifications = useCallback(async (showNew: boolean, signal?: AbortSignal) => {
+    try {
+      const response = await fetch("/api/events", { cache: "no-store", signal });
+      if (!response.ok) return;
+      const next = await response.json() as AppNotification[];
+      setNotifications((previous) => {
+        if (showNew) {
+          const previousIds = new Set(previous.map((notification) => notification.id));
+          next.forEach((notification) => {
+            if (!previousIds.has(notification.id)) toast.info(notification.title, { description: notification.description });
           });
         }
-      } catch {
-        // Parse error or non-JSON data
-      }
-    };
+        return next;
+      });
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) console.error("Gagal memuat notifikasi", error);
+    }
+  }, []);
 
-    return () => {
-      eventSource.close();
-    };
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/events", { cache: "no-store", signal: controller.signal })
+      .then((response) => response.ok ? response.json() as Promise<AppNotification[]> : [])
+      .then((next) => setNotifications(next))
+      .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) console.error("Gagal memuat notifikasi", error); });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -79,7 +69,7 @@ export function NotificationBell() {
         size="icon"
         title="Notifikasi"
         className="relative"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => { const next = !isOpen; setIsOpen(next); if (next) void loadNotifications(true); }}
       >
         <Bell className="h-4 w-4" />
         {notifications.length > 0 && (

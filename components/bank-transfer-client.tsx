@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { finalizeBankTransfer, reopenBankTransfer, upsertBankTransfer } from "@/app/actions/bank-transfers";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ClosingCashDialog } from "@/components/closing-cash-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,13 +88,15 @@ function SummaryCard({ label, value, helper, icon }: { label: string; value: num
   );
 }
 
-export function BankTransferClient({ transfers, role, canManage, pagination, filterValues, outletName, summary, funds, staff }: {
+export function BankTransferClient({ transfers, role, canManage, pagination, filterValues, outletName, userName, whatsapp, summary, funds, staff }: {
   transfers: TransferRow[];
   role: "admin" | "staff";
   canManage: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { status: string; kind: string; date: string; fund: string; pegawai: string };
   outletName: string;
+  userName: string;
+  whatsapp: string;
   summary: { transferAmount: number; tarikAmount: number; turnover: number; bankFee: number; operational: number; profit: number };
   funds: FundOption[];
   staff: StaffOption[];
@@ -173,14 +176,14 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
   };
 
   const columns: ColumnDef<TransferRow>[] = [
-    { header: "Transaksi", cell: ({ row }) => <div><p className="font-medium text-slate-900">{row.original.kodeTransfer}</p><p className="text-xs text-slate-500">{formatDate(row.original.createdAt)} · {row.original.userName}</p></div> },
-    { header: "Alur Dana", cell: ({ row }) => <div><p>{row.original.sourceFundName || "-"} → {row.original.targetFundName || "-"}</p><p className="mt-1 text-xs text-slate-500">{row.original.kind === "Transfer" ? row.original.destinationBank : row.original.transactionType || "Tarik Tunai"}</p></div> },
+    { header: "Transaksi", cell: ({ row }) => <div><p className="font-medium text-slate-900">{row.original.kodeTransfer}</p><p className="text-xs text-slate-500">{formatDate(row.original.createdAt)} - {row.original.userName}</p></div> },
+    { header: "Alur Dana", cell: ({ row }) => <div><p>{row.original.sourceFundName || "-"} menjadi {row.original.targetFundName || "-"}</p><p className="mt-1 text-xs text-slate-500">{row.original.kind === "Transfer" ? row.original.destinationBank : row.original.transactionType || "Tarik Tunai"}</p></div> },
     { header: "Jenis", cell: ({ row }) => <Badge variant={row.original.kind === "Transfer" ? "blue" : "orange"}>{row.original.kind === "Transfer" ? "Transfer" : "Tarik Tunai"}</Badge> },
     { header: "Nominal", cell: ({ row }) => <div><p className="font-semibold text-slate-900">{formatCurrency(row.original.amount)}</p><p className="text-xs text-slate-500">Admin {formatCurrency(row.original.adminFee + row.original.adminBankFee + row.original.externalAdminFee)}</p></div> },
     { header: "Perubahan Saldo", cell: ({ row }) => {
       const sourceMutation = row.original.mutations.find((item) => item.fundAccountId === row.original.sourceFundId);
       const targetMutation = row.original.mutations.find((item) => item.fundAccountId === row.original.targetFundId);
-      return <div className="space-y-1 text-xs"><p>{row.original.sourceFundName}: {sourceMutation ? `${formatCurrency(sourceMutation.balanceBefore)} → ${formatCurrency(sourceMutation.balanceAfter)}` : "-"}</p><p>{row.original.targetFundName}: {targetMutation ? `${formatCurrency(targetMutation.balanceBefore)} → ${formatCurrency(targetMutation.balanceAfter)}` : "-"}</p></div>;
+      return <div className="space-y-1 text-xs"><p>{row.original.sourceFundName}: {sourceMutation ? `${formatCurrency(sourceMutation.balanceBefore)} menjadi ${formatCurrency(sourceMutation.balanceAfter)}` : "-"}</p><p>{row.original.targetFundName}: {targetMutation ? `${formatCurrency(targetMutation.balanceBefore)} menjadi ${formatCurrency(targetMutation.balanceAfter)}` : "-"}</p></div>;
     } },
     { header: "Status", cell: ({ row }) => <Badge variant={row.original.status === "Berhasil" ? "green" : row.original.status === "Gagal" ? "red" : "orange"}>{row.original.status}</Badge> },
     { id: "actions", header: "", cell: ({ row }) => {
@@ -201,7 +204,7 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
       <SummaryCard label="Omset" value={summary.turnover} helper="Nominal transaksi" icon={<Landmark className="h-4 w-4" />} />
       <SummaryCard label="Admin Bank" value={summary.bankFee} helper="Biaya bank" icon={<Landmark className="h-4 w-4" />} />
       <SummaryCard label="Operasional" value={summary.operational} helper="Biaya saldo" icon={<Wallet className="h-4 w-4" />} />
-      <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} />
+      {role === "admin" ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} /> : null}
     </section>
 
     <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -215,7 +218,7 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
     </section>
 
     <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <div className="mb-5 flex items-center justify-between gap-4"><div><h2 className="font-semibold text-slate-900">Riwayat Transaksi</h2><p className="mt-1 text-sm text-slate-500">Transfer dan tarik tunai cabang aktif.</p></div></div>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-900">Riwayat Transaksi</h2><p className="mt-1 text-sm text-slate-500">Transfer dan tarik tunai cabang aktif.</p></div><ClosingCashDialog funds={cashFunds} outletName={outletName} userName={userName} whatsapp={whatsapp} /></div>
       <DataTable
         data={transfers}
         columns={columns}
@@ -234,15 +237,15 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
             <div className="grid gap-4 md:grid-cols-2">
               <FormField control={form.control} name="kind" render={({ field }) => <FormItem><FormLabel>Jenis Transaksi</FormLabel><Select {...field}><option value="Transfer">Transfer</option><option value="Tarik_Tunai">Tarik Tunai</option></Select><FormMessage /></FormItem>} />
               <FormField control={form.control} name="transactionType" render={({ field }) => <FormItem><FormLabel>Tipe Transaksi</FormLabel><Select {...field}>{transferTypes.map((type) => <option key={type} value={type}>{type}</option>)}</Select><FormMessage /></FormItem>} />
-              <FormField control={form.control} name="sourceFundId" render={({ field }) => <FormItem><FormLabel>Sumber Dana</FormLabel><Select name={field.name} aria-label="Sumber Dana" value={String(field.value || "")} onChange={(event) => field.onChange(Number(event.target.value))}>{sourceOptions.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatCurrency(item.balance)}</option>)}</Select><FormMessage /></FormItem>} />
-              <FormField control={form.control} name="targetFundId" render={({ field }) => <FormItem><FormLabel>Terima Dana</FormLabel><Select name={field.name} aria-label="Terima Dana" value={String(field.value || "")} onChange={(event) => field.onChange(Number(event.target.value))}>{targetOptions.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatCurrency(item.balance)}</option>)}</Select><FormMessage /></FormItem>} />
+              <FormField control={form.control} name="sourceFundId" render={({ field }) => <FormItem><FormLabel>Sumber Dana</FormLabel><Select name={field.name} aria-label="Sumber Dana" value={String(field.value || "")} onChange={(event) => field.onChange(Number(event.target.value))}>{sourceOptions.map((item) => <option key={item.id} value={item.id}>{item.name} - {formatCurrency(item.balance)}</option>)}</Select><FormMessage /></FormItem>} />
+              <FormField control={form.control} name="targetFundId" render={({ field }) => <FormItem><FormLabel>Terima Dana</FormLabel><Select name={field.name} aria-label="Terima Dana" value={String(field.value || "")} onChange={(event) => field.onChange(Number(event.target.value))}>{targetOptions.map((item) => <option key={item.id} value={item.id}>{item.name} - {formatCurrency(item.balance)}</option>)}</Select><FormMessage /></FormItem>} />
               {kind === "Transfer" ? <FormField control={form.control} name="destinationBank" render={({ field }) => <FormItem><FormLabel>Bank Tujuan</FormLabel><FormControl><Input list="bank-options" placeholder="Pilih atau ketik bank" {...field} /></FormControl><datalist id="bank-options">{commonBanks.map((bank) => <option key={bank} value={bank} />)}</datalist><FormMessage /></FormItem>} /> : null}
               <FormField control={form.control} name="amount" render={({ field }) => <FormItem><FormLabel>Nominal</FormLabel><FormControl><CurrencyInput name="amount" value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} />
               <FormField control={form.control} name="adminFee" render={({ field }) => <FormItem><FormLabel>{kind === "Transfer" ? "Admin Loket" : "Admin Dalam"}</FormLabel><FormControl><CurrencyInput name="adminFee" value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} />
               {kind === "Transfer" ? <FormField control={form.control} name="adminBankFee" render={({ field }) => <FormItem><FormLabel>Admin Bank</FormLabel><FormControl><CurrencyInput name="adminBankFee" value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} /> : <FormField control={form.control} name="externalAdminFee" render={({ field }) => <FormItem><FormLabel>Admin Luar</FormLabel><FormControl><CurrencyInput name="externalAdminFee" value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} />}
               <FormField control={form.control} name="note" render={({ field }) => <FormItem className="md:col-span-2"><FormLabel>Catatan</FormLabel><FormControl><Input placeholder="Keterangan transaksi" {...field} /></FormControl><FormMessage /></FormItem>} />
             </div>
-            <div className="grid gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm md:grid-cols-3"><div><p className="text-xs text-slate-600">Sumber Dana</p><p className="mt-1 font-medium">{source?.name ?? "-"}</p><p className="text-xs text-slate-600">{formatCurrency(source?.balance ?? 0)} → {formatCurrency((source?.balance ?? 0) + ledger.sourceDelta)}</p></div><div><p className="text-xs text-slate-600">Terima Dana</p><p className="mt-1 font-medium">{target?.name ?? "-"}</p><p className="text-xs text-slate-600">{formatCurrency(target?.balance ?? 0)} → {formatCurrency((target?.balance ?? 0) + ledger.targetDelta)}</p></div><div><p className="text-xs text-slate-600">Estimasi Profit</p><p className="mt-1 font-semibold text-emerald-300">{formatCurrency(ledger.profit)}</p></div></div>
+            <div className={`grid gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm ${role === "admin" ? "md:grid-cols-3" : "md:grid-cols-2"}`}><div><p className="text-xs text-slate-600">Sumber Dana</p><p className="mt-1 font-medium">{source?.name ?? "-"}</p><p className="text-xs text-slate-600">{formatCurrency(source?.balance ?? 0)} menjadi {formatCurrency((source?.balance ?? 0) + ledger.sourceDelta)}</p></div><div><p className="text-xs text-slate-600">Terima Dana</p><p className="mt-1 font-medium">{target?.name ?? "-"}</p><p className="text-xs text-slate-600">{formatCurrency(target?.balance ?? 0)} menjadi {formatCurrency((target?.balance ?? 0) + ledger.targetDelta)}</p></div>{role === "admin" ? <div><p className="text-xs text-slate-600">Estimasi Profit</p><p className="mt-1 font-semibold text-emerald-700">{formatCurrency(ledger.profit)}</p></div> : null}</div>
             <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={closeForm}>Batal</Button><Button type="submit" disabled={isPending}>{isPending ? "Memproses..." : "Proses"}</Button></div>
           </form></Form></DialogContent></Dialog> : null}
         </>}

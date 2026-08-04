@@ -114,6 +114,7 @@ model Outlet {
   code                 String                @unique
   name                 String
   address              String?               @db.Text
+  color                String                @default("#2563EB")
   users                User[]
   customers            CustomerOutlet[]
   transactions         Transaction[]
@@ -452,6 +453,7 @@ model FundAccount {
   balance         Decimal         @default(0) @db.Decimal(14, 2)
   openingBalance  Decimal         @default(0) @map("opening_balance") @db.Decimal(14, 2)
   note            String?         @db.Text
+  image           String?
   isActive        Boolean         @default(true) @map("is_active")
   sourceTransfers BankTransfer[]  @relation("BankTransferSourceFund")
   targetTransfers BankTransfer[]  @relation("BankTransferTargetFund")

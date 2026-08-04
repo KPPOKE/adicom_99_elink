@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { buildOutletAnnualReport, outletAnnualReportYear } from "@/lib/outlet-dashboard-report";
 import { requirePermission } from "@/lib/permissions";
+import { requireProfitAccess } from "@/lib/permissions";
 import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   await requirePermission("reports.export");
   const { outletId } = await params;
   const { outlet } = await requireDashboardOutlet(Number(outletId));
+  await requireProfitAccess();
   const period = outletAnnualReportYear(request.nextUrl.searchParams.get("tahun") ?? undefined);
   const report = await loadOutletReport(outlet.id, period.start, period.end);
   const annual = buildOutletAnnualReport(report.days);

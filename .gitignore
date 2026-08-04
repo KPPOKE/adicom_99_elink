@@ -10,3 +10,4 @@ playwright-report
 test-results
 public/uploads/*
 !public/uploads/.gitkeep
+/storage/backups/

@@ -34,6 +34,7 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
       <PageHeader title="Pengeluaran" description={`Catatan biaya operasional cabang ${activeOutlet.name}.`} />
       <FinanceClient
         canManage={hasPermission(user.role.name, permissions, "finance.manage")}
+        canViewProfit={user.role.name === "admin"}
         records={records.map((record) => ({
           id: record.id,
           type: record.type,
@@ -46,7 +47,7 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
         filterValues={{ type: "expense", category: query.category ?? "" }}
         categories={categories.map((item) => item.category)}
-        summary={{ income: toNumber(income._sum.amount), expense: toNumber(expense._sum.amount) }}
+        summary={{ income: user.role.name === "admin" ? toNumber(income._sum.amount) : 0, expense: toNumber(expense._sum.amount) }}
       />
     </>
   );

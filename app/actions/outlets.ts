@@ -53,7 +53,7 @@ export async function upsertOutlet(formData: FormData) {
     await assertTrustedOrigin();
     const user = await requireAdmin();
     const parsed = outletSchema.parse(Object.fromEntries(formData));
-    const data = { code: parsed.code.toUpperCase(), name: parsed.name, address: parsed.address || null };
+    const data = { code: parsed.code.toUpperCase(), name: parsed.name, address: parsed.address || null, color: parsed.color };
     await prisma.$transaction(async (tx) => {
       if (parsed.id) {
         const existing = await tx.outlet.findUnique({ where: { id: parsed.id } });
@@ -67,7 +67,7 @@ export async function upsertOutlet(formData: FormData) {
             action: "update",
             entity: "outlet",
             entityId: outlet.id,
-            metadata: { before: { code: existing.code, name: existing.name, address: existing.address }, after: { code: outlet.code, name: outlet.name, address: outlet.address } }
+            metadata: { before: { code: existing.code, name: existing.name, address: existing.address, color: existing.color }, after: { code: outlet.code, name: outlet.name, address: outlet.address, color: outlet.color } }
           }
         });
       } else {

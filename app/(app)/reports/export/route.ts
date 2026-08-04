@@ -6,10 +6,11 @@ import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  await requirePermission("reports.export");
+  const user = await requirePermission("reports.export");
   const params = Object.fromEntries(request.nextUrl.searchParams.entries());
   const filters = parseReportFilters(params);
   const kind = request.nextUrl.searchParams.get("kind") ?? "sales";
+  if (kind === "profit-loss" && user.role.name !== "admin") return new Response("Akses ditolak", { status: 403 });
   const format = request.nextUrl.searchParams.get("format") ?? "xlsx";
   const data = await loadReportData(filters);
   const dataset = reportDataset(kind, data);

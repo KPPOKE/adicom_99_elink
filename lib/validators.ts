@@ -17,7 +17,8 @@ export const outletSchema = z.object({
   id: z.coerce.number<number>().optional(),
   code: z.string().trim().min(2, "Kode cabang wajib diisi").max(40).regex(/^[A-Z0-9_-]+$/i, "Kode hanya boleh huruf, angka, underscore, dan strip"),
   name: z.string().trim().min(2, "Nama cabang wajib diisi").max(100),
-  address: z.string().trim().max(500, "Alamat maksimal 500 karakter").optional()
+  address: z.string().trim().max(500, "Alamat maksimal 500 karakter").optional(),
+  color: z.string().regex(/^#[0-9A-F]{6}$/i, "Warna cabang tidak valid").default("#2563EB")
 });
 export type OutletFormValues = z.output<typeof outletSchema>;
 export const userSchema = z.object({

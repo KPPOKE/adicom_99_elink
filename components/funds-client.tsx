@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 
 type FundType = "Cash" | "Bank" | "Ewallet" | "Pulsa_Server" | "Other";
-type FundRow = { id: number; name: string; type: FundType; balance: number; openingBalance: number; note: string | null; isActive: boolean; updatedAt: string };
+type FundRow = { id: number; name: string; image: string | null; type: FundType; balance: number; openingBalance: number; note: string | null; isActive: boolean; updatedAt: string };
 type FundForm = { id?: number; name: string; type: FundType; balance: number; adjustmentReason: string; note: string; isActive: boolean };
 
 const empty: FundForm = { name: "", type: "Bank", balance: 0, adjustmentReason: "", note: "", isActive: true };
@@ -60,9 +60,11 @@ export function FundsClient({ funds, canManage }: { funds: FundRow[]; canManage:
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (balanceChanged && !form.adjustmentReason.trim()) return void toast.error("Alasan penyesuaian saldo wajib diisi");
+    const payload = new FormData(event.currentTarget);
+    Object.entries(form).forEach(([key, value]) => payload.set(key, String(value)));
     startTransition(async () => {
       try {
-        await upsertFundAccount(form);
+        await upsertFundAccount(payload);
         toast.success(form.id ? "Sumber dana diperbarui" : "Sumber dana dibuat");
         setOpen(false);
         setForm(empty);
@@ -91,7 +93,7 @@ export function FundsClient({ funds, canManage }: { funds: FundRow[]; canManage:
           const config = typeConfig[fund.type];
           const Icon = config.icon;
           return <button key={fund.id} type="button" onClick={() => openFund(fund)} className="group min-h-[190px] rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30" aria-label={`Buka detail ${fund.name}`}>
-            <div className="flex items-start justify-between gap-3"><div className={cn("flex h-11 w-11 items-center justify-center rounded-lg border", config.accent)}><Icon className="h-5 w-5" aria-hidden="true" /></div><Badge variant={fund.isActive ? "green" : "red"}>{fund.isActive ? "Aktif" : "Nonaktif"}</Badge></div>
+            <div className="flex items-start justify-between gap-3"><div className={cn("flex h-11 w-14 items-center justify-center overflow-hidden rounded-lg border", config.accent)}>{fund.image ? <img src={fund.image} alt="" className="h-full w-full bg-white object-contain p-1" /> : <Icon className="h-5 w-5" aria-hidden="true" />}</div><Badge variant={fund.isActive ? "green" : "red"}>{fund.isActive ? "Aktif" : "Nonaktif"}</Badge></div>
             <div className="mt-4 flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate font-semibold text-slate-950">{fund.name}</h3><p className="mt-1 text-xs text-slate-500">{config.label}</p></div><Pencil className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-blue-600" aria-hidden="true" /></div>
             <p className="mt-4 text-xl font-semibold text-blue-700">{formatCurrency(fund.balance)}</p>
             <div className="mt-3 flex items-center justify-between gap-2 text-xs text-slate-500"><span>Saldo awal {formatCurrency(fund.openingBalance)}</span><span>{formatDateTime(fund.updatedAt)}</span></div>
@@ -111,6 +113,7 @@ export function FundsClient({ funds, canManage }: { funds: FundRow[]; canManage:
             <Field label="Status"><label className="flex h-10 items-center gap-3 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} disabled={!canManage} className="h-4 w-4 accent-blue-600" />Sumber dana aktif</label></Field>
           </div>
           {balanceChanged ? <Field label="Alasan Penyesuaian" hint="Wajib diisi karena saldo berjalan berubah."><Textarea value={form.adjustmentReason} onChange={(event) => setForm({ ...form, adjustmentReason: event.target.value })} placeholder="Contoh: koreksi hasil rekonsiliasi kas" required disabled={!canManage} /></Field> : null}
+          <Field label="Gambar Bank / E-wallet" hint="Opsional. JPG, PNG, atau WebP maksimal 2 MB."><Input type="file" name="imageFile" accept="image/jpeg,image/png,image/webp" disabled={!canManage} /></Field>
           <Field label="Keterangan"><Textarea value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="Catatan rekening atau penggunaan sumber dana" disabled={!canManage} /></Field>
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div>{form.id ? <Button asChild type="button" variant="outline"><Link href={`/fund-mutations?mode=saldo&fund=${form.id}`}><History className="h-4 w-4" />Lihat Riwayat</Link></Button> : null}</div>

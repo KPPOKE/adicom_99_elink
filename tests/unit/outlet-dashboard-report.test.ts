@@ -50,6 +50,7 @@ describe("outlet dashboard report", () => {
     expect(report.summary).toEqual({
       digitalTransactions: 3,
       physicalTransactions: 1,
+      serviceTransactions: 1,
       turnover: 212_000,
       grossProfit: 34_000,
       bankFee: 500,
@@ -76,11 +77,11 @@ describe("outlet dashboard report", () => {
   it("aggregates every month and the annual total", () => {
     const annual = buildOutletAnnualReport([
       {
-        date: new Date(2026, 0, 10), digitalTransactions: 0, physicalTransactions: 0, turnover: 0, grossProfit: 15_000,
+        date: new Date(2026, 0, 10), digitalTransactions: 0, physicalTransactions: 0, serviceTransactions: 0, turnover: 0, grossProfit: 15_000,
         bankFee: 1_000, operational: 2_000, profit: 12_000, expense: 3_000, netProfit: 9_000
       },
       {
-        date: new Date(2026, 6, 10), digitalTransactions: 0, physicalTransactions: 0, turnover: 0, grossProfit: 30_000,
+        date: new Date(2026, 6, 10), digitalTransactions: 0, physicalTransactions: 0, serviceTransactions: 0, turnover: 0, grossProfit: 30_000,
         bankFee: 2_000, operational: 3_000, profit: 25_000, expense: 5_000, netProfit: 20_000
       }
     ]);

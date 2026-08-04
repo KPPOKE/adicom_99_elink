@@ -7,7 +7,7 @@ import { loadReportData, parseReportFilters, reportTitle } from "@/lib/reporting
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
 export default async function ReportPrintPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePermission("reports.view");
+  const user = await requirePermission("reports.view");
   const params = (await searchParams) ?? {};
   const filters = parseReportFilters(params);
   const [setting, data] = await Promise.all([
@@ -35,7 +35,7 @@ export default async function ReportPrintPage({ searchParams }: { searchParams?:
         <section className="my-6 grid grid-cols-3 gap-3">
           <Summary label="Pemasukan" value={data.income} />
           <Summary label="Pengeluaran" value={data.expense} />
-          <Summary label="Laba/Rugi" value={data.income - data.expense} />
+          {user.role.name === "admin" ? <Summary label="Laba/Rugi" value={data.income - data.expense} /> : null}
         </section>
 
         <ReportTable

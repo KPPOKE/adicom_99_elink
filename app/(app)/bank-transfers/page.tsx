@@ -45,7 +45,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
     ]
   };
 
-  const [transfers, total, todayTransfers, todayOperations, canManage] = await Promise.all([
+  const [transfers, total, todayTransfers, todayOperations, canManage, setting] = await Promise.all([
     prisma.bankTransfer.findMany({
       where,
       include: {
@@ -67,7 +67,8 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
       where: { outletId: activeOutlet.id, bankTransferId: null, adminFee: { gt: 0 }, createdAt: { gte: start, lt: end } },
       _sum: { adminFee: true }
     }),
-    canCurrentUser("bankTransfers.manage")
+    canCurrentUser("bankTransfers.manage"),
+    prisma.setting.findFirst({ select: { whatsapp: true } })
   ]);
   const fundRows = funds.map((item) => ({ id: item.id, name: item.name, type: item.type, balance: toNumber(item.balance) }));
   const transferAmount = todayTransfers.filter((item) => item.kind === "Transfer").reduce((sum, item) => sum + toNumber(item.amount), 0);
@@ -115,7 +116,9 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
         filterValues={{ status: query.status ?? "", kind: query.kind ?? "", date: selectedDate, fund: fundId ? String(fundId) : "", pegawai: staffId ? String(staffId) : "" }}
         outletName={activeOutlet.name}
-        summary={{ transferAmount, tarikAmount, turnover: transferAmount + tarikAmount, bankFee, operational, profit }}
+        userName={user.name}
+        whatsapp={setting?.whatsapp ?? ""}
+        summary={{ transferAmount, tarikAmount, turnover: transferAmount + tarikAmount, bankFee, operational, profit: user.role.name === "admin" ? profit : 0 }}
         funds={fundRows}
         staff={staff}
       />

@@ -7,21 +7,26 @@ import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { assertTrustedOrigin } from "@/lib/security";
 import { toNumber } from "@/lib/utils";
+import { deletePublicUpload, saveImageUpload } from "@/lib/upload";
 import { fundAccountSchema, fundMutationSchema } from "@/lib/validators";
 
 function revalidateFunds() {
   ["/funds", "/fund-mutations", "/bank-transfers", "/dashboard", "/reports"].forEach((path) => revalidatePath(path));
 }
 
-export async function upsertFundAccount(payload: unknown) {
+export async function upsertFundAccount(formData: FormData) {
   await assertTrustedOrigin();
   const user = await requirePermission("funds.manage");
   const { activeOutlet } = await outletContext(user);
-  const parsed = fundAccountSchema.parse(payload);
-  await prisma.$transaction(async (tx) => {
+  const parsed = fundAccountSchema.parse({ ...Object.fromEntries(formData), isActive: formData.get("isActive") === "true" });
+  const uploadedImage = await saveImageUpload(formData.get("imageFile") as File | null, "fund");
+  let previousImage: string | null = null;
+  try {
+    await prisma.$transaction(async (tx) => {
     if (parsed.id) {
       const existing = await tx.fundAccount.findUnique({ where: { id: parsed.id } });
       if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Sumber dana tidak ditemukan");
+      previousImage = existing.image;
       const before = toNumber(existing.balance);
       const delta = parsed.balance - before;
       if (delta !== 0 && !parsed.adjustmentReason) throw new Error("Alasan penyesuaian saldo wajib diisi");
@@ -38,7 +43,7 @@ export async function upsertFundAccount(payload: unknown) {
           userId: user.id
         });
       }
-      await tx.fundAccount.update({ where: { id: parsed.id }, data: { name: parsed.name, type: parsed.type, note: parsed.note || null, isActive: parsed.isActive } });
+      await tx.fundAccount.update({ where: { id: parsed.id }, data: { name: parsed.name, type: parsed.type, note: parsed.note || null, image: uploadedImage || existing.image, isActive: parsed.isActive } });
       await tx.auditLog.create({
         data: {
           userId: user.id,
@@ -57,7 +62,7 @@ export async function upsertFundAccount(payload: unknown) {
       });
       return;
     }
-    const account = await tx.fundAccount.create({ data: { outletId: activeOutlet.id, name: parsed.name, type: parsed.type, balance: parsed.balance, openingBalance: parsed.balance, note: parsed.note || null, isActive: parsed.isActive } });
+    const account = await tx.fundAccount.create({ data: { outletId: activeOutlet.id, name: parsed.name, type: parsed.type, balance: parsed.balance, openingBalance: parsed.balance, note: parsed.note || null, image: uploadedImage || null, isActive: parsed.isActive } });
     if (parsed.balance > 0) {
       await tx.fundMutation.create({ data: { outletId: activeOutlet.id, fundAccountId: account.id, type: "Opening", amount: parsed.balance, balanceBefore: 0, balanceAfter: parsed.balance, referenceType: "opening", note: parsed.note || null, userId: user.id } });
     }
@@ -72,7 +77,12 @@ export async function upsertFundAccount(payload: unknown) {
         metadata: { name: account.name, type: account.type, openingBalance: parsed.balance, isActive: account.isActive }
       }
     });
-  });
+    });
+  } catch (error) {
+    await deletePublicUpload(uploadedImage);
+    throw error;
+  }
+  if (uploadedImage) await deletePublicUpload(previousImage);
   revalidateFunds();
 }
 

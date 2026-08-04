@@ -18,7 +18,7 @@ import { formatDate } from "@/lib/utils";
 type Field = {
   name: string;
   label: string;
-  type?: "text" | "email" | "textarea";
+  type?: "text" | "email" | "textarea" | "color";
 };
 
 type Row = Record<string, unknown> & { id: number; createdAt?: string | Date };
@@ -155,6 +155,11 @@ export function SimpleCrud({
                       <Label>{field.label}</Label>
                       {field.type === "textarea" ? (
                         <Textarea name={field.name} defaultValue={String(editing?.[field.name] ?? "")} />
+                      ) : field.type === "color" ? (
+                        <div className="flex items-center gap-3 rounded-md border border-slate-300 p-2">
+                          <Input type="color" name={field.name} defaultValue={String(editing?.[field.name] ?? "#2563EB")} className="h-9 w-14 cursor-pointer p-1" aria-label={field.label} />
+                          <span className="text-xs text-slate-500">Dipakai sebagai aksen kartu cabang.</span>
+                        </div>
                       ) : (
                         <Input type={field.type ?? "text"} name={field.name} defaultValue={String(editing?.[field.name] ?? "")} />
                       )}

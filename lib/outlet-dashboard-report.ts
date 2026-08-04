@@ -2,6 +2,7 @@ export type OutletReportDay = {
   date: Date;
   digitalTransactions: number;
   physicalTransactions: number;
+  serviceTransactions: number;
   turnover: number;
   grossProfit: number;
   bankFee: number;
@@ -121,6 +122,7 @@ export function buildOutletReport(input: {
       date: new Date(date),
       digitalTransactions: 0,
       physicalTransactions: 0,
+      serviceTransactions: 0,
       turnover: 0,
       grossProfit: 0,
       bankFee: 0,
@@ -145,6 +147,7 @@ export function buildOutletReport(input: {
   for (const service of input.services) {
     const day = byDate.get(dayKey(service.date));
     if (!day) continue;
+    day.serviceTransactions += 1;
     day.turnover += service.total;
     day.grossProfit += service.laborCost + service.parts.reduce((sum, part) => sum + part.qty * (part.price - part.cost), 0);
   }
@@ -179,6 +182,7 @@ export function buildOutletReport(input: {
       (sum, day) => ({
         digitalTransactions: sum.digitalTransactions + day.digitalTransactions,
         physicalTransactions: sum.physicalTransactions + day.physicalTransactions,
+        serviceTransactions: sum.serviceTransactions + day.serviceTransactions,
         turnover: sum.turnover + day.turnover,
         grossProfit: sum.grossProfit + day.grossProfit,
         bankFee: sum.bankFee + day.bankFee,
@@ -187,7 +191,7 @@ export function buildOutletReport(input: {
         expense: sum.expense + day.expense,
         netProfit: sum.netProfit + day.netProfit
       }),
-      { digitalTransactions: 0, physicalTransactions: 0, turnover: 0, grossProfit: 0, bankFee: 0, operational: 0, profit: 0, expense: 0, netProfit: 0 }
+      { digitalTransactions: 0, physicalTransactions: 0, serviceTransactions: 0, turnover: 0, grossProfit: 0, bankFee: 0, operational: 0, profit: 0, expense: 0, netProfit: 0 }
     )
   };
 }

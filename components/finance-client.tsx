@@ -32,9 +32,10 @@ type FinanceRow = {
   referenceType: string | null;
 };
 
-export function FinanceClient({ records, canManage, pagination, filterValues, categories, summary }: {
+export function FinanceClient({ records, canManage, canViewProfit, pagination, filterValues, categories, summary }: {
   records: FinanceRow[];
   canManage: boolean;
+  canViewProfit: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { type: string; category: string };
   categories: string[];
@@ -151,10 +152,10 @@ export function FinanceClient({ records, canManage, pagination, filterValues, ca
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${canViewProfit ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         <Summary label="Pemasukan" value={income} />
         <Summary label="Pengeluaran" value={expense} />
-        <Summary label="Laba Bersih" value={income - expense} />
+        {canViewProfit ? <Summary label="Laba Bersih" value={income - expense} /> : null}
       </div>
 
       <DataTable

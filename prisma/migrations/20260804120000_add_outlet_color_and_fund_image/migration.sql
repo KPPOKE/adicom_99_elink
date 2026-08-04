@@ -1,0 +1,5 @@
+ALTER TABLE `outlets`
+  ADD COLUMN `color` VARCHAR(191) NOT NULL DEFAULT '#2563EB';
+
+ALTER TABLE `fund_accounts`
+  ADD COLUMN `image` VARCHAR(191) NULL;

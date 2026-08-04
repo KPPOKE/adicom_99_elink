@@ -15,7 +15,7 @@ export async function getUserPermissionKeys(user: PermissionUser) {
 
 export async function requirePermission(key: PermissionKey) {
   const user = await requireUser();
-  if (user.role.name === "admin") return user;
+  if (user.role.name === "admin" || key === "dashboard.view") return user;
   const keys = await getUserPermissionKeys(user);
   if (!keys.includes(key)) redirect("/dashboard");
   return user;
@@ -23,6 +23,12 @@ export async function requirePermission(key: PermissionKey) {
 
 export async function canCurrentUser(key: PermissionKey) {
   const user = await requireUser();
-  if (user.role.name === "admin") return true;
+  if (user.role.name === "admin" || key === "dashboard.view") return true;
   return (await getUserPermissionKeys(user)).includes(key);
+}
+
+export async function requireProfitAccess() {
+  const user = await requireUser();
+  if (user.role.name !== "admin") redirect("/dashboard");
+  return user;
 }
