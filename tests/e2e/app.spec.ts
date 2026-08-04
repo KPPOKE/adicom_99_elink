@@ -280,10 +280,12 @@ test("staff dashboard stays idle and loads notifications on demand", async ({ pa
   });
 
   try {
+    const initialNotifications = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/events" && response.request().method() === "GET");
     await login(page, staff.email);
     await expect(page.getByRole("link", { name: "Dasbor" })).toBeVisible();
     await expect(page.getByText("Cabang Saya")).toBeVisible();
     await expect(page.getByTitle("Notifikasi")).toBeVisible();
+    await initialNotifications;
     dashboardGets = 0;
     eventGets = 0;
     await page.waitForTimeout(5_000);
@@ -475,7 +477,8 @@ test("admin opens the branch summary and monthly report from an outlet card", as
   const outletCards = page.locator('a[href^="/dashboard/cabang/"]');
   await expect(outletCards.first()).toBeVisible();
   const cardColors = await outletCards.evaluateAll((cards) => cards.map((card) => getComputedStyle(card).borderTopColor));
-  expect(new Set(cardColors).size).toBeGreaterThan(1);
+  expect(cardColors.every((color) => color !== "rgba(0, 0, 0, 0)")).toBe(true);
+  if (cardColors.length > 1) expect(new Set(cardColors).size).toBeGreaterThan(1);
   const outletCard = outletCards.first();
   await outletCard.click();
   await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+$/);
