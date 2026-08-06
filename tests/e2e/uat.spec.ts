@@ -105,14 +105,18 @@ test.describe("UAT operational workflow", () => {
     await page.goto("/transactions");
     await page.locator('select[name="customerId"]').selectOption({ label: customerName });
     await expect(page.locator('input[name="customerName"]')).toHaveValue(customerName);
-    // Wait for page to be fully hydrated and combobox button to appear
-    const itemCombobox = page.getByRole("button", { name: /Pilih Barang|Stok:/ }).first();
-    await expect(itemCombobox).toBeVisible({ timeout: 15_000 });
-    await itemCombobox.click();
-    await page.getByPlaceholder("Cari nama atau kode barang...").fill(itemName);
+    // Wait for catalog grid search input to appear, then fill it
+    const searchInput = page.getByPlaceholder("Cari nama/kode");
+    await expect(searchInput).toBeVisible({ timeout: 15_000 });
+    await searchInput.fill(itemName);
+
+    // Set Default Qty to 2
+    const qtyInput = page.locator('input[type="number"]').first();
+    await qtyInput.fill("2");
+
+    // Click the item card in the grid to add it to the cart
     await page.getByRole("button", { name: new RegExp(itemName) }).first().click();
-    await page.locator('input[name="qty"]').fill("2");
-    await page.locator('input[name="price"]').fill("15000");
+
     await page.locator('input[name="diskon"]').fill("0");
     await page.locator('input[name="paidAmount"]').fill("30000");
     const saveTransaction = page.getByRole("button", { name: "Simpan Transaksi" });
