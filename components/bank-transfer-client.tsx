@@ -20,7 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cashWithdrawalLedger, transferLedger } from "@/lib/fund-ledger";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { bankTransferSchema, type BankTransferFormValues } from "@/lib/validators";
 
 type TransferRow = {
@@ -78,12 +78,31 @@ function emptyValues(funds: FundOption[]): BankTransferFormValues {
   };
 }
 
-function SummaryCard({ label, value, helper, icon, image }: { label: string; value: number; helper: string; icon: React.ReactNode; image?: string | null }) {
+function SummaryCard({
+  label,
+  value,
+  helper,
+  icon,
+  image,
+  className
+}: {
+  label: string;
+  value: number;
+  helper: string;
+  icon: React.ReactNode;
+  image?: string | null;
+  className?: string;
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-3"><p className="text-sm text-slate-600">{label}</p><div className="flex h-9 w-12 items-center justify-center overflow-hidden rounded-md border border-cyan-500/20 bg-cyan-500/10 text-blue-600">{image ? <img src={image} alt="" className="h-full w-full bg-white object-contain p-1" /> : icon}</div></div>
-      <p className="mt-3 text-xl font-semibold text-slate-900">{formatCurrency(value)}</p>
-      <p className="mt-1 text-xs text-slate-500">{helper}</p>
+    <div className={cn("rounded-lg border p-4 shadow-sm transition", className || "border-slate-200 bg-white text-slate-900")}>
+      <div className="flex items-center justify-between gap-3">
+        <p className={cn("text-xs font-semibold uppercase tracking-wider", className ? "text-white/80" : "text-slate-500")}>{label}</p>
+        <div className={cn("flex h-8 w-10 items-center justify-center overflow-hidden rounded-md border", className ? "border-white/20 bg-white/10 text-white" : "border-cyan-500/20 bg-cyan-500/10 text-blue-600")}>
+          {image ? <img src={image} alt="" className="h-full w-full bg-white object-contain p-1" /> : icon}
+        </div>
+      </div>
+      <p className="mt-3 text-lg font-bold tracking-tight">{formatCurrency(value)}</p>
+      <p className={cn("mt-1 text-xs", className ? "text-white/70" : "text-slate-500")}>{helper}</p>
     </div>
   );
 }
@@ -199,21 +218,51 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
 
   return <div className="space-y-6">
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-      <SummaryCard label="Transfer" value={summary.transferAmount} helper="Hari ini" icon={<Send className="h-4 w-4" />} />
-      <SummaryCard label="Tarik Tunai" value={summary.tarikAmount} helper="Hari ini" icon={<Wallet className="h-4 w-4" />} />
-      <SummaryCard label="Omset" value={summary.turnover} helper="Nominal transaksi" icon={<Landmark className="h-4 w-4" />} />
-      <SummaryCard label="Admin Bank" value={summary.bankFee} helper="Biaya bank" icon={<Landmark className="h-4 w-4" />} />
-      <SummaryCard label="Operasional" value={summary.operational} helper="Biaya saldo" icon={<Wallet className="h-4 w-4" />} />
-      {role === "admin" ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} /> : null}
+      <SummaryCard label="Transfer" value={summary.transferAmount} helper="Hari ini" icon={<Send className="h-4 w-4" />} className="bg-[#1d4ed8] text-white border-transparent" />
+      <SummaryCard label="Tarik Tunai" value={summary.tarikAmount} helper="Hari ini" icon={<Wallet className="h-4 w-4" />} className="bg-[#166534] text-white border-transparent" />
+      <SummaryCard label="Omset" value={summary.turnover} helper="Nominal transaksi" icon={<Landmark className="h-4 w-4" />} className="bg-[#0284c7] text-white border-transparent" />
+      <SummaryCard label="Admin Bank" value={summary.bankFee} helper="Biaya bank" icon={<Landmark className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" />
+      <SummaryCard label="Operasional" value={summary.operational} helper="Biaya saldo" icon={<Wallet className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" />
+      {role === "admin" ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} className="bg-[#065f46] text-white border-transparent" /> : null}
     </section>
 
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <div className="mb-4"><h2 className="font-semibold text-slate-900">Aset {outletName}</h2><p className="mt-1 text-sm text-slate-500">Saldo kas, bank, dan e-wallet aktif.</p></div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+    <div 
+      className="w-full rounded-md bg-[#1e3a8a] text-white py-2 px-4 shadow-sm overflow-hidden select-none"
+      dangerouslySetInnerHTML={{
+        __html: `
+          <marquee scrollamount="5" class="text-sm font-medium tracking-wide block">
+            "Bekerjalah dengan jujur, karena kejujuran adalah kunci kepercayaan." &nbsp;|&nbsp; 
+            "Profesionalisme bukan hanya tentang keahlian, tetapi juga tentang integritas dan tanggung jawab." &nbsp;|&nbsp; 
+            "Setiap transaksi adalah amanah, layani pelanggan dengan senyum dan ketulusan."
+          </marquee>
+        `
+      }}
+    />
+
+    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-slate-900">Aset {outletName}</h2>
+          <p className="mt-1 text-sm text-slate-500">Saldo kas, bank, dan e-wallet aktif.</p>
+        </div>
+        <p className="text-lg font-bold text-slate-900">{formatCurrency(cashAsset + balanceAsset)}</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard label="Aset Cash" value={cashAsset} helper="Kas tunai" icon={<Wallet className="h-4 w-4" />} />
         <SummaryCard label="Aset Saldo" value={balanceAsset} helper="Bank dan e-wallet" icon={<Landmark className="h-4 w-4" />} />
         <SummaryCard label="Total Aset" value={cashAsset + balanceAsset} helper="Seluruh sumber dana" icon={<Landmark className="h-4 w-4" />} />
-        {funds.map((fund) => <SummaryCard key={fund.id} label={fund.name} value={fund.balance} helper={fund.type} image={fund.image} icon={fund.type === "Cash" ? <Wallet className="h-4 w-4" /> : <Landmark className="h-4 w-4" />} />)}
+      </div>
+
+      <hr className="border-slate-100" />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        {funds.map((fund) => (
+          <div key={fund.id} className="rounded-lg bg-[#2563eb] p-3 text-white shadow-sm transition hover:bg-[#1d4ed8]">
+            <p className="text-xs font-semibold uppercase tracking-wider opacity-85">{fund.name}:</p>
+            <p className="mt-1 text-sm font-bold">{formatCurrency(fund.balance)}</p>
+          </div>
+        ))}
       </div>
     </section>
 
