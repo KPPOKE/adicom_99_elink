@@ -258,9 +258,16 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {funds.map((fund) => (
-          <div key={fund.id} className="rounded-lg bg-[#2563eb] p-3 text-white shadow-sm transition hover:bg-[#1d4ed8]">
-            <p className="text-xs font-semibold uppercase tracking-wider opacity-85">{fund.name}:</p>
-            <p className="mt-1 text-sm font-bold">{formatCurrency(fund.balance)}</p>
+          <div key={fund.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#2563eb] p-3 text-white shadow-sm transition hover:bg-[#1d4ed8]">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold uppercase tracking-wider opacity-85">{fund.name}:</p>
+              <p className="mt-1 text-sm font-bold truncate">{formatCurrency(fund.balance)}</p>
+            </div>
+            {fund.image ? (
+              <div className="h-8 w-10 shrink-0 overflow-hidden rounded bg-white p-1 flex items-center justify-center shadow-xs">
+                <img src={fund.image} alt="" className="h-full w-full object-contain" />
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2 } from "lucide-react";
+import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore, useTransition } from "react";
@@ -16,7 +16,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
 import { cancelTransaction, completePendingTransaction, createTransaction } from "@/app/actions/operations";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
 
 import { useCartStore } from "@/lib/store/useCartStore";
 import { transactionSchema } from "@/lib/validators";
@@ -36,13 +36,47 @@ type TransactionRow = {
   items: { qty: number; item: { namaBarang: string } }[];
 };
 
+type TodaySummary = { totalSales: number; countSuccess: number; countPending: number; countCancelled: number };
+
+function SummaryCard({
+  label,
+  value,
+  helper,
+  icon,
+  className,
+  isCount
+}: {
+  label: string;
+  value: number;
+  helper: string;
+  icon: React.ReactNode;
+  className?: string;
+  isCount?: boolean;
+}) {
+  return (
+    <div className={cn("rounded-lg border p-4 shadow-sm transition", className || "border-slate-200 bg-white text-slate-900")}>
+      <div className="flex items-center justify-between gap-3">
+        <p className={cn("text-xs font-semibold uppercase tracking-wider", className ? "text-white/80" : "text-slate-500")}>{label}</p>
+        <div className={cn("flex h-8 w-10 items-center justify-center overflow-hidden rounded-md border", className ? "border-white/20 bg-white/10 text-white" : "border-cyan-500/20 bg-cyan-500/10 text-blue-600")}>
+          {icon}
+        </div>
+      </div>
+      <p className="mt-3 text-lg font-bold tracking-tight">
+        {isCount ? value.toLocaleString("id-ID") : formatCurrency(value)}
+      </p>
+      <p className={cn("mt-1 text-xs", className ? "text-white/70" : "text-slate-500")}>{helper}</p>
+    </div>
+  );
+}
+
 export function TransactionClient({
   items,
   customers,
   transactions,
   role,
   canDelete,
-  pagination
+  pagination,
+  todaySummary
 }: {
   items: ItemOption[];
   customers: CustomerOption[];
@@ -50,6 +84,7 @@ export function TransactionClient({
   role: "admin" | "staff";
   canDelete: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
+  todaySummary: TodaySummary;
 }) {
   const router = useRouter();
   
@@ -184,8 +219,16 @@ export function TransactionClient({
   }
 
   return (
-    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <Card className="min-w-0 xl:order-2 xl:mt-14">
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard label="Omset Sales" value={todaySummary.totalSales} helper="Penjualan Berhasil Hari Ini" icon={<BriefcaseBusiness className="h-4 w-4" />} className="bg-[#1d4ed8] text-white border-transparent" />
+        <SummaryCard label="Sukses" value={todaySummary.countSuccess} helper="Transaksi Berhasil" icon={<CheckCircle2 className="h-4 w-4" />} className="bg-[#166534] text-white border-transparent" isCount />
+        <SummaryCard label="Pending" value={todaySummary.countPending} helper="Transaksi Tertunda" icon={<Clock className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" isCount />
+        <SummaryCard label="Batal" value={todaySummary.countCancelled} helper="Transaksi Dibatalkan" icon={<Ban className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" isCount />
+      </div>
+
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card className="min-w-0 xl:order-2">
         <CardHeader>
           <CardTitle>Transaksi Baru</CardTitle>
         </CardHeader>
@@ -315,9 +358,10 @@ export function TransactionClient({
       </Card>
       <div className="min-w-0 xl:order-1">
         <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
-      </div>
     </div>
-  );
+  </div>
+</div>
+);
 }
 
 

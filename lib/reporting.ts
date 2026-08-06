@@ -76,7 +76,7 @@ export async function loadReportData(filters: ReportFilters) {
   const { activeOutlet } = await outletContext(user);
   const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
   const outletWhere = { outletId: activeOutlet.id };
-  const [transactions, services, items, finance] = await Promise.all([
+  const [transactions, services, allItems, finance] = await Promise.all([
     prisma.transaction.findMany({
       where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere,
       include: { items: { include: { item: true } } },
@@ -88,13 +88,15 @@ export async function loadReportData(filters: ReportFilters) {
       orderBy: { receivedDate: "desc" },
       take: REPORT_EXPORT_ROW_LIMIT
     }),
-    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: REPORT_EXPORT_ROW_LIMIT }),
+    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
     prisma.financeRecord.findMany({
       where: dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere,
       orderBy: { date: "desc" },
       take: REPORT_EXPORT_ROW_LIMIT
     })
   ]);
+
+  const items = allItems.filter((item) => item.stok <= item.stokMinimum).slice(0, REPORT_EXPORT_ROW_LIMIT);
 
   const income = finance.filter((item) => item.type === "income").reduce((sum, item) => sum + toNumber(item.amount), 0);
   const expense = finance.filter((item) => item.type === "expense").reduce((sum, item) => sum + toNumber(item.amount), 0);
@@ -122,16 +124,17 @@ export async function loadReportPreview(filters: ReportFilters) {
   const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
   const outletWhere = { outletId: activeOutlet.id };
   const financeWhere = dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere;
-  const [transactions, services, items, finance, totals, grouped, transactionProfit, serviceProfit] = await Promise.all([
+  const [transactions, services, allItems, finance, totals, grouped, transactionProfit, serviceProfit] = await Promise.all([
     prisma.transaction.findMany({ where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere, include: { items: { include: { item: true } } }, orderBy: { createdAt: "desc" }, take: 8 }),
     prisma.service.findMany({ where: dateWhere ? { ...outletWhere, receivedDate: dateWhere } : outletWhere, include: { parts: { include: { item: true } } }, orderBy: { receivedDate: "desc" }, take: 8 }),
-    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }], take: 8 }),
+    prisma.item.findMany({ where: outletWhere, include: { category: true }, orderBy: [{ stok: "asc" }, { namaBarang: "asc" }] }),
     prisma.financeRecord.findMany({ where: financeWhere, orderBy: { date: "desc" }, take: 8 }),
     prisma.financeRecord.groupBy({ by: ["type"], where: financeWhere, _sum: { amount: true } }),
     prisma.financeRecord.groupBy({ by: ["type", "referenceType"], where: financeWhere, _sum: { amount: true } }),
     prisma.transaction.aggregate({ where: { ...outletWhere, status: "Berhasil", ...(dateWhere ? { createdAt: dateWhere } : {}) }, _sum: { grossProfit: true } }),
     prisma.service.aggregate({ where: { ...outletWhere, status: { not: "Batal" }, paymentStatus: "paid", ...(dateWhere ? { receivedDate: dateWhere } : {}) }, _sum: { grossProfit: true } })
   ]);
+  const items = allItems.filter((item) => item.stok <= item.stokMinimum).slice(0, 8);
   const total = (type: "income" | "expense") => toNumber(totals.find((item) => item.type === type)?._sum.amount);
   const miniAtmProfit = grouped.filter((item) => item.referenceType === "bank_transfer").reduce((sum, item) => sum + (item.type === "income" ? toNumber(item._sum.amount) : -toNumber(item._sum.amount)), 0);
   const grossProfit = toNumber(transactionProfit._sum.grossProfit) + toNumber(serviceProfit._sum.grossProfit) + miniAtmProfit;
@@ -212,7 +215,7 @@ export function reportDataset(kind: string, data: Awaited<ReturnType<typeof load
   }
   if (kind === "stock") {
     return {
-      title: "Laporan Stok",
+      title: "Laporan Stok Habis / Harus Dipesan",
       headers: ["Kode", "Nama Barang", "Kategori", "Stok Tersedia", "Dipesan Service", "Stok Minimum", "Satuan"],
       rows: data.items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, item.stok, item.reservedStock, item.stokMinimum, item.satuan])
     };

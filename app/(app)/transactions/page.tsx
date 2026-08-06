@@ -1,7 +1,7 @@
 import { TransactionClient } from "@/components/transaction-client";
 import { PageHeader } from "@/components/shared/page-header";
 import { canCurrentUser, requirePermission } from "@/lib/permissions";
-import { outletContext } from "@/lib/outlet";
+import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 import { SELECT_OPTION_LIMIT, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
@@ -15,7 +15,11 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const { activeOutlet } = await outletContext(user);
   const outletWhere = { outletId: activeOutlet.id };
   const where = q ? { AND: [outletWhere, { OR: [{ kodeTransaksi: { contains: q } }, { customerName: { contains: q } }, { items: { some: { item: { namaBarang: { contains: q } } } } }] }] } : outletWhere;
-  const [items, customers, transactions, total, canDelete] = await Promise.all([
+  
+  const start = startOfToday();
+  const end = tomorrowOf(start);
+
+  const [items, customers, transactions, total, canDelete, todayTransactions] = await Promise.all([
     prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
@@ -26,8 +30,28 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
       take: TRANSACTION_PAGE_SIZE
     }),
     prisma.transaction.count({ where }),
-    canCurrentUser("transactions.delete")
+    canCurrentUser("transactions.delete"),
+    prisma.transaction.findMany({
+      where: {
+        outletId: activeOutlet.id,
+        createdAt: { gte: start, lt: end }
+      },
+      select: {
+        grandTotal: true,
+        status: true
+      }
+    })
   ]);
+
+  const todaySummary = {
+    totalSales: todayTransactions
+      .filter((t) => t.status === "Berhasil")
+      .reduce((sum, t) => sum + toNumber(t.grandTotal), 0),
+    countSuccess: todayTransactions.filter((t) => t.status === "Berhasil").length,
+    countPending: todayTransactions.filter((t) => t.status === "Pending").length,
+    countCancelled: todayTransactions.filter((t) => t.status === "Batal").length,
+  };
+
   return (
     <>
       <PageHeader title="Transaksi Penjualan" description={`Transaksi cabang ${activeOutlet.name}.`} />
@@ -54,6 +78,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
         role={user.role.name}
         canDelete={canDelete}
         pagination={{ page, pageSize: TRANSACTION_PAGE_SIZE, total, query: queryValues(params) }}
+        todaySummary={todaySummary}
       />
     </>
   );

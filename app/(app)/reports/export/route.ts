@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     dataset.headers,
     ...dataset.rows
   ];
-  const body = worksheetData.map((row) => `<tr>${row.map((cell) => `<td>${htmlCell(cell)}</td>`).join("")}</tr>`).join("");
+  const body = worksheetData.map((row: any[]) => `<tr>${row.map((cell: any) => `<td>${htmlCell(cell)}</td>`).join("")}</tr>`).join("");
   const workbook = `<!doctype html><html><head><meta charset="utf-8"></head><body><table>${body}</table></body></html>`;
 
   return new Response(`\uFEFF${workbook}`, {
