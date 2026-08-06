@@ -62,7 +62,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
           kodeBarang: item.kodeBarang,
           hargaJual: toNumber(item.hargaJual),
           stok: item.stok,
-          categoryName: item.category.name
+          categoryName: item.category.name,
+          gambar: item.gambar
         }))}
         customers={customers.map((customer) => ({ id: customer.id, name: customer.name, phone: customer.phone }))}
         transactions={transactions.map((transaction) => ({

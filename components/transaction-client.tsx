@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Clock, Check, ChevronsUpDown } from "lucide-react";
+import { CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Check, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore, useTransition, useState, useRef } from "react";
@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
-import { cancelTransaction, completePendingTransaction, createTransaction } from "@/app/actions/operations";
+import { deleteTransaction, completePendingTransaction, createTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
 
 import { useCartStore } from "@/lib/store/useCartStore";
@@ -23,7 +23,7 @@ import { transactionSchema } from "@/lib/validators";
 
 const emptySubscribe = () => () => {};
 
-type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string };
+type ItemOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName: string; gambar?: string | null };
 type CustomerOption = { id: number; name: string; phone: string | null };
 type TransactionRow = {
   id: number;
@@ -109,24 +109,31 @@ function SearchableItemSelect({
         }}
         className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className="truncate text-left">
-          {selectedItem ? `${selectedItem.namaBarang} (${selectedItem.stok})` : "Pilih Barang..."}
-        </span>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        <div className="flex items-center gap-2 min-w-0">
+          {selectedItem?.gambar ? (
+            <img src={`/api/uploads/${selectedItem.gambar}`} alt={selectedItem.namaBarang} className="h-6 w-6 rounded object-cover shrink-0 border border-slate-200" />
+          ) : selectedItem ? (
+            <div className="h-6 w-6 rounded bg-slate-100 shrink-0 flex items-center justify-center text-[10px] text-slate-400 font-bold border border-slate-200">{selectedItem.namaBarang[0]}</div>
+          ) : null}
+          <span className="truncate text-left">
+            {selectedItem ? `${selectedItem.namaBarang} (Stok: ${selectedItem.stok})` : "Pilih Barang..."}
+          </span>
+        </div>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
       </button>
       {isOpen && (
-        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-md">
+        <div className="absolute z-50 mt-1 max-h-72 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama atau kode barang..."
-            className="h-8 w-full rounded-md border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="h-9 w-full rounded-md border border-slate-200 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 mb-1"
             autoFocus
           />
-          <div className="mt-1 space-y-0.5">
+          <div className="space-y-0.5">
             {filteredItems.length === 0 ? (
-              <p className="p-2 text-xs text-slate-500 text-center">Barang tidak ditemukan</p>
+              <p className="p-3 text-xs text-slate-500 text-center">Barang tidak ditemukan</p>
             ) : (
               filteredItems.map((item) => (
                 <button
@@ -137,12 +144,20 @@ function SearchableItemSelect({
                     setIsOpen(false);
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm text-left hover:bg-slate-100 transition-colors",
-                    item.id === value && "bg-blue-50 text-blue-900 font-medium"
+                    "flex w-full items-center gap-3 rounded-sm px-2 py-2 text-sm text-left hover:bg-slate-50 transition-colors",
+                    item.id === value && "bg-blue-50 text-blue-900"
                   )}
                 >
-                  <span>{item.namaBarang} ({item.stok})</span>
-                  {item.id === value && <Check className="h-4 w-4 text-blue-600" />}
+                  {item.gambar ? (
+                    <img src={`/api/uploads/${item.gambar}`} alt={item.namaBarang} className="h-9 w-9 rounded-md object-cover shrink-0 border border-slate-200" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-md bg-slate-100 shrink-0 flex items-center justify-center text-xs text-slate-400 font-bold border border-slate-200">{item.namaBarang[0]}</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm font-medium truncate", item.id === value && "text-blue-900")}>{item.namaBarang}</p>
+                    <p className="text-xs text-slate-400 truncate">{item.kodeBarang} &bull; Stok: {item.stok}</p>
+                  </div>
+                  {item.id === value && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
                 </button>
               ))
             )}
@@ -235,25 +250,25 @@ export function TransactionClient({
               }
             />
           ) : null}
-          {canDelete && row.original.status !== "Batal" ? (
+          {canDelete ? (
             <ConfirmDialog
-              title="Batalkan transaksi?"
-              description="Stok item akan dikembalikan dan pemasukan transaksi ini akan dikoreksi."
-              confirmLabel="Batalkan"
+              title="Hapus transaksi?"
+              description="Transaksi akan dihapus permanen. Stok barang akan otomatis dikembalikan."
+              confirmLabel="Hapus"
               onConfirm={() =>
                 startTransition(async () => {
                   try {
-                    await cancelTransaction(row.original.id);
-                    toast.success("Transaksi dibatalkan");
+                    await deleteTransaction(row.original.id);
+                    toast.success("Transaksi dihapus");
                     router.refresh();
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal membatalkan transaksi");
+                    toast.error(error instanceof Error ? error.message : "Gagal menghapus transaksi");
                   }
                 })
               }
               trigger={
-                <Button variant="outline" size="icon" title={`Batalkan ${row.original.kodeTransaksi}`}>
-                  <Ban className="h-4 w-4 text-red-300" />
+                <Button variant="outline" size="icon" title={`Hapus ${row.original.kodeTransaksi}`}>
+                  <Trash2 className="h-4 w-4 text-red-400" />
                 </Button>
               }
             />
@@ -303,11 +318,9 @@ export function TransactionClient({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <SummaryCard label="Omset Sales" value={todaySummary.totalSales} helper="Penjualan Berhasil Hari Ini" icon={<BriefcaseBusiness className="h-4 w-4" />} className="bg-[#1d4ed8] text-white border-transparent" />
         <SummaryCard label="Sukses" value={todaySummary.countSuccess} helper="Transaksi Berhasil" icon={<CheckCircle2 className="h-4 w-4" />} className="bg-[#166534] text-white border-transparent" isCount />
-        <SummaryCard label="Pending" value={todaySummary.countPending} helper="Transaksi/Pesanan Tertunda" icon={<Clock className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" isCount />
-        <SummaryCard label="Batal" value={todaySummary.countCancelled} helper="Transaksi Dibatalkan" icon={<Ban className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" isCount />
       </div>
 
       <div className="flex flex-col gap-6">

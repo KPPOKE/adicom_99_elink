@@ -155,7 +155,7 @@ export async function createTransaction(payload: unknown) {
   throw new Error("Gagal membuat kode transaksi unik");
 }
 
-export async function cancelTransaction(id: number) {
+export async function deleteTransaction(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("transactions.manage");
   const { activeOutlet } = await outletContext(user);
@@ -165,27 +165,30 @@ export async function cancelTransaction(id: number) {
       include: { items: true, financeRecords: true }
     });
     if (!transaction || transaction.outletId !== activeOutlet.id) throw new Error("Transaksi tidak ditemukan di cabang aktif");
-    if (transaction.status === "Batal") throw new Error("Transaksi sudah dibatalkan");
 
-    for (const line of transaction.items) {
-      const updated = await tx.item.updateMany({
-        where: { id: line.itemId, outletId: activeOutlet.id },
-        data: { stok: { increment: line.qty } }
-      });
-      if (updated.count !== 1) throw new Error("Barang transaksi tidak ditemukan di cabang aktif");
+    // Kembalikan stok barang hanya jika transaksi bukan Batal (stok sudah dikembalikan sebelumnya)
+    if (transaction.status !== "Batal") {
+      for (const line of transaction.items) {
+        const updated = await tx.item.updateMany({
+          where: { id: line.itemId, outletId: activeOutlet.id },
+          data: { stok: { increment: line.qty } }
+        });
+        if (updated.count !== 1) throw new Error("Barang transaksi tidak ditemukan di cabang aktif");
+      }
     }
 
     await tx.financeRecord.deleteMany({ where: { transactionId: id } });
-    await tx.transaction.update({ where: { id }, data: { status: "Batal" } });
+    await tx.transactionItem.deleteMany({ where: { transactionId: id } });
+    await tx.transaction.delete({ where: { id } });
     await tx.auditLog.create({
       data: {
         userId: user.id,
         userEmail: user.email,
         outletId: activeOutlet.id,
-        action: "cancel",
+        action: "delete",
         entity: "transaction",
         entityId: id,
-        metadata: { kodeTransaksi: transaction.kodeTransaksi, before: { status: transaction.status }, after: { status: "Batal" } }
+        metadata: { kodeTransaksi: transaction.kodeTransaksi, before: { status: transaction.status } }
       }
     });
   });

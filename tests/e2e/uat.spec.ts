@@ -105,7 +105,12 @@ test.describe("UAT operational workflow", () => {
     await page.goto("/transactions");
     await page.locator('select[name="customerId"]').selectOption({ label: customerName });
     await expect(page.locator('input[name="customerName"]')).toHaveValue(customerName);
-    await page.locator('select[name="itemId"]').selectOption({ label: `${itemName} (5)` });
+    // Wait for page to be fully hydrated and combobox button to appear
+    const itemCombobox = page.getByRole("button", { name: /Pilih Barang|Stok:/ }).first();
+    await expect(itemCombobox).toBeVisible({ timeout: 15_000 });
+    await itemCombobox.click();
+    await page.getByPlaceholder("Cari nama atau kode barang...").fill(itemName);
+    await page.getByRole("button", { name: new RegExp(itemName) }).first().click();
     await page.locator('input[name="qty"]').fill("2");
     await page.locator('input[name="price"]').fill("15000");
     await page.locator('input[name="diskon"]').fill("0");
