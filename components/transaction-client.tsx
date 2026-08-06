@@ -1,10 +1,10 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Clock } from "lucide-react";
+import { Ban, CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Clock, Check, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useMemo, useSyncExternalStore, useTransition, useState, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,90 @@ function SummaryCard({
         {isCount ? value.toLocaleString("id-ID") : formatCurrency(value)}
       </p>
       <p className={cn("mt-1 text-xs", className ? "text-white/70" : "text-slate-500")}>{helper}</p>
+    </div>
+  );
+}
+
+function SearchableItemSelect({
+  items,
+  value,
+  onChange
+}: {
+  items: ItemOption[];
+  value: number;
+  onChange: (id: number) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedItem = items.find((item) => item.id === value);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredItems = items.filter((item) =>
+    item.namaBarang.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.kodeBarang.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setSearchQuery("");
+        }}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span className="truncate text-left">
+          {selectedItem ? `${selectedItem.namaBarang} (${selectedItem.stok})` : "Pilih Barang..."}
+        </span>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-md">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari nama atau kode barang..."
+            className="h-8 w-full rounded-md border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            autoFocus
+          />
+          <div className="mt-1 space-y-0.5">
+            {filteredItems.length === 0 ? (
+              <p className="p-2 text-xs text-slate-500 text-center">Barang tidak ditemukan</p>
+            ) : (
+              filteredItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(item.id);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm text-left hover:bg-slate-100 transition-colors",
+                    item.id === value && "bg-blue-50 text-blue-900 font-medium"
+                  )}
+                >
+                  <span>{item.namaBarang} ({item.stok})</span>
+                  {item.id === value && <Check className="h-4 w-4 text-blue-600" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -261,13 +345,11 @@ export function TransactionClient({
           <div className="space-y-3">
             {cart.lines.map((line, index) => (
               <div key={index} className="grid gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3">
-                <Select name="itemId" value={line.itemId} onChange={(event) => handleLineItemChange(index, Number(event.target.value))}>
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.namaBarang} ({item.stok})
-                    </option>
-                  ))}
-                </Select>
+                <SearchableItemSelect
+                  items={items}
+                  value={line.itemId}
+                  onChange={(id) => handleLineItemChange(index, id)}
+                />
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
                   <CurrencyInput name="qty" prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => cart.updateLine(index, { qty: value })} />
                   <CurrencyInput name="price" min={0} value={line.price} onChange={(value) => cart.updateLine(index, { price: value })} />
