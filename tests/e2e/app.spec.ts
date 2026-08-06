@@ -359,11 +359,9 @@ test("mobile burger opens role-aware sidebar drawer", async ({ page }, testInfo)
   for (const name of ["Inventori", "Kategori", "Supplier", "Saldo Awal", "Pindah Saldo", "Catat Hutang", "Cetak Struk", "Penggajian Pegawai", "Kelola Toko", "Riwayat Aktivitas", "Laporan Transaksi"]) {
     await expect(page.getByRole("link", { name, exact: true })).toHaveCount(0);
   }
-  for (const name of ["Dasbor", "MiniATM", "Service"]) {
+  for (const name of ["Dasbor", "MiniATM", "Service", "Transaksi Fisik"]) {
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   }
-  await page.locator("#mobile-navigation summary").filter({ hasText: "Kelola Data" }).evaluate((element: HTMLElement) => element.click());
-  await expect(page.getByRole("link", { name: "Transaksi Fisik", exact: true })).toBeVisible();
   await page.locator("#mobile-navigation summary").filter({ hasText: "Utang Piutang" }).evaluate((element: HTMLElement) => element.click());
   await expect(page.getByRole("link", { name: "Pelanggan", exact: true })).toBeVisible();
   await page.locator("#mobile-navigation summary").filter({ hasText: "Pengaturan" }).evaluate((element: HTMLElement) => element.click());
