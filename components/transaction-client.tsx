@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Check, ChevronsUpDown } from "lucide-react";
+import { CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Check, X, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore, useTransition, useState, useRef } from "react";
@@ -69,7 +69,7 @@ function SummaryCard({
   );
 }
 
-function SearchableItemSelect({
+function ProductGridPicker({
   items,
   value,
   onChange
@@ -80,91 +80,154 @@ function SearchableItemSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedItem = items.find((item) => item.id === value);
 
+  // Lock body scroll when modal is open
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      document.body.style.overflow = "";
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
 
   const filteredItems = items.filter((item) =>
     item.namaBarang.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.kodeBarang.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  function open() { setIsOpen(true); setSearchQuery(""); }
+  function close() { setIsOpen(false); }
+  function select(id: number) { onChange(id); close(); }
+
   return (
-    <div ref={containerRef} className="relative w-full">
+    <>
+      {/* Trigger button */}
       <button
         type="button"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setSearchQuery("");
-        }}
-        className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={open}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm hover:border-blue-400 hover:bg-blue-50/30 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <div className="flex items-center gap-2 min-w-0">
           {selectedItem?.gambar ? (
             <img src={selectedItem.gambar} alt={selectedItem.namaBarang} className="h-6 w-6 rounded object-cover shrink-0 border border-slate-200" />
           ) : selectedItem ? (
-            <div className="h-6 w-6 rounded bg-slate-100 shrink-0 flex items-center justify-center text-[10px] text-slate-400 font-bold border border-slate-200">{selectedItem.namaBarang[0]}</div>
+            <div className="h-6 w-6 rounded bg-slate-100 shrink-0 flex items-center justify-center text-[10px] text-slate-500 font-bold border border-slate-200">{selectedItem.namaBarang[0]}</div>
           ) : null}
-          <span className="truncate text-left">
+          <span className="truncate text-left font-medium">
             {selectedItem ? `${selectedItem.namaBarang} (Stok: ${selectedItem.stok})` : "Pilih Barang..."}
           </span>
         </div>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+        <Search className="h-4 w-4 shrink-0 opacity-40 ml-2" />
       </button>
+
+      {/* Full-screen modal overlay */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 max-h-72 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari nama atau kode barang..."
-            className="h-9 w-full rounded-md border border-slate-200 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 mb-1"
-            autoFocus
-          />
-          <div className="space-y-0.5">
-            {filteredItems.length === 0 ? (
-              <p className="p-3 text-xs text-slate-500 text-center">Barang tidak ditemukan</p>
-            ) : (
-              filteredItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(item.id);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-sm px-2 py-2 text-sm text-left hover:bg-slate-50 transition-colors",
-                    item.id === value && "bg-blue-50 text-blue-900"
-                  )}
-                >
-                  {item.gambar ? (
-                    <img src={item.gambar} alt={item.namaBarang} className="h-9 w-9 rounded-md object-cover shrink-0 border border-slate-200" />
-                  ) : (
-                    <div className="h-9 w-9 rounded-md bg-slate-100 shrink-0 flex items-center justify-center text-xs text-slate-400 font-bold border border-slate-200">{item.namaBarang[0]}</div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm font-medium truncate", item.id === value && "text-blue-900")}>{item.namaBarang}</p>
-                    <p className="text-xs text-slate-400 truncate">{item.kodeBarang} &bull; Stok: {item.stok}</p>
-                  </div>
-                  {item.id === value && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
-                </button>
-              ))
-            )}
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) close(); }}
+        >
+          <div className="flex flex-col bg-slate-50 w-full h-full max-h-screen overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm shrink-0">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama atau kode barang..."
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="text-xs text-slate-500 shrink-0">
+                {filteredItems.length} barang
+              </div>
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Product grid */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {filteredItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                  <Search className="h-10 w-10 mb-3 opacity-30" />
+                  <p className="text-sm">Barang tidak ditemukan</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {filteredItems.map((item) => {
+                    const isSelected = item.id === value;
+                    const isLowStock = item.stok <= 3;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => select(item.id)}
+                        className={cn(
+                          "relative flex flex-col rounded-xl border-2 bg-white text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95",
+                          isSelected
+                            ? "border-blue-500 ring-2 ring-blue-200 shadow-blue-100"
+                            : "border-slate-200 hover:border-blue-300"
+                        )}
+                      >
+                        {/* Product image */}
+                        <div className="relative aspect-square w-full overflow-hidden rounded-t-xl bg-slate-100">
+                          {item.gambar ? (
+                            <img
+                              src={item.gambar}
+                              alt={item.namaBarang}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <span className="text-3xl font-bold text-slate-300">{item.namaBarang[0]}</span>
+                            </div>
+                          )}
+                          {/* Stock badge */}
+                          <div className={cn(
+                            "absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                            isLowStock
+                              ? "bg-red-500 text-white"
+                              : "bg-white/90 text-slate-600 border border-slate-200"
+                          )}>
+                            {item.stok}
+                          </div>
+                          {/* Selected check */}
+                          {isSelected && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-blue-500/20 rounded-t-xl">
+                              <div className="rounded-full bg-blue-500 p-1.5">
+                                <Check className="h-4 w-4 text-white" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {/* Product info */}
+                        <div className="p-2">
+                          <p className="text-xs font-semibold text-slate-800 leading-tight line-clamp-2">{item.namaBarang}</p>
+                          <p className="mt-1 text-xs font-bold text-blue-600">{formatCurrency(item.hargaJual)}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Stok: {item.stok}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -368,7 +431,7 @@ export function TransactionClient({
                 <div key={index} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4 md:flex-row md:items-center">
                   <div className="flex-1 min-w-0 space-y-1">
                     <Label className="md:hidden">Barang</Label>
-                    <SearchableItemSelect
+                    <ProductGridPicker
                       items={items}
                       value={line.itemId}
                       onChange={(id) => handleLineItemChange(index, id)}
