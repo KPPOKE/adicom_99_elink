@@ -73,7 +73,6 @@ export function TransactionClient({
   items,
   customers,
   transactions,
-  role,
   canDelete,
   pagination,
   todaySummary
