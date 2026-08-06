@@ -83,6 +83,10 @@ export const PERMISSION_DEPENDENCIES: Partial<Record<PermissionKey, PermissionKe
 
 export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
   "dashboard.view",
+  "dashboard.filterDate",
+  "dashboard.viewTransactions",
+  "dashboard.viewTurnover",
+  "dashboard.viewChart",
   "customers.view",
   "customers.manage",
   "transactions.view",
@@ -96,5 +100,21 @@ export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
 ];
 
 export function hasPermission(role: "admin" | "staff", permissions: string[], key: PermissionKey) {
-  return role === "admin" || key === "dashboard.view" || permissions.includes(key);
+  if (role === "admin" || key === "dashboard.view") return true;
+  if (permissions.includes(key)) return true;
+
+  // Backward compatibility fallback for master keys
+  if (permissions.includes("fundMutations.manage")) {
+    if (
+      key === "fundMutations.deposit" ||
+      key === "fundMutations.withdraw" ||
+      key === "fundMutations.moveCreate" ||
+      key === "fundMutations.moveDelete" ||
+      key === "fundMutations.withdrawDelete"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
