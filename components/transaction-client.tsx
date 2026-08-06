@@ -111,7 +111,7 @@ function SearchableItemSelect({
       >
         <div className="flex items-center gap-2 min-w-0">
           {selectedItem?.gambar ? (
-            <img src={`/api/uploads/${selectedItem.gambar}`} alt={selectedItem.namaBarang} className="h-6 w-6 rounded object-cover shrink-0 border border-slate-200" />
+            <img src={selectedItem.gambar} alt={selectedItem.namaBarang} className="h-6 w-6 rounded object-cover shrink-0 border border-slate-200" />
           ) : selectedItem ? (
             <div className="h-6 w-6 rounded bg-slate-100 shrink-0 flex items-center justify-center text-[10px] text-slate-400 font-bold border border-slate-200">{selectedItem.namaBarang[0]}</div>
           ) : null}
@@ -149,7 +149,7 @@ function SearchableItemSelect({
                   )}
                 >
                   {item.gambar ? (
-                    <img src={`/api/uploads/${item.gambar}`} alt={item.namaBarang} className="h-9 w-9 rounded-md object-cover shrink-0 border border-slate-200" />
+                    <img src={item.gambar} alt={item.namaBarang} className="h-9 w-9 rounded-md object-cover shrink-0 border border-slate-200" />
                   ) : (
                     <div className="h-9 w-9 rounded-md bg-slate-100 shrink-0 flex items-center justify-center text-xs text-slate-400 font-bold border border-slate-200">{item.namaBarang[0]}</div>
                   )}
