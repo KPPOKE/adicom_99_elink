@@ -306,143 +306,181 @@ export function TransactionClient({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard label="Omset Sales" value={todaySummary.totalSales} helper="Penjualan Berhasil Hari Ini" icon={<BriefcaseBusiness className="h-4 w-4" />} className="bg-[#1d4ed8] text-white border-transparent" />
         <SummaryCard label="Sukses" value={todaySummary.countSuccess} helper="Transaksi Berhasil" icon={<CheckCircle2 className="h-4 w-4" />} className="bg-[#166534] text-white border-transparent" isCount />
-        <SummaryCard label="Pending" value={todaySummary.countPending} helper="Transaksi Tertunda" icon={<Clock className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" isCount />
+        <SummaryCard label="Pending" value={todaySummary.countPending} helper="Transaksi/Pesanan Tertunda" icon={<Clock className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" isCount />
         <SummaryCard label="Batal" value={todaySummary.countCancelled} helper="Transaksi Dibatalkan" icon={<Ban className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" isCount />
       </div>
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <Card className="min-w-0 xl:order-2">
-        <CardHeader>
-          <CardTitle>Transaksi Baru</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Pelanggan</Label>
-              <Select
-                name="customerId"
-                disabled={!hydrated}
-                value={cart.customerId ?? ""}
-                onInput={(event) => {
-                  const id = Number(event.currentTarget.value) || null;
-                  const name = id ? event.currentTarget.selectedOptions[0]?.text ?? "" : "";
-                  cart.setCustomer(id, name);
-                }}
-              >
-                <option value="">Umum</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </Select>
+      <div className="flex flex-col gap-6">
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle>Transaksi Baru</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Pelanggan</Label>
+                <Select
+                  name="customerId"
+                  disabled={!hydrated}
+                  value={cart.customerId ?? ""}
+                  onInput={(event) => {
+                    const id = Number(event.currentTarget.value) || null;
+                    const name = id ? event.currentTarget.selectedOptions[0]?.text ?? "" : "";
+                    cart.setCustomer(id, name);
+                  }}
+                >
+                  <option value="">Umum</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Nama Manual</Label>
+                <Input name="customerName" value={cart.customerName} onChange={(event) => cart.setCustomerName(event.target.value)} placeholder="Opsional" />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Nama Manual</Label>
-              <Input name="customerName" value={cart.customerName} onChange={(event) => cart.setCustomerName(event.target.value)} placeholder="Opsional" />
+
+            <div className="space-y-3">
+              <div className="hidden md:flex items-center gap-3 px-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="flex-1">Barang</span>
+                <span className="w-28">Jumlah (Qty)</span>
+                <span className="w-48">Harga Satuan</span>
+                <span className="w-10 text-center">Aksi</span>
+              </div>
+              
+              {cart.lines.map((line, index) => (
+                <div key={index} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4 md:flex-row md:items-center">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <Label className="md:hidden">Barang</Label>
+                    <SearchableItemSelect
+                      items={items}
+                      value={line.itemId}
+                      onChange={(id) => handleLineItemChange(index, id)}
+                    />
+                  </div>
+                  <div className="w-full md:w-28 space-y-1">
+                    <Label className="md:hidden">Qty</Label>
+                    <CurrencyInput name="qty" prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => cart.updateLine(index, { qty: value })} />
+                  </div>
+                  <div className="w-full md:w-48 space-y-1">
+                    <Label className="md:hidden">Harga</Label>
+                    <CurrencyInput name="price" min={0} value={line.price} onChange={(value) => cart.updateLine(index, { price: value })} />
+                  </div>
+                  <div className="flex items-end justify-end md:self-center">
+                    <Button variant="outline" size="icon" className="text-red-500 hover:bg-red-50 hover:text-red-600 border-red-200/50" onClick={() => cart.setLines((current) => current.filter((_, i) => i !== index))}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => cart.setLines((current) => [...current, { itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }])}>
+                <Plus className="h-4 w-4 mr-1" />
+                Tambah Baris Item
+              </Button>
             </div>
-          </div>
-          <div className="space-y-3">
-            {cart.lines.map((line, index) => (
-              <div key={index} className="grid gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3">
-                <SearchableItemSelect
-                  items={items}
-                  value={line.itemId}
-                  onChange={(id) => handleLineItemChange(index, id)}
-                />
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                  <CurrencyInput name="qty" prefix="" decimalScale={0} min={1} value={line.qty} onChange={(value) => cart.updateLine(index, { qty: value })} />
-                  <CurrencyInput name="price" min={0} value={line.price} onChange={(value) => cart.updateLine(index, { price: value })} />
-                  <Button variant="outline" size="icon" onClick={() => cart.setLines((current) => current.filter((_, i) => i !== index))}>
-                    <Trash2 className="h-4 w-4" />
+
+            {hasDigitalItem ? (
+              <div className="grid gap-3 rounded-lg border border-cyan-100 bg-cyan-50/40 p-4 sm:grid-cols-2 md:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>Nomor Tujuan</Label>
+                  <Input value={cart.nomorTujuan} onChange={(event) => cart.setDigitalFields({ nomorTujuan: event.target.value })} placeholder="08xxxxxxxxxx" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Provider</Label>
+                  <Input value={cart.provider} onChange={(event) => cart.setDigitalFields({ provider: event.target.value })} placeholder="Telkomsel, PLN, DANA" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Jenis Produk</Label>
+                  <Input value={cart.jenisProduk} onChange={(event) => cart.setDigitalFields({ jenisProduk: event.target.value })} placeholder="Pulsa, token, paket data" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Status Digital</Label>
+                  <Select value={cart.digitalStatus} onChange={(event) => cart.setDigitalFields({ digitalStatus: event.target.value })}>
+                    <option value="Berhasil">Berhasil</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Gagal">Gagal</option>
+                  </Select>
+                </div>
+                <div className="space-y-1.5 sm:col-span-2 md:col-span-2">
+                  <Label>Serial Number / Token</Label>
+                  <Input value={cart.serialNumber} onChange={(event) => cart.setDigitalFields({ serialNumber: event.target.value })} />
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid gap-6 md:grid-cols-2 border-t border-slate-100 pt-6">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Diskon</Label>
+                    <CurrencyInput name="diskon" value={cart.diskon} onChange={cart.setDiskon} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Metode Pembayaran</Label>
+                    <Select value={cart.paymentMethod} onChange={(event) => cart.setPaymentMethod(event.target.value)}>
+                      <option value="Cash">Cash</option>
+                      <option value="Transfer">Transfer</option>
+                      <option value="QRIS">QRIS</option>
+                      <option value="Ewallet">E-wallet</option>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Status Transaksi</Label>
+                    <Select value={cart.status} onChange={(event) => cart.setStatus(event.target.value)}>
+                      <option value="Berhasil">Berhasil</option>
+                      <option value="Pending">Pending</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Jumlah Uang Dibayar</Label>
+                    <CurrencyInput name="paidAmount" value={cart.paidAmount} onChange={cart.setPaidAmount} />
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 flex justify-between items-center">
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium">Uang Kembalian</p>
+                    <p className="text-lg font-bold text-slate-900 mt-0.5">{formatCurrency(change)}</p>
+                  </div>
+                  <span className="text-xs text-slate-400">Terhitung Otomatis</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-between rounded-xl border border-blue-500/10 bg-blue-500/[0.04] p-5">
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm text-slate-600">
+                    <span>Subtotal</span>
+                    <span className="font-medium">{formatCurrency(total)}</span>
+                  </div>
+                  <div className="border-t border-blue-500/10 pt-3 flex justify-between items-center">
+                    <span className="text-base font-semibold text-slate-700">Grand Total</span>
+                    <span className="text-2xl font-bold text-blue-600">{formatCurrency(grandTotal)}</span>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <Button className="w-full h-11 text-base font-semibold bg-blue-600 hover:bg-blue-700" onClick={submit} disabled={isPending || !cart.lines.length}>
+                    {isPending ? "Menyimpan Transaksi..." : "Simpan Transaksi"}
                   </Button>
                 </div>
               </div>
-            ))}
-            <Button variant="outline" onClick={() => cart.setLines((current) => [...current, { itemId: items[0]?.id ?? 0, qty: 1, price: items[0]?.hargaJual ?? 0 }])}>
-              <Plus className="h-4 w-4" />
-              Tambah Item
-            </Button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Diskon</Label>
-              <CurrencyInput name="diskon" value={cart.diskon} onChange={cart.setDiskon} />
             </div>
-            <div className="space-y-1.5">
-              <Label>Metode</Label>
-              <Select value={cart.paymentMethod} onChange={(event) => cart.setPaymentMethod(event.target.value)}>
-                <option value="Cash">Cash</option>
-                <option value="Transfer">Transfer</option>
-                <option value="QRIS">QRIS</option>
-                <option value="Ewallet">E-wallet</option>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={cart.status} onChange={(event) => cart.setStatus(event.target.value)}>
-                <option value="Berhasil">Berhasil</option>
-                <option value="Pending">Pending</option>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Dibayar</Label>
-              <CurrencyInput name="paidAmount" value={cart.paidAmount} onChange={cart.setPaidAmount} />
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">Kembalian</p>
-              <p className="font-semibold">{formatCurrency(change)}</p>
-            </div>
-          </div>
-          {hasDigitalItem ? (
-            <div className="grid gap-3 rounded-lg border border-cyan-100 bg-cyan-50/60 p-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Nomor Tujuan</Label>
-                <Input value={cart.nomorTujuan} onChange={(event) => cart.setDigitalFields({ nomorTujuan: event.target.value })} placeholder="08xxxxxxxxxx" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Provider</Label>
-                <Input value={cart.provider} onChange={(event) => cart.setDigitalFields({ provider: event.target.value })} placeholder="Telkomsel, PLN, DANA" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Jenis Produk</Label>
-                <Input value={cart.jenisProduk} onChange={(event) => cart.setDigitalFields({ jenisProduk: event.target.value })} placeholder="Pulsa, token, paket data" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status Digital</Label>
-                <Select value={cart.digitalStatus} onChange={(event) => cart.setDigitalFields({ digitalStatus: event.target.value })}>
-                  <option value="Berhasil">Berhasil</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Gagal">Gagal</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Serial Number / Token</Label>
-                <Input value={cart.serialNumber} onChange={(event) => cart.setDigitalFields({ serialNumber: event.target.value })} />
-              </div>
-            </div>
-          ) : null}
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>Subtotal</span>
-              <span>{formatCurrency(total)}</span>
-            </div>
-            <div className="mt-2 flex justify-between text-lg font-semibold text-blue-300">
-              <span>Grand Total</span>
-              <span>{formatCurrency(grandTotal)}</span>
-            </div>
-          </div>
-          <Button className="w-full" onClick={submit} disabled={isPending || !cart.lines.length}>
-            {isPending ? "Menyimpan..." : "Simpan Transaksi"}
-          </Button>
-        </CardContent>
-      </Card>
-      <div className="min-w-0 xl:order-1">
-        <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
+          </CardContent>
+        </Card>
+
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle>Riwayat Transaksi</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  </div>
-</div>
-);
+  );
 }
-
-
