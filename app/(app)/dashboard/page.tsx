@@ -113,11 +113,17 @@ export default async function DashboardPage() {
         <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {summaries.map((outlet) => (
-            <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} prefetch={false} style={{ borderTopColor: outletCardColor(outlet) }} className="rounded-lg border border-t-4 border-slate-200 bg-slate-50 p-3 transition hover:bg-white hover:shadow-sm">
-              <p className="font-medium text-slate-900">{outlet.name}</p>
-              <p className="mt-2 text-sm text-slate-600">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
-              {showProfit ? <p className="mt-1 text-sm text-slate-600">Laba bersih {formatCurrency(outlet.net)}</p> : null}
-              <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500">
+            <Link
+              key={outlet.id}
+              href={`/dashboard/cabang/${outlet.id}`}
+              prefetch={false}
+              style={{ backgroundColor: outletCardColor(outlet), borderTopColor: outletCardColor(outlet) }}
+              className="rounded-lg border border-t-4 border-transparent p-3 text-white transition hover:opacity-90 hover:shadow-md"
+            >
+              <p className="font-semibold text-white tracking-wide">{outlet.name}</p>
+              <p className="mt-2 text-sm text-white/95 font-medium">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
+              {showProfit ? <p className="mt-1 text-sm text-white/90 font-medium">Laba bersih {formatCurrency(outlet.net)}</p> : null}
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-white/85">
                 <span>{outlet.transactions} transaksi</span>
                 <span className="text-center">{outlet.serviceCount} service</span>
                 <span className="text-right">{outlet.transferCount} transfer dana</span>

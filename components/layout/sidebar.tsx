@@ -38,13 +38,13 @@ export const navGroups: NavGroup[] = [
   { tone: "blue", items: [
     { href: "/dashboard", label: "Dasbor", icon: Home, permission: "dashboard.view" },
     { href: "/bank-transfers", label: "MiniATM", icon: Send, permission: "bankTransfers.view" },
-    { href: "/services", label: "Service", icon: Stethoscope, permission: "services.view" }
+    { href: "/services", label: "Service", icon: Stethoscope, permission: "services.view" },
+    { href: "/transactions", label: "Transaksi Fisik", icon: ShoppingCart, permission: "transactions.view" }
   ] },
   { label: "Kelola Data", icon: Boxes, tone: "blue", items: [
     { href: "/inventory", label: "Inventori", icon: Boxes, permission: "inventory.view" },
     { href: "/categories", label: "Kategori", icon: Layers3, permission: "categories.view" },
     { href: "/suppliers", label: "Supplier", icon: Truck, permission: "suppliers.view" },
-    { href: "/transactions", label: "Transaksi Fisik", icon: ShoppingCart, permission: "transactions.view" },
     { href: "/fund-mutations?mode=pindah", label: "Pindah Saldo", icon: ArrowLeftRight, permission: "fundMutations.view" },
     { href: "/fund-mutations?mode=saldo", label: "Ambil & Tambah Saldo", icon: PackagePlus, permission: "fundMutations.view" },
     { href: "/funds", label: "Saldo Awal", icon: WalletCards, permission: "funds.view" }
