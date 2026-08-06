@@ -41,12 +41,14 @@ export function TransactionClient({
   customers,
   transactions,
   role,
+  canDelete,
   pagination
 }: {
   items: ItemOption[];
   customers: CustomerOption[];
   transactions: TransactionRow[];
   role: "admin" | "staff";
+  canDelete: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
 }) {
   const router = useRouter();
@@ -115,7 +117,7 @@ export function TransactionClient({
               }
             />
           ) : null}
-          {role === "admin" && row.original.status !== "Batal" ? (
+          {canDelete && row.original.status !== "Batal" ? (
             <ConfirmDialog
               title="Batalkan transaksi?"
               description="Stok item akan dikembalikan dan pemasukan transaksi ini akan dikoreksi."

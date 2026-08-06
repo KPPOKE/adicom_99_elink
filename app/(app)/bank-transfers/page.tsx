@@ -70,7 +70,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
     canCurrentUser("bankTransfers.manage"),
     prisma.setting.findFirst({ select: { whatsapp: true } })
   ]);
-  const fundRows = funds.map((item) => ({ id: item.id, name: item.name, type: item.type, balance: toNumber(item.balance) }));
+  const fundRows = funds.map((item) => ({ id: item.id, name: item.name, type: item.type, balance: toNumber(item.balance), image: item.image }));
   const transferAmount = todayTransfers.filter((item) => item.kind === "Transfer").reduce((sum, item) => sum + toNumber(item.amount), 0);
   const tarikAmount = todayTransfers.filter((item) => item.kind === "Tarik_Tunai").reduce((sum, item) => sum + toNumber(item.amount), 0);
   const bankFee = todayTransfers.reduce((sum, item) => sum + toNumber(item.adminBankFee), 0);

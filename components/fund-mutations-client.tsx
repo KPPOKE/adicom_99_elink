@@ -42,12 +42,15 @@ function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value:
   return <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-xl font-semibold text-slate-950">{formatCurrency(value)}</p></div><div className={`flex h-11 w-11 items-center justify-center rounded-lg border ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div></div></div>;
 }
 
-export function FundMutationsClient({ funds, filterFunds, mutations, initialMode, canManage, summary, filters }: {
+export function FundMutationsClient({ funds, filterFunds, mutations, initialMode, canManage, canDeposit, canWithdraw, canMoveCreate, summary, filters }: {
   funds: FundOption[];
   filterFunds: Array<{ id: number; name: string }>;
   mutations: MutationRow[];
   initialMode: MutationMode;
   canManage: boolean;
+  canDeposit: boolean;
+  canWithdraw: boolean;
+  canMoveCreate: boolean;
   summary: Summary;
   filters: { from: string; to: string; fund: string };
 }) {
@@ -119,9 +122,9 @@ export function FundMutationsClient({ funds, filterFunds, mutations, initialMode
       <div className="mb-5 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div><h2 className="text-lg font-semibold text-slate-950">{moving ? "Data Pindah Saldo" : "Data Ambil & Tambah Saldo"}</h2><p className="mt-1 text-sm text-slate-600">Setiap perubahan menyimpan saldo sebelum, saldo sesudah, dan pengguna pencatat.</p></div>
         {canManage ? <div className="flex flex-wrap gap-2">
-          {moving ? <Button type="button" onClick={() => show("Pindah")}><ArrowLeftRight className="h-4 w-4" />Pindah Saldo</Button> : <>
-            <Button type="button" variant="destructive" onClick={() => show("Ambil")}><ArrowUpFromLine className="h-4 w-4" />Ambil Saldo</Button>
-            <Button type="button" variant="accent" onClick={() => show("Tambah")}><Plus className="h-4 w-4" />Tambah Saldo</Button>
+          {moving ? (canMoveCreate ? <Button type="button" onClick={() => show("Pindah")}><ArrowLeftRight className="h-4 w-4" />Pindah Saldo</Button> : null) : <>
+            {canWithdraw ? <Button type="button" variant="destructive" onClick={() => show("Ambil")}><ArrowUpFromLine className="h-4 w-4" />Ambil Saldo</Button> : null}
+            {canDeposit ? <Button type="button" variant="accent" onClick={() => show("Tambah")}><Plus className="h-4 w-4" />Tambah Saldo</Button> : null}
           </>}
         </div> : null}
       </div>

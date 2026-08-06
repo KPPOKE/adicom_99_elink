@@ -50,7 +50,7 @@ type TransferRow = {
   mutations: Array<{ fundAccountId: number; balanceBefore: number; balanceAfter: number }>;
 };
 
-type FundOption = { id: number; name: string; type: string; balance: number };
+type FundOption = { id: number; name: string; type: string; balance: number; image: string | null };
 type StaffOption = { id: number; name: string };
 
 const transferTypes = ["Sesama Bank", "Antar Bank", "E-wallet", "Virtual Account", "BPJS", "PDAM", "PLN", "Internet", "Lainnya"];
@@ -78,10 +78,10 @@ function emptyValues(funds: FundOption[]): BankTransferFormValues {
   };
 }
 
-function SummaryCard({ label, value, helper, icon }: { label: string; value: number; helper: string; icon: React.ReactNode }) {
+function SummaryCard({ label, value, helper, icon, image }: { label: string; value: number; helper: string; icon: React.ReactNode; image?: string | null }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-3"><p className="text-sm text-slate-600">{label}</p><div className="rounded-md border border-cyan-500/20 bg-cyan-500/10 p-2 text-blue-600">{icon}</div></div>
+      <div className="flex items-center justify-between gap-3"><p className="text-sm text-slate-600">{label}</p><div className="flex h-9 w-12 items-center justify-center overflow-hidden rounded-md border border-cyan-500/20 bg-cyan-500/10 text-blue-600">{image ? <img src={image} alt="" className="h-full w-full bg-white object-contain p-1" /> : icon}</div></div>
       <p className="mt-3 text-xl font-semibold text-slate-900">{formatCurrency(value)}</p>
       <p className="mt-1 text-xs text-slate-500">{helper}</p>
     </div>
@@ -213,7 +213,7 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
         <SummaryCard label="Aset Cash" value={cashAsset} helper="Kas tunai" icon={<Wallet className="h-4 w-4" />} />
         <SummaryCard label="Aset Saldo" value={balanceAsset} helper="Bank dan e-wallet" icon={<Landmark className="h-4 w-4" />} />
         <SummaryCard label="Total Aset" value={cashAsset + balanceAsset} helper="Seluruh sumber dana" icon={<Landmark className="h-4 w-4" />} />
-        {funds.map((fund) => <SummaryCard key={fund.id} label={fund.name} value={fund.balance} helper={fund.type} icon={fund.type === "Cash" ? <Wallet className="h-4 w-4" /> : <Landmark className="h-4 w-4" />} />)}
+        {funds.map((fund) => <SummaryCard key={fund.id} label={fund.name} value={fund.balance} helper={fund.type} image={fund.image} icon={fund.type === "Cash" ? <Wallet className="h-4 w-4" /> : <Landmark className="h-4 w-4" />} />)}
       </div>
     </section>
 

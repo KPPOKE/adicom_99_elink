@@ -3,7 +3,8 @@ import { ArrowRight, Building2, CreditCard, ReceiptText, Send, Stethoscope } fro
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
-import { requirePermission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permission-keys";
+import { getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, toNumber } from "@/lib/utils";
 
@@ -51,7 +52,9 @@ export default async function DashboardPage() {
   const visibleOutlets = user.role.name === "admin" ? outlets : [activeOutlet];
   const title = user.role.name === "admin" ? "Semua Cabang" : "Cabang Saya";
   const description = user.role.name === "admin" ? "Ringkasan operasional semua cabang. Klik cabang untuk melihat detail." : `Ringkasan operasional cabang ${activeOutlet.name}. Klik cabang untuk melihat detail.`;
-  const summaries = await outletSummaries(visibleOutlets, start, end, user.role.name === "admin");
+  const permissions = await getUserPermissionKeys(user);
+  const showProfit = hasPermission(user.role.name, permissions, "dashboard.viewProfit");
+  const summaries = await outletSummaries(visibleOutlets, start, end, showProfit);
 
   if (user.role.name === "staff") {
     const outlet = summaries[0];
@@ -113,7 +116,7 @@ export default async function DashboardPage() {
             <Link key={outlet.id} href={`/dashboard/cabang/${outlet.id}`} prefetch={false} style={{ borderTopColor: outletCardColor(outlet) }} className="rounded-lg border border-t-4 border-slate-200 bg-slate-50 p-3 transition hover:bg-white hover:shadow-sm">
               <p className="font-medium text-slate-900">{outlet.name}</p>
               <p className="mt-2 text-sm text-slate-600">Penjualan Hari Ini {formatCurrency(outlet.sales)}</p>
-              {user.role.name === "admin" ? <p className="mt-1 text-sm text-slate-600">Laba bersih {formatCurrency(outlet.net)}</p> : null}
+              {showProfit ? <p className="mt-1 text-sm text-slate-600">Laba bersih {formatCurrency(outlet.net)}</p> : null}
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500">
                 <span>{outlet.transactions} transaksi</span>
                 <span className="text-center">{outlet.serviceCount} service</span>

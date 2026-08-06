@@ -1,6 +1,6 @@
 import { TransactionClient } from "@/components/transaction-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/permissions";
+import { canCurrentUser, requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -15,7 +15,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const { activeOutlet } = await outletContext(user);
   const outletWhere = { outletId: activeOutlet.id };
   const where = q ? { AND: [outletWhere, { OR: [{ kodeTransaksi: { contains: q } }, { customerName: { contains: q } }, { items: { some: { item: { namaBarang: { contains: q } } } } }] }] } : outletWhere;
-  const [items, customers, transactions, total] = await Promise.all([
+  const [items, customers, transactions, total, canDelete] = await Promise.all([
     prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
@@ -25,7 +25,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
       skip: (page - 1) * TRANSACTION_PAGE_SIZE,
       take: TRANSACTION_PAGE_SIZE
     }),
-    prisma.transaction.count({ where })
+    prisma.transaction.count({ where }),
+    canCurrentUser("transactions.delete")
   ]);
   return (
     <>
@@ -51,9 +52,11 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
           items: transaction.items.map((item) => ({ qty: item.qty, item: { namaBarang: item.item.namaBarang } }))
         }))}
         role={user.role.name}
+        canDelete={canDelete}
         pagination={{ page, pageSize: TRANSACTION_PAGE_SIZE, total, query: queryValues(params) }}
       />
     </>
   );
 }
+
 

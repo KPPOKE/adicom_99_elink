@@ -75,6 +75,9 @@ export default async function FundMutationsPage({ searchParams }: { searchParams
     <FundMutationsClient
       initialMode={moving ? "Pindah" : "Tambah"}
       canManage={hasPermission(user.role.name, permissions, "fundMutations.manage")}
+      canDeposit={hasPermission(user.role.name, permissions, "fundMutations.deposit")}
+      canWithdraw={hasPermission(user.role.name, permissions, "fundMutations.withdraw")}
+      canMoveCreate={hasPermission(user.role.name, permissions, "fundMutations.moveCreate")}
       funds={allFunds.filter((item) => item.isActive).map((item) => ({ id: item.id, name: item.name, balance: toNumber(item.balance) }))}
       filterFunds={allFunds.map((item) => ({ id: item.id, name: item.name }))}
       filters={{ from, to, fund: fundId ? String(fundId) : "" }}

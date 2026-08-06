@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { outletReportDate } from "@/lib/outlet-dashboard-report";
-import { canCurrentUser } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permission-keys";
+import { canCurrentUser, getUserPermissionKeys } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, toNumber } from "@/lib/utils";
 
@@ -44,14 +45,16 @@ export default async function DashboardOutletDetailPage({
     : [];
   const requestedStaffId = Number(queryValue(query.pegawai));
   const selectedStaff = staff.find((item) => item.id === requestedStaffId);
-  const [report, funds, canOpenMiniAtm] = await Promise.all([
+  const [report, funds, canOpenMiniAtm, permissions] = await Promise.all([
     loadOutletReport(outlet.id, period.start, period.end, period.end, selectedStaff?.id),
     prisma.fundAccount.findMany({
       where: { outletId: outlet.id, isActive: true },
       select: { type: true, balance: true }
     }),
-    canCurrentUser("bankTransfers.view")
+    canCurrentUser("bankTransfers.view"),
+    getUserPermissionKeys(user)
   ]);
+  const can = (key: Parameters<typeof hasPermission>[2]) => hasPermission(user.role.name, permissions, key);
   const summary = report.summary;
   const cashAsset = funds.filter((fund) => fund.type === "Cash").reduce((sum, fund) => sum + toNumber(fund.balance), 0);
   const balanceAsset = funds.filter((fund) => fund.type !== "Cash").reduce((sum, fund) => sum + toNumber(fund.balance), 0);
@@ -62,7 +65,7 @@ export default async function DashboardOutletDetailPage({
   return (
     <>
       <h1 className="sr-only">Ringkasan Cabang</h1>
-      <form className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
+      {can("dashboard.filterDate") ? <form className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex w-full flex-col gap-1.5 sm:w-40">
           <Label htmlFor="tahun">Tahun</Label>
           <Select id="tahun" name="tahun" defaultValue={String(period.year)}>
@@ -92,7 +95,7 @@ export default async function DashboardOutletDetailPage({
         ) : null}
         <Button type="submit" variant="outline" className="w-full sm:w-auto"><Filter className="h-4 w-4" />Terapkan</Button>
         <Button asChild variant="ghost" className="w-full sm:w-auto"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" />Semua Cabang</Link></Button>
-      </form>
+      </form> : null}
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="outlet-summary-title">
         <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
@@ -105,12 +108,12 @@ export default async function DashboardOutletDetailPage({
 
         <div className="space-y-6 p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions + summary.serviceTransactions)} icon={ReceiptText} tone="cyan" helper="Digital, fisik, dan service" />
-            <StatCard title="Omset" value={formatCurrency(summary.turnover)} icon={CreditCard} tone="green" helper="Nilai transaksi" />
-            {user.role.name === "admin" ? <StatCard title="Profit Kotor" value={formatCurrency(summary.grossProfit)} icon={CircleDollarSign} tone="blue" helper="Sebelum potongan" /> : null}
-            {user.role.name === "admin" ? <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" /> : null}
-            {user.role.name === "admin" ? <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" /> : null}
-            {user.role.name === "admin" ? <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" /> : null}
+            {can("dashboard.viewTransactions") ? <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions + summary.serviceTransactions)} icon={ReceiptText} tone="cyan" helper="Digital, fisik, dan service" /> : null}
+            {can("dashboard.viewTurnover") ? <StatCard title="Omset" value={formatCurrency(summary.turnover)} icon={CreditCard} tone="green" helper="Nilai transaksi" /> : null}
+            {can("dashboard.viewProfit") ? <StatCard title="Profit Kotor" value={formatCurrency(summary.grossProfit)} icon={CircleDollarSign} tone="blue" helper="Sebelum potongan" /> : null}
+            {can("dashboard.viewBankFee") ? <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" /> : null}
+            {can("dashboard.viewProfit") ? <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" /> : null}
+            {can("dashboard.viewProfit") ? <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" /> : null}
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -119,9 +122,9 @@ export default async function DashboardOutletDetailPage({
             <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh sumber dana" />
           </div>
 
-          <div className={`grid gap-3 ${user.role.name === "admin" ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
-            {user.role.name === "admin" ? <Button asChild variant="secondary" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/tahunan?tahun=${period.year}`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link></Button> : null}
-            {user.role.name === "admin" ? <Button asChild variant="outline" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/bulanan?periode=${reportPeriod}`}><CalendarDays className="h-4 w-4" />Laporan Bulanan</Link></Button> : null}
+          <div className={`grid gap-3 ${can("dashboard.annualReport") || can("dashboard.monthlyReport") ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
+            {can("dashboard.annualReport") ? <Button asChild variant="secondary" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/tahunan?tahun=${period.year}`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link></Button> : null}
+            {can("dashboard.monthlyReport") ? <Button asChild variant="outline" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/bulanan?periode=${reportPeriod}`}><CalendarDays className="h-4 w-4" />Laporan Bulanan</Link></Button> : null}
             {canOpenMiniAtm ? (
               <form action={openOutletBankTransfersAction}>
                 <input type="hidden" name="outletId" value={outlet.id} />
