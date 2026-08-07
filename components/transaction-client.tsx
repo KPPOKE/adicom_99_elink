@@ -34,6 +34,7 @@ type TransactionRow = {
   status: string;
   createdAt: string | Date;
   items: { qty: number; item: { namaBarang: string } }[];
+  fundAccountName?: string | null;
 };
 
 type TodaySummary = { totalSales: number; countSuccess: number; countPending: number; countCancelled: number };
@@ -75,7 +76,8 @@ export function TransactionClient({
   transactions,
   canDelete,
   pagination,
-  todaySummary
+  todaySummary,
+  fundAccounts = []
 }: {
   items: ItemOption[];
   customers: CustomerOption[];
@@ -84,6 +86,7 @@ export function TransactionClient({
   canDelete: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   todaySummary: TodaySummary;
+  fundAccounts: { id: number; name: string; type: string }[];
 }) {
   const router = useRouter();
   
@@ -106,8 +109,37 @@ export function TransactionClient({
     cart.setPaidAmount(0);
     cart.setCustomer(null, "");
     cart.setCustomerName("");
+    cart.setFundAccountId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Filter active accounts based on the selected payment method type
+  const availableAccounts = useMemo(() => {
+    if (!fundAccounts) return [];
+    if (cart.paymentMethod === "Cash") {
+      return fundAccounts.filter((acc) => acc.type === "Cash");
+    }
+    if (cart.paymentMethod === "Transfer") {
+      return fundAccounts.filter((acc) => acc.type === "Bank");
+    }
+    if (cart.paymentMethod === "QRIS" || cart.paymentMethod === "Ewallet") {
+      return fundAccounts.filter((acc) => acc.type === "Ewallet");
+    }
+    return [];
+  }, [fundAccounts, cart.paymentMethod]);
+
+  // Auto-select first account when method changes
+  useEffect(() => {
+    if (availableAccounts.length > 0) {
+      const currentIsValid = availableAccounts.some((acc) => acc.id === cart.fundAccountId);
+      if (!currentIsValid) {
+        cart.setFundAccountId(availableAccounts[0].id);
+      }
+    } else {
+      cart.setFundAccountId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableAccounts, cart.fundAccountId]);
 
   const total = useMemo(() => cart.lines.reduce((sum, line) => sum + line.qty * line.price, 0), [cart.lines]);
   const grandTotal = Math.max(0, total - cart.diskon);
@@ -157,7 +189,7 @@ export function TransactionClient({
     { header: "Pelanggan", cell: ({ row }) => row.original.customerName || "Umum" },
     { header: "Item", cell: ({ row }) => row.original.items.map((item) => `${item.item.namaBarang} x${item.qty}`).join(", ") },
     { header: "Total", cell: ({ row }) => formatCurrency(row.original.grandTotal) },
-    { accessorKey: "paymentMethod", header: "Pembayaran" },
+    { header: "Pembayaran", cell: ({ row }) => `${row.original.paymentMethod === "Cash" ? "Tunai" : row.original.paymentMethod}${row.original.fundAccountName ? ` (${row.original.fundAccountName})` : ""}` },
     { header: "Status", cell: ({ row }) => <TransactionStatusBadge status={row.original.status} /> },
     { header: "Tanggal", cell: ({ row }) => formatDateTime(row.original.createdAt) },
     {
@@ -307,6 +339,7 @@ export function TransactionClient({
           jenisProduk: cart.jenisProduk,
           serialNumber: cart.serialNumber,
           digitalStatus: cart.digitalStatus,
+          fundAccountId: cart.fundAccountId,
           items: cart.lines.filter((line) => line.itemId)
         };
 
@@ -647,6 +680,28 @@ export function TransactionClient({
                   ))}
                 </div>
               </div>
+
+              {/* Dynamic Account / Bank selector based on the method */}
+              {availableAccounts.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-600">
+                    {cart.paymentMethod === "Cash" ? "Pilih Akun Laci/Kas" : 
+                     cart.paymentMethod === "Transfer" ? "Pilih Bank Penerima" : 
+                     "Pilih E-Wallet / QRIS"}
+                  </Label>
+                  <Select
+                    value={cart.fundAccountId ?? ""}
+                    onInput={(event) => cart.setFundAccountId(Number(event.currentTarget.value) || null)}
+                    className="h-9 text-xs"
+                  >
+                    {availableAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
 
               {/* Paid amount & quick suggestions */}
               <div className="space-y-1">

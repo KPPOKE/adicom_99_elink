@@ -244,6 +244,7 @@ export const transactionSchema = z.object({
   serialNumber: z.string().optional(),
   digitalStatus: z.enum(["Berhasil", "Pending", "Gagal"]).optional(),
   status: z.enum(["Berhasil", "Pending", "Batal"]).optional(),
+  fundAccountId: z.coerce.number<number>().optional().nullable(),
   items: z
     .array(
       z.object({

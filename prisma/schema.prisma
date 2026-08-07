@@ -288,12 +288,15 @@ model Transaction {
   outlet         Outlet?           @relation(fields: [outletId], references: [id])
   items          TransactionItem[]
   financeRecords FinanceRecord[]
+  fundAccountId  Int?              @map("fund_account_id")
+  fundAccount    FundAccount?      @relation(fields: [fundAccountId], references: [id])
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
   @@index([customerId])
   @@index([userId])
   @@index([outletId])
+  @@index([fundAccountId])
   @@index([createdAt])
   @@index([tanggal])
   @@index([status])
@@ -459,6 +462,8 @@ model FundAccount {
   targetTransfers BankTransfer[]  @relation("BankTransferTargetFund")
   mutations       FundMutation[]
   receivables     Receivable[]
+  transactions    Transaction[]
+  financeRecords  FinanceRecord[]
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
@@ -514,11 +519,14 @@ model FinanceRecord {
   user           User          @relation(fields: [userId], references: [id])
   outletId       Int?          @map("outlet_id")
   outlet         Outlet?       @relation(fields: [outletId], references: [id])
+  fundAccountId  Int?          @map("fund_account_id")
+  fundAccount    FundAccount?  @relation(fields: [fundAccountId], references: [id])
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([outletId])
+  @@index([fundAccountId])
   @@index([transactionId])
   @@index([serviceId])
   @@index([date])

@@ -9,6 +9,7 @@ import { dateCode, toNumber } from "@/lib/utils";
 import { outletContext } from "@/lib/outlet";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
 import { handleActionError } from "@/lib/errors";
+import { applyFundDelta } from "@/lib/fund-ledger";
 
 
 async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service") {
@@ -90,6 +91,7 @@ export async function createTransaction(payload: unknown) {
             serialNumber: parsed.serialNumber || null,
             digitalStatus: parsed.digitalStatus || null,
             status,
+            fundAccountId: parsed.fundAccountId || null,
             userId: user.id,
             outletId: activeOutlet.id,
             items: {
@@ -124,9 +126,23 @@ export async function createTransaction(payload: unknown) {
               referenceId: transaction.id,
               transactionId: transaction.id,
               outletId: activeOutlet.id,
-              userId: user.id
+              userId: user.id,
+              fundAccountId: parsed.fundAccountId || null
             }
           });
+
+          if (parsed.fundAccountId) {
+            await applyFundDelta(tx, {
+              outletId: activeOutlet.id,
+              fundAccountId: parsed.fundAccountId,
+              type: "Deposit_In",
+              delta: grandTotal,
+              referenceType: "transaction",
+              referenceId: transaction.id,
+              note: `Penjualan ${kodeTransaksi}`,
+              userId: user.id
+            });
+          }
         }
 
         await tx.auditLog.create({
@@ -165,6 +181,19 @@ export async function deleteTransaction(id: number) {
       include: { items: true, financeRecords: true }
     });
     if (!transaction || transaction.outletId !== activeOutlet.id) throw new Error("Transaksi tidak ditemukan di cabang aktif");
+
+    if (transaction.status === "Berhasil" && transaction.fundAccountId) {
+      await applyFundDelta(tx, {
+        outletId: activeOutlet.id,
+        fundAccountId: transaction.fundAccountId,
+        type: "Reversal",
+        delta: -toNumber(transaction.grandTotal),
+        referenceType: "transaction_delete",
+        referenceId: id,
+        note: `Pembalikkan Penjualan ${transaction.kodeTransaksi} karena transaksi dihapus`,
+        userId: user.id
+      });
+    }
 
     // Kembalikan stok barang hanya jika transaksi bukan Batal (stok sudah dikembalikan sebelumnya)
     if (transaction.status !== "Batal") {
@@ -227,8 +256,21 @@ export async function completePendingTransaction(id: number) {
           referenceId: transaction.id,
           transactionId: transaction.id,
           outletId: transaction.outletId,
-          userId: user.id
+          userId: user.id,
+          fundAccountId: transaction.fundAccountId
         }
+      });
+    }
+    if (transaction.fundAccountId) {
+      await applyFundDelta(tx, {
+        outletId: activeOutlet.id,
+        fundAccountId: transaction.fundAccountId,
+        type: "Deposit_In",
+        delta: toNumber(transaction.grandTotal),
+        referenceType: "transaction",
+        referenceId: id,
+        note: `Penjualan ${transaction.kodeTransaksi} (Pending selesai)`,
+        userId: user.id
       });
     }
     await tx.auditLog.create({

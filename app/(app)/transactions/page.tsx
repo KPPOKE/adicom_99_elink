@@ -19,12 +19,12 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const start = startOfToday();
   const end = tomorrowOf(start);
 
-  const [items, customers, transactions, total, canDelete, todayTransactions] = await Promise.all([
+  const [items, customers, transactions, total, canDelete, todayTransactions, fundAccounts] = await Promise.all([
     prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
       where,
-      include: { items: { include: { item: true } } },
+      include: { items: { include: { item: true } }, fundAccount: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * TRANSACTION_PAGE_SIZE,
       take: TRANSACTION_PAGE_SIZE
@@ -40,6 +40,10 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
         grandTotal: true,
         status: true
       }
+    }),
+    prisma.fundAccount.findMany({
+      where: { outletId: activeOutlet.id, isActive: true },
+      orderBy: [{ type: "asc" }, { name: "asc" }]
     })
   ]);
 
@@ -74,12 +78,18 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
           paymentMethod: transaction.paymentMethod,
           status: transaction.status,
           createdAt: transaction.createdAt.toISOString(),
-          items: transaction.items.map((item) => ({ qty: item.qty, item: { namaBarang: item.item.namaBarang } }))
+          items: transaction.items.map((item) => ({ qty: item.qty, item: { namaBarang: item.item.namaBarang } })),
+          fundAccountName: transaction.fundAccount?.name ?? null
         }))}
         role={user.role.name}
         canDelete={canDelete}
         pagination={{ page, pageSize: TRANSACTION_PAGE_SIZE, total, query: queryValues(params) }}
         todaySummary={todaySummary}
+        fundAccounts={fundAccounts.map((fund) => ({
+          id: fund.id,
+          name: fund.name,
+          type: fund.type
+        }))}
       />
     </>
   );

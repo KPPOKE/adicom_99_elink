@@ -14,6 +14,7 @@ interface CartState {
   status: string;
   customerId: number | null;
   customerName: string;
+  fundAccountId: number | null;
   
   // Digital
   nomorTujuan: string;
@@ -31,6 +32,7 @@ interface CartState {
   setStatus: (status: string) => void;
   setCustomer: (id: number | null, name: string) => void;
   setCustomerName: (name: string) => void;
+  setFundAccountId: (id: number | null) => void;
   
   setDigitalFields: (fields: Partial<Pick<CartState, "nomorTujuan" | "provider" | "jenisProduk" | "serialNumber" | "digitalStatus">>) => void;
   
@@ -45,6 +47,7 @@ export const useCartStore = create<CartState>((set) => ({
   status: "Berhasil",
   customerId: null,
   customerName: "",
+  fundAccountId: null,
   
   nomorTujuan: "",
   provider: "",
@@ -62,6 +65,7 @@ export const useCartStore = create<CartState>((set) => ({
   setStatus: (status) => set({ status }),
   setCustomer: (id, name) => set({ customerId: id, customerName: name }),
   setCustomerName: (name) => set({ customerName: name }),
+  setFundAccountId: (id) => set({ fundAccountId: id }),
   
   setDigitalFields: (fields) => set((state) => ({ ...state, ...fields })),
   
@@ -73,6 +77,7 @@ export const useCartStore = create<CartState>((set) => ({
     status: "Berhasil",
     customerId: null,
     customerName: "",
+    fundAccountId: null,
     nomorTujuan: "",
     provider: "",
     jenisProduk: "",
