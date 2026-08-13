@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { safeSpreadsheetValue } from "@/lib/spreadsheet";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 
-export type ReportPeriod = "today" | "week" | "month" | "custom" | "all";
+export type ReportPeriod = "today" | "week" | "month" | "year" | "custom" | "all";
 
 export type ReportFilters = {
   period: ReportPeriod;
@@ -41,7 +41,7 @@ function grossProfitFrom(transactions: ProfitTransaction[], services: ProfitServ
 }
 export function parseReportFilters(params: Record<string, string | string[] | undefined>): ReportFilters {
   const rawPeriod = Array.isArray(params.period) ? params.period[0] : params.period;
-  const period = ["today", "week", "month", "custom", "all"].includes(rawPeriod ?? "") ? (rawPeriod as ReportPeriod) : "today";
+  const period = ["today", "week", "month", "year", "custom", "all"].includes(rawPeriod ?? "") ? (rawPeriod as ReportPeriod) : "today";
   const from = Array.isArray(params.from) ? params.from[0] : params.from;
   const to = Array.isArray(params.to) ? params.to[0] : params.to;
   return { period, from, to };
@@ -64,6 +64,11 @@ export function reportDateRange(filters: ReportFilters) {
   if (filters.period === "month") {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return { start, end };
+  }
+  if (filters.period === "year") {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear() + 1, 0, 1);
     return { start, end };
   }
   return { start: startOfDay(now), end: endExclusive(now) };

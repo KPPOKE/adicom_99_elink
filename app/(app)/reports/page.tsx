@@ -77,6 +77,7 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
                 <option value="today">Hari Ini</option>
                 <option value="week">Minggu Ini</option>
                 <option value="month">Bulan Ini</option>
+                <option value="year">Tahun Ini (Tahunan)</option>
                 <option value="custom">Custom</option>
                 <option value="all">Semua Data</option>
               </Select>

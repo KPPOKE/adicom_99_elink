@@ -303,7 +303,38 @@ export function ServiceClient({
 
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            className="w-[240px] text-xs"
+            defaultValue=""
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val) {
+                window.open(val, "_blank");
+                e.target.value = "";
+              }
+            }}
+          >
+            <option value="" disabled>📄 Unduh Laporan Service...</option>
+            <optgroup label="Laporan Harian (Hari Ini)">
+              <option value="/reports/export?kind=service&period=today&format=pdf">PDF Harian</option>
+              <option value="/reports/export?kind=service&period=today&format=xlsx">Excel Harian</option>
+            </optgroup>
+            <optgroup label="Laporan Mingguan (Minggu Ini)">
+              <option value="/reports/export?kind=service&period=week&format=pdf">PDF Mingguan</option>
+              <option value="/reports/export?kind=service&period=week&format=xlsx">Excel Mingguan</option>
+            </optgroup>
+            <optgroup label="Laporan Bulanan (Bulan Ini)">
+              <option value="/reports/export?kind=service&period=month&format=pdf">PDF Bulanan</option>
+              <option value="/reports/export?kind=service&period=month&format=xlsx">Excel Bulanan</option>
+            </optgroup>
+            <optgroup label="Laporan Tahunan (Tahun Ini)">
+              <option value="/reports/export?kind=service&period=year&format=pdf">PDF Tahunan</option>
+              <option value="/reports/export?kind=service&period=year&format=xlsx">Excel Tahunan</option>
+            </optgroup>
+          </Select>
+        </div>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenChange(true)}>
