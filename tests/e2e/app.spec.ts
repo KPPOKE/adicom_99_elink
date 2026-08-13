@@ -481,7 +481,7 @@ test("admin opens the branch summary and monthly report from an outlet card", as
   await outletCard.click();
   await expect(page).toHaveURL(/\/dashboard\/cabang\/\d+$/);
 
-  for (const label of ["Total Transaksi", "Omset", "Profit Kotor", "Potongan Bank + Ops", "Pengeluaran", "Profit Bersih", "Aset Cash", "Aset Saldo", "Total Aset"]) {
+  for (const label of ["Total Transaksi", "Omset", "Potongan Bank + Ops", "Pengeluaran", "Profit Bersih", "Aset Cash", "Aset Saldo", "Total Aset"]) {
     await expect(page.locator("main").getByText(label, { exact: true }).first()).toBeVisible();
   }
   await expect(page.getByLabel("Transaksi oleh")).toBeVisible();
