@@ -58,3 +58,9 @@ export function toNumber(value: unknown) {
   }
   return Number(value) || 0;
 }
+
+export function formatWhatsAppPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  return digits;
+}

@@ -1,8 +1,9 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, FileDown, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -219,8 +220,14 @@ export function InventoryClient({
 
   return (
     <>
-      {role === "admin" ? (
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Button asChild variant="outline" className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800">
+          <Link href="/reports/export?kind=stock&format=pdf">
+            <FileDown className="h-4 w-4" />
+            Unduh PDF Barang Harus Dipesan
+          </Link>
+        </Button>
+        {role === "admin" ? (
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenChange(true)}>
@@ -392,8 +399,8 @@ export function InventoryClient({
             </Form>
           </DialogContent>
         </Dialog>
+        ) : null}
       </div>
-      ) : null}
       <DataTable
         columns={columns}
         data={items}

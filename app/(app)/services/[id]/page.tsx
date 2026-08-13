@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, MessageSquare, Printer } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { outletContext } from "@/lib/outlet";
 import { requirePermission } from "@/lib/permissions";
-import { formatCurrency, formatDateTime, toNumber } from "@/lib/utils";
+import { formatCurrency, formatDateTime, formatWhatsAppPhone, toNumber } from "@/lib/utils";
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,6 +34,20 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 Kembali
               </Link>
             </Button>
+            {service.customerPhone ? (
+              <Button asChild variant="outline" className="border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
+                <a
+                  href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(service.customerPhone)}&text=${encodeURIComponent(
+                    `*BUKTI NOTA SERVICE ADICOM99*\n\nKode: ${service.kodeService}\nCustomer: ${service.customerName}\nPerangkat: ${service.deviceType} ${service.deviceBrand ?? ""} ${service.deviceModel ?? ""}\nStatus: ${service.status.replace("_", " ")}\nPembayaran: ${service.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar"}\nTotal Biaya: ${formatCurrency(toNumber(service.finalCost) || toNumber(service.estimatedCost))}\n\nTerima kasih telah mempercayakan service Anda kepada Adicom99!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Bagikan WA
+                </a>
+              </Button>
+            ) : null}
             <Button asChild>
               <Link href={`/services/${service.id}/invoice`}>
                 <Printer className="h-4 w-4" />

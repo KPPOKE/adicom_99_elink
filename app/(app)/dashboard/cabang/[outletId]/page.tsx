@@ -108,9 +108,8 @@ export default async function DashboardOutletDetailPage({
 
         <div className="space-y-6 p-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {can("dashboard.viewTransactions") ? <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions + summary.serviceTransactions)} icon={ReceiptText} tone="cyan" helper="Digital, fisik, dan service" /> : null}
+            {can("dashboard.viewTransactions") ? <StatCard title="Total Transaksi" value={String(summary.digitalTransactions + summary.physicalTransactions + summary.serviceTransactions)} icon={ReceiptText} tone="cyan" helper={`Fisik: ${summary.physicalTransactions} | Digital: ${summary.digitalTransactions} | Service: ${summary.serviceTransactions}`} /> : null}
             {can("dashboard.viewTurnover") ? <StatCard title="Omset" value={formatCurrency(summary.turnover)} icon={CreditCard} tone="green" helper="Nilai transaksi" /> : null}
-            {can("dashboard.viewProfit") ? <StatCard title="Profit Kotor" value={formatCurrency(summary.grossProfit)} icon={CircleDollarSign} tone="blue" helper="Sebelum potongan" /> : null}
             {can("dashboard.viewBankFee") ? <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" /> : null}
             {can("dashboard.viewProfit") ? <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" /> : null}
             {can("dashboard.viewProfit") ? <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" /> : null}

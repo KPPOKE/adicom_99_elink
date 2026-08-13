@@ -100,7 +100,8 @@ async function main() {
     "Komponen PC",
     "Komponen Laptop",
     "Komponen HP",
-    "Produk Digital"
+    "Produk Digital",
+    "Jasa"
   ];
   for (const name of categoryNames) {
     await prisma.category.upsert({ where: { name }, update: {}, create: { name } });

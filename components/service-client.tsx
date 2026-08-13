@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CreditCard, Edit, Eye, Plus, Printer, Trash2 } from "lucide-react";
+import { CreditCard, Edit, Eye, MessageSquare, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -16,7 +16,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatWhatsAppPhone } from "@/lib/utils";
 
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -216,16 +216,36 @@ export function ServiceClient({
           <Button
             variant="outline"
             size="icon"
+            title="Edit Service"
             onClick={() => handleEdit(row.original)}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-4 w-4 text-blue-600" />
           </Button>
-          <Button asChild variant="outline" size="icon" title={`Cetak ${row.original.kodeService}`}>
+          {row.original.customerPhone ? (
+            <Button
+              asChild
+              variant="outline"
+              size="icon"
+              title="Bagikan Bukti Service via WhatsApp"
+              className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              <a
+                href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(row.original.customerPhone)}&text=${encodeURIComponent(
+                  `*BUKTI NOTA SERVICE ADICOM99*\n\nKode: ${row.original.kodeService}\nCustomer: ${row.original.customerName}\nPerangkat: ${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}\nStatus: ${row.original.status.replace("_", " ")}\nPembayaran: ${row.original.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar"}\nTotal Biaya: ${formatCurrency(row.original.finalCost || row.original.estimatedCost)}\n\nTerima kasih telah mempercayakan service Anda kepada Adicom99!`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </a>
+            </Button>
+          ) : null}
+          <Button asChild variant="outline" size="icon" title={`Cetak Invoice ${row.original.kodeService}`}>
             <Link href={`/services/${row.original.id}/invoice`}>
               <Printer className="h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild variant="outline" size="icon" title={`Detail ${row.original.kodeService}`}>
+          <Button asChild variant="outline" size="icon" title={`Detail Service ${row.original.kodeService}`}>
             <Link href={`/services/${row.original.id}`}>
               <Eye className="h-4 w-4" />
             </Link>
@@ -255,6 +275,9 @@ export function ServiceClient({
           ) : null}
           {role === "admin" ? (
             <ConfirmDialog
+              title="Hapus service ini?"
+              description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
+              confirmLabel="Hapus Service"
               onConfirm={() =>
                 startTransition(async () => {
                   try {
@@ -267,8 +290,8 @@ export function ServiceClient({
                 })
               }
               trigger={
-                <Button variant="outline" size="icon">
-                  <Trash2 className="h-4 w-4 text-red-300" />
+                <Button variant="outline" size="icon" title="Hapus Service" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               }
             />
