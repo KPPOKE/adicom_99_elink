@@ -64,3 +64,60 @@ export function formatWhatsAppPhone(phone: string) {
   if (digits.startsWith("0")) return `62${digits.slice(1)}`;
   return digits;
 }
+
+export function formatWhatsAppServiceReceipt(data: {
+  kodeService: string;
+  receivedDate: Date | string;
+  customerName: string;
+  customerPhone?: string | null;
+  technicianOrAdminName?: string | null;
+  deviceType: string;
+  deviceBrand?: string | null;
+  deviceModel?: string | null;
+  problemDescription: string;
+  diagnosis?: string | null;
+  technicianNote?: string | null;
+  status: string;
+  paymentStatus: string;
+  estimatedCost?: unknown;
+  laborCost?: unknown;
+  finalCost?: unknown;
+}) {
+  const dateStr = formatDateTime(data.receivedDate);
+  const deviceStr = [data.deviceType, data.deviceBrand, data.deviceModel].filter(Boolean).join(" ");
+  const statusStr = data.status.replace("_", " ");
+  const paymentStr = data.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar";
+  const estCost = formatCurrency(toNumber(data.estimatedCost));
+  const laborCost = formatCurrency(toNumber(data.laborCost));
+  const finalCost = formatCurrency(toNumber(data.finalCost) || toNumber(data.estimatedCost));
+
+  return [
+    `*Adicom99*`,
+    `_Service hardware, laptop, PC, HP, pulsa, token listrik, dan produk digital._`,
+    `WA: 081234567899`,
+    `--------------------------------------------------`,
+    `*Kode Service:* ${data.kodeService}`,
+    `*Tanggal Masuk:* ${dateStr}`,
+    `*Customer:* ${data.customerName}`,
+    `*No. HP:* ${data.customerPhone || "-"}`,
+    `*Teknisi/Admin:* ${data.technicianOrAdminName || "Admin Adicom99"}`,
+    `--------------------------------------------------`,
+    `*Perangkat:*`,
+    deviceStr,
+    ``,
+    `*Keluhan:*`,
+    data.problemDescription || "-",
+    ``,
+    `*Diagnosa:*`,
+    data.diagnosis || "-",
+    ``,
+    `*Catatan Teknisi:*`,
+    data.technicianNote || "-",
+    `--------------------------------------------------`,
+    `*Status Service:* ${statusStr}`,
+    `*Status Bayar:* ${paymentStr}`,
+    `*Estimasi:* ${estCost}`,
+    `*Biaya Jasa:* ${laborCost}`,
+    `*Biaya Final:* ${finalCost}`
+  ].join("\n");
+}

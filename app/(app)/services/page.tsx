@@ -25,7 +25,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
     prisma.service.findMany({ where, include: { parts: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.service.count({ where }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
-    prisma.item.findMany({ where: { outletId: activeOutlet.id, category: { name: { not: "Produk Digital" } } }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT })
+    prisma.item.findMany({ where: { outletId: activeOutlet.id, category: { name: { not: "Produk Digital" } } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT })
   ]);
   return (
     <>
@@ -48,7 +48,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
           paidAt: service.paidAt?.toISOString() ?? null
         }))}
         customers={customers.map((customer) => ({ id: customer.id, name: customer.name, phone: customer.phone }))}
-        items={items.map((item) => ({ id: item.id, namaBarang: item.namaBarang, kodeBarang: item.kodeBarang, hargaJual: toNumber(item.hargaJual), stok: item.stok }))}
+        items={items.map((item) => ({ id: item.id, namaBarang: item.namaBarang, kodeBarang: item.kodeBarang, hargaJual: toNumber(item.hargaJual), stok: item.stok, categoryName: item.category.name }))}
         role={user.role.name}
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
         filterValues={{ status: query.status ?? "", payment: query.payment ?? "" }}

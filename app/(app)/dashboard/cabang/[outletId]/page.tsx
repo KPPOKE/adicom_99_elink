@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { ArrowLeft, Banknote, BarChart3, BriefcaseBusiness, CalendarDays, CircleDollarSign, CreditCard, Filter, Landmark, ReceiptText, Send, TrendingDown, Wallet } from "lucide-react";
+import { ArrowLeft, Banknote, BarChart3, BriefcaseBusiness, CalendarDays, CircleDollarSign, CreditCard, Filter, Landmark, Package, ReceiptText, Send, TrendingDown, Wallet } from "lucide-react";
 import { openOutletBankTransfersAction } from "@/app/actions/outlets";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
@@ -31,10 +30,8 @@ export default async function DashboardOutletDetailPage({
 }) {
   const { outletId } = await params;
   const query = (await searchParams) ?? {};
-  const legacyPeriod = queryValue(query.periode);
-  if (legacyPeriod) redirect(`/dashboard/cabang/${outletId}/bulanan?periode=${encodeURIComponent(legacyPeriod)}`);
-
   const { user, outlet } = await requireDashboardOutlet(Number(outletId));
+
   const period = outletReportDate(queryValue(query.tahun), queryValue(query.bulan), queryValue(query.tanggal));
   const staff = user.role.name === "admin"
     ? await prisma.user.findMany({
@@ -45,11 +42,15 @@ export default async function DashboardOutletDetailPage({
     : [];
   const requestedStaffId = Number(queryValue(query.pegawai));
   const selectedStaff = staff.find((item) => item.id === requestedStaffId);
-  const [report, funds, canOpenMiniAtm, permissions] = await Promise.all([
+  const [report, funds, outletItems, canOpenMiniAtm, permissions] = await Promise.all([
     loadOutletReport(outlet.id, period.start, period.end, period.end, selectedStaff?.id),
     prisma.fundAccount.findMany({
       where: { outletId: outlet.id, isActive: true },
       select: { type: true, balance: true }
+    }),
+    prisma.item.findMany({
+      where: { outletId: outlet.id },
+      select: { stok: true, hargaModal: true }
     }),
     canCurrentUser("bankTransfers.view"),
     getUserPermissionKeys(user)
@@ -58,6 +59,7 @@ export default async function DashboardOutletDetailPage({
   const summary = report.summary;
   const cashAsset = funds.filter((fund) => fund.type === "Cash").reduce((sum, fund) => sum + toNumber(fund.balance), 0);
   const balanceAsset = funds.filter((fund) => fund.type !== "Cash").reduce((sum, fund) => sum + toNumber(fund.balance), 0);
+  const stockAsset = outletItems.reduce((sum, item) => sum + (item.stok * toNumber(item.hargaModal)), 0);
   const selectedDate = period.start.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
   const daysInMonth = new Date(period.year, period.month, 0).getDate();
   const reportPeriod = `${period.year}-${String(period.month).padStart(2, "0")}`;
@@ -113,12 +115,13 @@ export default async function DashboardOutletDetailPage({
             {can("dashboard.viewBankFee") ? <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" /> : null}
             {can("dashboard.viewProfit") ? <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" /> : null}
             {can("dashboard.viewProfit") ? <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" /> : null}
+            <StatCard title="Aset Barang" value={formatCurrency(stockAsset)} icon={Package} tone="orange" helper="Nilai modal stok fisik" />
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <StatCard title="Aset Cash" value={formatCurrency(cashAsset)} icon={Wallet} tone="blue" helper="Saldo kas tunai" />
             <StatCard title="Aset Saldo" value={formatCurrency(balanceAsset)} icon={Landmark} tone="green" helper="Bank dan e-wallet" />
-            <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh sumber dana" />
+            <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset + stockAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh kas, saldo & stok" />
           </div>
 
           <div className={`grid gap-3 ${can("dashboard.annualReport") || can("dashboard.monthlyReport") ? "md:grid-cols-3" : "md:grid-cols-1"}`}>

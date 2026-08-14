@@ -62,26 +62,113 @@ function htmlCell(value: unknown) {
 }
 
 async function createPdf(title: string, period: string, headers: string[], rows: unknown[][]) {
-  const lines = [
-    title,
-    `Periode: ${period}`,
-    "",
-    headers.join(" | "),
-    ...rows.slice(0, 80).map((row) => row.map((cell) => String(cell ?? "")).join(" | ")),
-    ...(rows.length > 80 ? [`Ditampilkan 80 dari ${rows.length} baris.`] : [])
-  ];
-  const escaped = lines.map((line, index) => {
-    const text = line.replace(/[^\x20-\x7E]/g, "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-    const y = 800 - index * 14;
-    return `BT /F1 9 Tf 36 ${y} Td (${text.slice(0, 115)}) Tj ET`;
-  }).join("\n");
+  const sanitize = (text: unknown) =>
+    String(text ?? "")
+      .replace(/[^\x20-\x7E]/g, "")
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)");
+
+  const pageWidth = 595;
+  const marginX = 36;
+  const printableWidth = pageWidth - marginX * 2;
+  const numCols = headers.length;
+
+  const colWidths: number[] = [];
+  if (title.includes("Service") || (headers[1] && headers[1].toLowerCase().includes("tanggal masuk"))) {
+    colWidths.push(105, 75, 80, 105, 50, 50, 58);
+  } else if (numCols === 7) {
+    colWidths.push(75, 175, 85, 45, 55, 48, 40);
+  } else {
+    const defaultW = Math.floor(printableWidth / numCols);
+    for (let c = 0; c < numCols; c++) colWidths.push(defaultW);
+  }
+
+  const pdfStream: string[] = [];
+
+  pdfStream.push(`BT /F2 14 Tf 36 805 Td (${sanitize(title)}) Tj ET`);
+  pdfStream.push(`BT /F1 9 Tf 36 790 Td (Periode: ${sanitize(period)}) Tj ET`);
+  pdfStream.push(`0.2 0.4 0.8 RG 1.5 w 36 780 m ${pageWidth - marginX} 780 l S`);
+
+  const tableTopY = 770;
+  const headerHeight = 22;
+  const headerFillY = tableTopY - headerHeight;
+
+  pdfStream.push(`0.9 0.93 0.98 rg 36 ${headerFillY} ${printableWidth} ${headerHeight} re f`);
+  pdfStream.push(`0.6 0.7 0.85 RG 0.75 w 36 ${headerFillY} ${printableWidth} ${headerHeight} re S`);
+
+  let currX = marginX;
+  headers.forEach((h, i) => {
+    const colW = colWidths[i] || 60;
+    const text = sanitize(h).slice(0, Math.floor(colW / 5.5));
+    pdfStream.push(`BT /F2 8.5 Tf ${currX + 4} ${headerFillY + 6} Td (${text}) Tj ET`);
+    if (i > 0) {
+      pdfStream.push(`0.6 0.7 0.85 RG 0.5 w ${currX} ${headerFillY} m ${currX} ${tableTopY} l S`);
+    }
+    currX += colW;
+  });
+
+  const rowHeight = 18;
+  const displayRows = rows.slice(0, 34);
+
+  displayRows.forEach((row, rIdx) => {
+    const rowY = headerFillY - (rIdx + 1) * rowHeight;
+
+    if (rIdx % 2 === 1) {
+      pdfStream.push(`0.98 0.98 0.99 rg 36 ${rowY} ${printableWidth} ${rowHeight} re f`);
+    }
+
+    pdfStream.push(`0.85 0.85 0.85 RG 0.5 w 36 ${rowY} ${printableWidth} ${rowHeight} re S`);
+
+    let cellX = marginX;
+    headers.forEach((_, cIdx) => {
+      const colW = colWidths[cIdx] || 60;
+      const val = sanitize(row[cIdx]);
+      const maxChars = Math.floor(colW / 5.5);
+      const text = val.length > maxChars ? val.slice(0, Math.max(1, maxChars - 1)) + ".." : val;
+
+      pdfStream.push(`BT /F1 8 Tf ${cellX + 4} ${rowY + 5} Td (${text}) Tj ET`);
+
+      if (cIdx > 0) {
+        pdfStream.push(`0.85 0.85 0.85 RG 0.5 w ${cellX} ${rowY} m ${cellX} ${rowY + rowHeight} l S`);
+      }
+      cellX += colW;
+    });
+  });
+
+  // Calculate numeric total sum for last column
+  const totalSum = displayRows.reduce((sum, row) => {
+    const rawVal = row[row.length - 1];
+    const numVal = typeof rawVal === "number" ? rawVal : Number(String(rawVal ?? "").replace(/[^\d.-]/g, "")) || 0;
+    return sum + numVal;
+  }, 0);
+
+  if (totalSum > 0) {
+    const totalRowY = headerFillY - (displayRows.length + 1) * rowHeight;
+    pdfStream.push(`0.92 0.95 0.98 rg 36 ${totalRowY} ${printableWidth} ${rowHeight} re f`);
+    pdfStream.push(`0.6 0.7 0.85 RG 0.8 w 36 ${totalRowY} ${printableWidth} ${rowHeight} re S`);
+    const totalTextY = totalRowY + 5;
+    const labelColWidth = printableWidth - (colWidths[colWidths.length - 1] || 60);
+    pdfStream.push(`BT /F2 8.5 Tf ${marginX + 6} ${totalTextY} Td (TOTAL BIAYA FINAL:) Tj ET`);
+    const sumFormatted = `Rp ${totalSum.toLocaleString("id-ID")}`;
+    pdfStream.push(`BT /F2 8.5 Tf ${marginX + labelColWidth + 4} ${totalTextY} Td (${sanitize(sumFormatted)}) Tj ET`);
+  }
+
+  if (rows.length > 34) {
+    const footerY = headerFillY - (displayRows.length + 2) * rowHeight - 10;
+    pdfStream.push(`BT /F1 8 Tf 36 ${footerY} Td (Menampilkan 34 dari ${rows.length} total baris data.) Tj ET`);
+  }
+
+  const streamContent = pdfStream.join("\n");
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${Buffer.byteLength(escaped)} >>\nstream\n${escaped}\nendstream`
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    `<< /Length ${Buffer.byteLength(streamContent)} >>\nstream\n${streamContent}\nendstream`
   ];
+
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
   objects.forEach((object, index) => {

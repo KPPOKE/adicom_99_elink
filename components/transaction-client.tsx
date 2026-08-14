@@ -101,6 +101,19 @@ export function TransactionClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua Kategori");
   const [clickQty, setClickQty] = useState(1);
+  const [txPeriod, setTxPeriod] = useState<"all" | "today" | "month" | "year">("all");
+
+  const displayTransactions = useMemo(() => {
+    if (txPeriod === "all") return transactions;
+    const now = new Date();
+    return transactions.filter((t) => {
+      const d = new Date(t.createdAt);
+      if (txPeriod === "today") return d.toDateString() === now.toDateString();
+      if (txPeriod === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (txPeriod === "year") return d.getFullYear() === now.getFullYear();
+      return true;
+    });
+  }, [transactions, txPeriod]);
 
   // Clear cart on mount to start fresh
   useEffect(() => {
@@ -703,6 +716,24 @@ export function TransactionClient({
                 </div>
               )}
 
+              {/* Totals panel */}
+              <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.03] p-3.5 space-y-2">
+                <div className="flex justify-between text-xs text-slate-500 font-bold">
+                  <span>SUBTOTAL</span>
+                  <span className="text-slate-800 font-extrabold">{formatCurrency(total)}</span>
+                </div>
+                {cart.diskon > 0 && (
+                  <div className="flex justify-between text-xs text-red-500 font-bold">
+                    <span>DISKON</span>
+                    <span>-{formatCurrency(cart.diskon)}</span>
+                  </div>
+                )}
+                <div className="border-t border-blue-500/10 pt-2 flex justify-between items-center">
+                  <span className="text-sm font-extrabold text-slate-700">TOTAL</span>
+                  <span className="text-xl font-black text-blue-600">{formatCurrency(grandTotal)}</span>
+                </div>
+              </div>
+
               {/* Paid amount & quick suggestions */}
               <div className="space-y-1">
                 <Label className="text-xs font-bold text-slate-600">Jumlah Uang Dibayar</Label>
@@ -741,33 +772,14 @@ export function TransactionClient({
                 </span>
               </div>
 
-              {/* Totals panel & Save button */}
-              <div className="rounded-2xl border border-blue-500/10 bg-blue-500/[0.03] p-4 space-y-3.5">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-slate-500 font-bold">
-                    <span>SUBTOTAL</span>
-                    <span className="text-slate-800 font-extrabold">{formatCurrency(total)}</span>
-                  </div>
-                  {cart.diskon > 0 && (
-                    <div className="flex justify-between text-xs text-red-500 font-bold">
-                      <span>DISKON</span>
-                      <span>-{formatCurrency(cart.diskon)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-blue-500/10 pt-2 flex justify-between items-center">
-                    <span className="text-sm font-extrabold text-slate-700">TOTAL</span>
-                    <span className="text-xl font-black text-blue-600">{formatCurrency(grandTotal)}</span>
-                  </div>
-                </div>
-                
-                <Button 
-                  className="w-full h-11 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/10" 
-                  onClick={submit} 
-                  disabled={isPending || !cart.lines.length}
-                >
-                  {isPending ? "Menyimpan Transaksi..." : "Simpan Transaksi"}
-                </Button>
-              </div>
+              {/* Save button */}
+              <Button 
+                className="w-full h-11 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/10" 
+                onClick={submit} 
+                disabled={isPending || !cart.lines.length}
+              >
+                {isPending ? "Menyimpan Transaksi..." : "Simpan Transaksi"}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -775,11 +787,33 @@ export function TransactionClient({
 
       {/* Transactions list card */}
       <Card className="w-full">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
           <CardTitle>Riwayat Transaksi</CardTitle>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            {(
+              [
+                { id: "all", label: "Semua" },
+                { id: "today", label: "Hari Ini (Harian)" },
+                { id: "month", label: "Bulan Ini (Bulanan)" },
+                { id: "year", label: "Tahun Ini (Tahunan)" }
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setTxPeriod(p.id)}
+                className={cn(
+                  "px-3 py-1 text-xs font-bold rounded-md transition duration-150",
+                  txPeriod === p.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={transactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
+          <DataTable columns={columns} data={displayTransactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
         </CardContent>
       </Card>
     </div>

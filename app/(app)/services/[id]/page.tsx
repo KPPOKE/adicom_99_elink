@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { outletContext } from "@/lib/outlet";
 import { requirePermission } from "@/lib/permissions";
-import { formatCurrency, formatDateTime, formatWhatsAppPhone, toNumber } from "@/lib/utils";
+import { formatCurrency, formatDateTime, formatWhatsAppPhone, formatWhatsAppServiceReceipt, toNumber } from "@/lib/utils";
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,7 +38,24 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               <Button asChild variant="outline" className="border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
                 <a
                   href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(service.customerPhone)}&text=${encodeURIComponent(
-                    `*BUKTI NOTA SERVICE ADICOM99*\n\nKode: ${service.kodeService}\nCustomer: ${service.customerName}\nPerangkat: ${service.deviceType} ${service.deviceBrand ?? ""} ${service.deviceModel ?? ""}\nStatus: ${service.status.replace("_", " ")}\nPembayaran: ${service.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar"}\nTotal Biaya: ${formatCurrency(toNumber(service.finalCost) || toNumber(service.estimatedCost))}\n\nTerima kasih telah mempercayakan service Anda kepada Adicom99!`
+                    formatWhatsAppServiceReceipt({
+                      kodeService: service.kodeService,
+                      receivedDate: service.receivedDate,
+                      customerName: service.customerName,
+                      customerPhone: service.customerPhone,
+                      technicianOrAdminName: service.user?.name,
+                      deviceType: service.deviceType,
+                      deviceBrand: service.deviceBrand,
+                      deviceModel: service.deviceModel,
+                      problemDescription: service.problemDescription,
+                      diagnosis: service.diagnosis,
+                      technicianNote: service.technicianNote,
+                      status: service.status,
+                      paymentStatus: service.paymentStatus,
+                      estimatedCost: service.estimatedCost,
+                      laborCost: service.laborCost,
+                      finalCost: service.finalCost
+                    })
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

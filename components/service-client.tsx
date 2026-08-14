@@ -16,7 +16,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
-import { formatCurrency, formatDate, formatWhatsAppPhone } from "@/lib/utils";
+import { formatCurrency, formatDate, formatWhatsAppPhone, formatWhatsAppServiceReceipt } from "@/lib/utils";
 
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,7 +47,7 @@ type ServiceRow = {
   parts: { id: number; itemId: number; qty: number; price: number; subtotal: number }[];
 };
 
-type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number };
+type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName?: string };
 
 export function ServiceClient({
   services,
@@ -231,7 +231,23 @@ export function ServiceClient({
             >
               <a
                 href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(row.original.customerPhone)}&text=${encodeURIComponent(
-                  `*BUKTI NOTA SERVICE ADICOM99*\n\nKode: ${row.original.kodeService}\nCustomer: ${row.original.customerName}\nPerangkat: ${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}\nStatus: ${row.original.status.replace("_", " ")}\nPembayaran: ${row.original.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar"}\nTotal Biaya: ${formatCurrency(row.original.finalCost || row.original.estimatedCost)}\n\nTerima kasih telah mempercayakan service Anda kepada Adicom99!`
+                  formatWhatsAppServiceReceipt({
+                    kodeService: row.original.kodeService,
+                    receivedDate: row.original.receivedDate,
+                    customerName: row.original.customerName,
+                    customerPhone: row.original.customerPhone,
+                    deviceType: row.original.deviceType,
+                    deviceBrand: row.original.deviceBrand,
+                    deviceModel: row.original.deviceModel,
+                    problemDescription: row.original.problemDescription,
+                    diagnosis: row.original.diagnosis,
+                    technicianNote: row.original.technicianNote,
+                    status: row.original.status,
+                    paymentStatus: row.original.paymentStatus,
+                    estimatedCost: row.original.estimatedCost,
+                    laborCost: row.original.laborCost,
+                    finalCost: row.original.finalCost
+                  })
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -467,9 +483,30 @@ export function ServiceClient({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Biaya Jasa</FormLabel>
-                      <FormControl>
-                        <CurrencyInput name="laborCost" value={field.value} onChange={field.onChange} disabled={costLocked} />
-                      </FormControl>
+                      <div className="space-y-1.5">
+                        <Select
+                          onChange={(e) => {
+                            const selectedId = Number(e.target.value);
+                            const found = items.find((item) => item.id === selectedId);
+                            if (found) {
+                              field.onChange(found.hargaJual);
+                            }
+                          }}
+                          defaultValue=""
+                        >
+                          <option value="">-- Pilih Jenis Jasa (Master Data) --</option>
+                          {items
+                            .filter((item) => item.categoryName === "Jasa")
+                            .map((jasa) => (
+                              <option key={jasa.id} value={jasa.id}>
+                                {jasa.namaBarang} - {formatCurrency(jasa.hargaJual)}
+                              </option>
+                            ))}
+                        </Select>
+                        <FormControl>
+                          <CurrencyInput name="laborCost" value={field.value} onChange={field.onChange} disabled={costLocked} />
+                        </FormControl>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Banknote, BarChart3, Boxes, Building2, Contact, ChevronRight, FileText, History, Home, Landmark, Layers3, LogOut, PackagePlus, ReceiptText, Send, Settings, ShieldCheck, ShoppingCart, Stethoscope, Truck, UserRoundCog, UsersRound, WalletCards } from "lucide-react";
+import { ArrowLeftRight, Banknote, BarChart3, Boxes, Building2, Contact, ChevronRight, FileText, History, Home, Landmark, Layers3, LogOut, PackagePlus, ReceiptText, Send, Settings, ShieldCheck, ShoppingCart, Stethoscope, Truck, UserRoundCog, UsersRound, WalletCards, Wrench } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { hasPermission, type PermissionKey } from "@/lib/permission-keys";
@@ -42,8 +42,9 @@ export const navGroups: NavGroup[] = [
     { href: "/transactions", label: "Transaksi Fisik", icon: ShoppingCart, permission: "transactions.view" }
   ] },
   { label: "Kelola Data", icon: Boxes, tone: "blue", items: [
-    { href: "/inventory", label: "Inventori", icon: Boxes, permission: "inventory.view" },
-    { href: "/categories", label: "Kategori", icon: Layers3, permission: "categories.view" },
+    { href: "/inventory", label: "Inventori Barang", icon: Boxes, permission: "inventory.view" },
+    { href: "/services/catalog", label: "Master Data Jasa", icon: Wrench, permission: "services.view" },
+    { href: "/categories", label: "Kategori Barang", icon: Layers3, permission: "categories.view" },
     { href: "/suppliers", label: "Supplier", icon: Truck, permission: "suppliers.view" },
     { href: "/fund-mutations?mode=pindah", label: "Pindah Saldo", icon: ArrowLeftRight, permission: "fundMutations.view" },
     { href: "/fund-mutations?mode=saldo", label: "Ambil & Tambah Saldo", icon: PackagePlus, permission: "fundMutations.view" },

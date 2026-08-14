@@ -126,7 +126,13 @@ async function main() {
     ["Charger Laptop Asus 19V", "CHG-ASUS-19V", "Charger", 120000, 185000, 4, 2],
     ["LCD Laptop 14 Slim", "LCD-14-SLIM", "LCD", 450000, 650000, 2, 2],
     ["Keyboard Laptop Universal", "KBD-UNI", "Keyboard", 90000, 150000, 6, 2],
-    ["Pulsa Digital 50K", "DIGI-PULSA-50", "Produk Digital", 50000, 53000, 100, 10]
+    ["Pulsa Digital 50K", "DIGI-PULSA-50", "Produk Digital", 50000, 53000, 100, 10],
+    ["Instal Ulang Windows / Mac", "JSA-INSTAL-OS", "Jasa", 0, 100000, 999, 1],
+    ["Lem LCD HP / Laptop", "JSA-LEM-LCD", "Jasa", 5000, 50000, 999, 1],
+    ["Pasang LCD Laptop / HP", "JSA-PASANG-LCD", "Jasa", 0, 150000, 999, 1],
+    ["Instal Office & Software", "JSA-INSTAL-OFFICE", "Jasa", 0, 50000, 999, 1],
+    ["Cleaning Fan & Thermal Paste", "JSA-CLEANING", "Jasa", 10000, 100000, 999, 1],
+    ["Flash BIOS / Firmware", "JSA-FLASH-BIOS", "Jasa", 0, 125000, 999, 1]
   ] as const;
 
   for (const [namaBarang, kodeBarang, category, hargaModal, hargaJual, stok, stokMinimum] of items) {
