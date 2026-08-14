@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { CreditCard, Edit, Eye, MessageSquare, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,7 +16,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
-import { formatCurrency, formatDate, formatWhatsAppPhone, formatWhatsAppServiceReceipt } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatWhatsAppPhone, formatWhatsAppServiceReceipt } from "@/lib/utils";
 
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,23 +44,23 @@ type ServiceRow = {
   paidAt: string | Date | null;
   technicianNote: string | null;
   receivedDate: string | Date;
+  createdAt?: string | Date;
   parts: { id: number; itemId: number; qty: number; price: number; subtotal: number }[];
 };
 
-type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName?: string };
+type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName?: string; satuan?: string };
 
 export function ServiceClient({
   services,
   customers,
   items,
-  role,
   pagination,
   filterValues
 }: {
   services: ServiceRow[];
   customers: { id: number; name: string; phone: string | null }[];
   items: SparePartOption[];
-  role: "admin" | "staff";
+  role?: "admin" | "staff";
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { status: string; payment: string };
 }) {
@@ -68,6 +68,24 @@ export function ServiceClient({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [servicePeriod, setServicePeriod] = useState<"all" | "today" | "month" | "year" | "custom">("all");
+  const [serviceCustomDate, setServiceCustomDate] = useState("");
+
+  const displayServices = useMemo(() => {
+    if (servicePeriod === "all") return services;
+    const now = new Date();
+    return services.filter((s) => {
+      const d = new Date(s.receivedDate);
+      if (servicePeriod === "today") return d.toDateString() === now.toDateString();
+      if (servicePeriod === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (servicePeriod === "year") return d.getFullYear() === now.getFullYear();
+      if (servicePeriod === "custom" && serviceCustomDate) {
+        const target = new Date(serviceCustomDate);
+        return d.toDateString() === target.toDateString();
+      }
+      return true;
+    });
+  }, [services, servicePeriod, serviceCustomDate]);
 
   const form = useForm({
     resolver: zodResolver(serviceSchema),
@@ -289,29 +307,27 @@ export function ServiceClient({
               }
             />
           ) : null}
-          {role === "admin" ? (
-            <ConfirmDialog
-              title="Hapus service ini?"
-              description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
-              confirmLabel="Hapus Service"
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteService(row.original.id);
-                    toast.success("Service dihapus");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
-                  }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon" title="Hapus Service" className="text-red-600 hover:bg-red-50 hover:text-red-700">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              }
-            />
-          ) : null}
+          <ConfirmDialog
+            title="Hapus service ini?"
+            description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
+            confirmLabel="Hapus Service"
+            onConfirm={() =>
+              startTransition(async () => {
+                try {
+                  await deleteService(row.original.id);
+                  toast.success("Service dihapus");
+                  router.refresh();
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+                }
+              })
+            }
+            trigger={
+              <Button variant="outline" size="icon" title="Hapus Service" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            }
+          />
         </div>
       )
     }
@@ -322,7 +338,7 @@ export function ServiceClient({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Select
-            className="w-[240px] text-xs"
+            className="w-[240px] text-xs font-bold"
             defaultValue=""
             onChange={(e) => {
               const val = e.target.value;
@@ -350,6 +366,48 @@ export function ServiceClient({
               <option value="/reports/export?kind=service&period=year&format=xlsx">Excel Tahunan</option>
             </optgroup>
           </Select>
+
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            {(
+              [
+                { id: "all", label: "Semua" },
+                { id: "today", label: "Hari Ini (Harian)" },
+                { id: "month", label: "Bulan Ini (Bulanan)" },
+                { id: "year", label: "Tahun Ini (Tahunan)" }
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  setServicePeriod(p.id);
+                  setServiceCustomDate("");
+                }}
+                className={cn(
+                  "px-3 py-1 text-xs font-bold rounded-md transition duration-150",
+                  servicePeriod === p.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+            <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-300">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Per Tgl:</span>
+              <Input
+                type="date"
+                value={serviceCustomDate}
+                onChange={(e) => {
+                  setServiceCustomDate(e.target.value);
+                  if (e.target.value) setServicePeriod("custom");
+                  else setServicePeriod("all");
+                }}
+                className={cn(
+                  "h-7 w-36 text-xs bg-white font-medium border-slate-300",
+                  servicePeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold"
+                )}
+              />
+            </div>
+          </div>
         </div>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
@@ -495,13 +553,20 @@ export function ServiceClient({
                           defaultValue=""
                         >
                           <option value="">-- Pilih Jenis Jasa (Master Data) --</option>
-                          {items
-                            .filter((item) => item.categoryName === "Jasa")
-                            .map((jasa) => (
+                          {(() => {
+                            const jasaOptions = items.filter(
+                              (item) =>
+                                item.categoryName?.trim().toLowerCase() === "jasa" ||
+                                item.kodeBarang?.toUpperCase().startsWith("JSA-") ||
+                                item.satuan?.toLowerCase() === "jasa"
+                            );
+                            const listToRender = jasaOptions.length > 0 ? jasaOptions : items;
+                            return listToRender.map((jasa) => (
                               <option key={jasa.id} value={jasa.id}>
                                 {jasa.namaBarang} - {formatCurrency(jasa.hargaJual)}
                               </option>
-                            ))}
+                            ));
+                          })()}
                         </Select>
                         <FormControl>
                           <CurrencyInput name="laborCost" value={field.value} onChange={field.onChange} disabled={costLocked} />
@@ -678,7 +743,7 @@ export function ServiceClient({
       <DataTable
         tableClassName="min-w-[1120px]"
         columns={columns}
-        data={services}
+        data={displayServices}
         serverPagination={pagination}
         searchPlaceholder="Cari kode service, pelanggan, nomor HP..."
         filters={

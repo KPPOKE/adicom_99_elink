@@ -101,7 +101,8 @@ export function TransactionClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua Kategori");
   const [clickQty, setClickQty] = useState(1);
-  const [txPeriod, setTxPeriod] = useState<"all" | "today" | "month" | "year">("all");
+  const [txPeriod, setTxPeriod] = useState<"all" | "today" | "month" | "year" | "custom">("all");
+  const [txCustomDate, setTxCustomDate] = useState("");
 
   const displayTransactions = useMemo(() => {
     if (txPeriod === "all") return transactions;
@@ -111,9 +112,13 @@ export function TransactionClient({
       if (txPeriod === "today") return d.toDateString() === now.toDateString();
       if (txPeriod === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       if (txPeriod === "year") return d.getFullYear() === now.getFullYear();
+      if (txPeriod === "custom" && txCustomDate) {
+        const target = new Date(txCustomDate);
+        return d.toDateString() === target.toDateString();
+      }
       return true;
     });
-  }, [transactions, txPeriod]);
+  }, [transactions, txPeriod, txCustomDate]);
 
   // Clear cart on mount to start fresh
   useEffect(() => {
@@ -789,7 +794,7 @@ export function TransactionClient({
       <Card className="w-full">
         <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
           <CardTitle>Riwayat Transaksi</CardTitle>
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
             {(
               [
                 { id: "all", label: "Semua" },
@@ -801,7 +806,10 @@ export function TransactionClient({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setTxPeriod(p.id)}
+                onClick={() => {
+                  setTxPeriod(p.id);
+                  setTxCustomDate("");
+                }}
                 className={cn(
                   "px-3 py-1 text-xs font-bold rounded-md transition duration-150",
                   txPeriod === p.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
@@ -810,6 +818,22 @@ export function TransactionClient({
                 {p.label}
               </button>
             ))}
+            <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-300">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Per Tgl:</span>
+              <Input
+                type="date"
+                value={txCustomDate}
+                onChange={(e) => {
+                  setTxCustomDate(e.target.value);
+                  if (e.target.value) setTxPeriod("custom");
+                  else setTxPeriod("all");
+                }}
+                className={cn(
+                  "h-7 w-36 text-xs bg-white font-medium border-slate-300",
+                  txPeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold"
+                )}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

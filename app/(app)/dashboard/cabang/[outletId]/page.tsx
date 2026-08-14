@@ -49,7 +49,7 @@ export default async function DashboardOutletDetailPage({
       select: { type: true, balance: true }
     }),
     prisma.item.findMany({
-      where: { outletId: outlet.id },
+      where: { outletId: outlet.id, category: { name: { notIn: ["Produk Digital", "Jasa"] } }, stok: { gt: 0 } },
       select: { stok: true, hargaModal: true }
     }),
     canCurrentUser("bankTransfers.view"),

@@ -161,6 +161,7 @@ export async function createTransaction(payload: unknown) {
       revalidatePath("/inventory");
       revalidatePath("/finance");
       revalidatePath("/dashboard");
+      revalidatePath("/", "layout");
       return;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && attempt < 4) continue;
@@ -360,6 +361,7 @@ function revalidateServicePaths() {
   revalidatePath("/finance");
   revalidatePath("/reports");
   revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function upsertService(formData: FormData) {

@@ -86,8 +86,8 @@ async function createPdf(title: string, period: string, headers: string[], rows:
 
   const pdfStream: string[] = [];
 
-  pdfStream.push(`BT /F2 14 Tf 36 805 Td (${sanitize(title)}) Tj ET`);
-  pdfStream.push(`BT /F1 9 Tf 36 790 Td (Periode: ${sanitize(period)}) Tj ET`);
+  pdfStream.push(`0 g BT /F2 14 Tf 36 805 Td (${sanitize(title)}) Tj ET`);
+  pdfStream.push(`0.3 g BT /F1 9 Tf 36 790 Td (Periode: ${sanitize(period)}) Tj ET`);
   pdfStream.push(`0.2 0.4 0.8 RG 1.5 w 36 780 m ${pageWidth - marginX} 780 l S`);
 
   const tableTopY = 770;
@@ -101,7 +101,7 @@ async function createPdf(title: string, period: string, headers: string[], rows:
   headers.forEach((h, i) => {
     const colW = colWidths[i] || 60;
     const text = sanitize(h).slice(0, Math.floor(colW / 5.5));
-    pdfStream.push(`BT /F2 8.5 Tf ${currX + 4} ${headerFillY + 6} Td (${text}) Tj ET`);
+    pdfStream.push(`0.1 0.2 0.45 rg BT /F2 8.5 Tf ${currX + 4} ${headerFillY + 6} Td (${text}) Tj ET`);
     if (i > 0) {
       pdfStream.push(`0.6 0.7 0.85 RG 0.5 w ${currX} ${headerFillY} m ${currX} ${tableTopY} l S`);
     }
@@ -127,7 +127,7 @@ async function createPdf(title: string, period: string, headers: string[], rows:
       const maxChars = Math.floor(colW / 5.5);
       const text = val.length > maxChars ? val.slice(0, Math.max(1, maxChars - 1)) + ".." : val;
 
-      pdfStream.push(`BT /F1 8 Tf ${cellX + 4} ${rowY + 5} Td (${text}) Tj ET`);
+      pdfStream.push(`0 g BT /F1 8 Tf ${cellX + 4} ${rowY + 5} Td (${text}) Tj ET`);
 
       if (cIdx > 0) {
         pdfStream.push(`0.85 0.85 0.85 RG 0.5 w ${cellX} ${rowY} m ${cellX} ${rowY + rowHeight} l S`);
@@ -149,14 +149,14 @@ async function createPdf(title: string, period: string, headers: string[], rows:
     pdfStream.push(`0.6 0.7 0.85 RG 0.8 w 36 ${totalRowY} ${printableWidth} ${rowHeight} re S`);
     const totalTextY = totalRowY + 5;
     const labelColWidth = printableWidth - (colWidths[colWidths.length - 1] || 60);
-    pdfStream.push(`BT /F2 8.5 Tf ${marginX + 6} ${totalTextY} Td (TOTAL BIAYA FINAL:) Tj ET`);
+    pdfStream.push(`0.1 0.2 0.5 rg BT /F2 8.5 Tf ${marginX + 6} ${totalTextY} Td (TOTAL BIAYA FINAL:) Tj ET`);
     const sumFormatted = `Rp ${totalSum.toLocaleString("id-ID")}`;
-    pdfStream.push(`BT /F2 8.5 Tf ${marginX + labelColWidth + 4} ${totalTextY} Td (${sanitize(sumFormatted)}) Tj ET`);
+    pdfStream.push(`0.1 0.2 0.5 rg BT /F2 8.5 Tf ${marginX + labelColWidth + 4} ${totalTextY} Td (${sanitize(sumFormatted)}) Tj ET`);
   }
 
   if (rows.length > 34) {
     const footerY = headerFillY - (displayRows.length + 2) * rowHeight - 10;
-    pdfStream.push(`BT /F1 8 Tf 36 ${footerY} Td (Menampilkan 34 dari ${rows.length} total baris data.) Tj ET`);
+    pdfStream.push(`0.4 g BT /F1 8 Tf 36 ${footerY} Td (Menampilkan 34 dari ${rows.length} total baris data.) Tj ET`);
   }
 
   const streamContent = pdfStream.join("\n");
