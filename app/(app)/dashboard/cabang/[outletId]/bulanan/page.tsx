@@ -119,7 +119,7 @@ export default async function DashboardOutletDetailPage({
                   <DailyRow label="Profit Kotor" value={formatCurrency(day.grossProfit)} />
                   <DailyRow label="Potongan Bank" value={formatCurrency(day.bankFee)} valueClassName="text-amber-300" />
                   <DailyRow label="Operasional" value={formatCurrency(day.operational)} valueClassName="text-orange-300" />
-                  <DailyRow className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2" label="Profit" value={formatCurrency(day.profit)} strong labelClassName="text-emerald-200" valueClassName="text-emerald-200" />
+                  <DailyRow className="rounded-md border border-emerald-300 bg-emerald-100/90 px-3 py-2 shadow-sm" label="Profit" value={formatCurrency(day.profit)} strong labelClassName="text-emerald-950 font-extrabold" valueClassName="text-emerald-950 font-extrabold text-base" />
                   <DailyRow label="Pengeluaran" value={formatCurrency(day.expense)} valueClassName="text-rose-300" />
                   <DailyRow className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2" label="Profit Bersih" value={formatCurrency(day.netProfit)} strong labelClassName="text-blue-700" valueClassName="text-blue-700" />
                 </dl>

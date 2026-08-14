@@ -37,6 +37,8 @@ export const PERMISSIONS = [
   { key: "fundMutations.withdrawDelete", label: "Ambil Saldo Hapus", group: "Ambil Saldo & Tambah Saldo" },
   { key: "services.view", label: "Lihat service", group: "Service" },
   { key: "services.manage", label: "Kelola service", group: "Service" },
+  { key: "services.edit", label: "Edit Service", group: "Service" },
+  { key: "services.delete", label: "Hapus Service", group: "Service" },
   { key: "finance.view", label: "Lihat keuangan", group: "Keuangan" },
   { key: "finance.manage", label: "Kelola keuangan", group: "Keuangan" },
   { key: "reports.view", label: "Lihat laporan", group: "Laporan" },
@@ -73,6 +75,8 @@ export const PERMISSION_DEPENDENCIES: Partial<Record<PermissionKey, PermissionKe
   "fundMutations.withdraw": "fundMutations.manage",
   "fundMutations.withdrawDelete": "fundMutations.manage",
   "services.manage": "services.view",
+  "services.edit": "services.manage",
+  "services.delete": "services.manage",
   "finance.manage": "finance.view",
   "reports.export": "reports.view",
   "receivables.manage": "receivables.view",
@@ -95,6 +99,8 @@ export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
   "bankTransfers.manage",
   "services.view",
   "services.manage",
+  "services.edit",
+  "services.delete",
   "settings.view",
   "settings.backup"
 ];
@@ -102,6 +108,10 @@ export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
 export function hasPermission(role: "admin" | "staff", permissions: string[], key: PermissionKey) {
   if (role === "admin" || key === "dashboard.view") return true;
   if (permissions.includes(key)) return true;
+
+  if (permissions.includes("services.manage")) {
+    if (key === "services.edit" || key === "services.delete") return true;
+  }
 
   // Backward compatibility fallback for master keys
   if (permissions.includes("fundMutations.manage")) {
