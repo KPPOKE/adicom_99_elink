@@ -109,7 +109,7 @@ export function ServiceClient({
   const watchedParts = form.watch("parts") ?? [];
   const laborCost = form.watch("laborCost") || 0;
   const partsTotal = watchedParts.reduce((sum, part) => sum + (Number(part.qty) || 0) * (Number(part.price) || 0), 0);
-  const costLocked = editing?.paymentStatus === "paid";
+  const costLocked = false;
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -234,12 +234,10 @@ export function ServiceClient({
           <Button
             variant="outline"
             size="icon"
-            title={row.original.paymentStatus === "paid" ? "Service yang sudah lunas tidak dapat di-edit" : "Edit Service"}
-            disabled={row.original.paymentStatus === "paid"}
+            title="Edit Service"
             onClick={() => handleEdit(row.original)}
-            className={row.original.paymentStatus === "paid" ? "opacity-40 cursor-not-allowed bg-slate-100" : ""}
           >
-            <Edit className={cn("h-4 w-4", row.original.paymentStatus === "paid" ? "text-slate-400" : "text-blue-600")} />
+            <Edit className="h-4 w-4 text-blue-600" />
           </Button>
           {row.original.customerPhone ? (
             <Button
@@ -309,39 +307,27 @@ export function ServiceClient({
               }
             />
           ) : null}
-          {row.original.paymentStatus === "paid" ? (
-            <Button
-              variant="outline"
-              size="icon"
-              title="Service yang sudah lunas tidak dapat dihapus"
-              disabled={true}
-              className="opacity-40 cursor-not-allowed bg-slate-100"
-            >
-              <Trash2 className="h-4 w-4 text-slate-400" />
-            </Button>
-          ) : (
-            <ConfirmDialog
-              title="Hapus service ini?"
-              description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
-              confirmLabel="Hapus Service"
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteService(row.original.id);
-                    toast.success("Service dihapus");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
-                  }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon" title="Hapus Service" className="text-red-600 hover:bg-red-50 hover:text-red-700">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              }
-            />
-          )}
+          <ConfirmDialog
+            title="Hapus service ini?"
+            description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
+            confirmLabel="Hapus Service"
+            onConfirm={() =>
+              startTransition(async () => {
+                try {
+                  await deleteService(row.original.id);
+                  toast.success("Service dihapus");
+                  router.refresh();
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+                }
+              })
+            }
+            trigger={
+              <Button variant="outline" size="icon" title="Hapus Service" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            }
+          />
         </div>
       )
     }

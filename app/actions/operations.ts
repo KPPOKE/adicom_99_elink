@@ -349,11 +349,7 @@ function parseServiceForm(formData: FormData) {
   return serviceSchema.parse({ ...raw, parts });
 }
 
-function sameServiceParts(existing: Array<{ itemId: number; qty: number; price: Prisma.Decimal }>, next: ServicePartInput[]) {
-  const normalize = (parts: Array<{ itemId: number; qty: number; price: Prisma.Decimal | number }>) =>
-    parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: toNumber(part.price) })).sort((a, b) => a.itemId - b.itemId);
-  return JSON.stringify(normalize(existing)) === JSON.stringify(normalize(next));
-}
+
 
 function revalidateServicePaths() {
   revalidatePath("/services");
@@ -382,10 +378,11 @@ export async function upsertService(formData: FormData) {
       const existing = await tx.service.findUnique({ where: { id }, include: { parts: true } });
       if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
       if (existing.status === "Batal") throw new Error("Service batal tidak dapat diubah");
-      if (existing.paymentStatus === "paid") {
-        const costsChanged = toNumber(existing.laborCost) !== fields.laborCost || !sameServiceParts(existing.parts, parts);
-        if (costsChanged) throw new Error("Biaya dan sparepart service lunas tidak dapat diubah");
-        if (fields.status !== existing.status && fields.status !== "Diambil") throw new Error("Service lunas hanya dapat diubah ke status Diambil");
+      if (existing.paymentStatus === "paid" && fields.status !== "Batal") {
+        await tx.financeRecord.updateMany({
+          where: { serviceId: id, type: "income" },
+          data: { amount: finalCost }
+        });
       }
 
       const stockItems = await validateServiceParts(tx, activeOutlet.id, parts);
@@ -530,7 +527,7 @@ export async function deleteService(id: number) {
     await prisma.$transaction(async (tx) => {
       const service = await tx.service.findUnique({ where: { id }, include: { parts: true, financeRecords: true } });
       if (!service || service.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
-      if (service.financeRecords.length > 0) throw new Error("Service sudah memiliki catatan keuangan dan tidak bisa dihapus");
+      await tx.financeRecord.deleteMany({ where: { serviceId: id } });
       await releaseServiceParts(tx, service.outletId!, service.parts, serviceStockMode(service.status));
       await tx.service.delete({ where: { id } });
       await tx.auditLog.create({
