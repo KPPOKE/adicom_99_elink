@@ -76,33 +76,9 @@ export function ServiceClient({
   const [editing, setEditing] = useState<ServiceRow | null>(null);
   const [servicePeriod, setServicePeriod] = useState<"all" | "today" | "month" | "year" | "custom">("all");
   const [serviceCustomDate, setServiceCustomDate] = useState("");
-  const [customDay, setCustomDay] = useState("");
-  const [customMonth, setCustomMonth] = useState("");
-  const [customYear, setCustomYear] = useState("");
-
   const canEditService = hasPermission(role, permissions, "services.edit");
   const canDeleteService = hasPermission(role, permissions, "services.delete");
   const canManageService = hasPermission(role, permissions, "services.manage");
-
-  const handleDateSelectChange = (day: string, month: string, year: string) => {
-    setCustomDay(day);
-    setCustomMonth(month);
-    setCustomYear(year);
-
-    if (day && month && year) {
-      setServiceCustomDate(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
-      setServicePeriod("custom");
-    } else if (month && year) {
-      setServiceCustomDate(`${year}-${month.padStart(2, "0")}`);
-      setServicePeriod("month");
-    } else if (year) {
-      setServiceCustomDate(year);
-      setServicePeriod("year");
-    } else {
-      setServiceCustomDate("");
-      setServicePeriod("all");
-    }
-  };
 
   const displayServices = useMemo(() => {
     if (servicePeriod === "custom" && serviceCustomDate) {
@@ -133,9 +109,6 @@ export function ServiceClient({
   const handleResetFilters = () => {
     setServicePeriod("all");
     setServiceCustomDate("");
-    setCustomDay("");
-    setCustomMonth("");
-    setCustomYear("");
     router.push("/services");
   };
 
@@ -439,53 +412,22 @@ export function ServiceClient({
               {p.label}
             </button>
           ))}
-          <div className="flex items-center gap-1 pl-2 pr-1 border-l border-slate-300">
+          <div className="flex items-center gap-1.5 pl-2.5 pr-1 border-l border-slate-300">
             <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-            <span className="text-[11px] font-bold text-slate-500 uppercase whitespace-nowrap mr-0.5">Per Tgl:</span>
-            <Select
-              value={customDay}
-              onChange={(e) => handleDateSelectChange(e.target.value, customMonth, customYear)}
-              className="h-7 w-[55px] px-1 text-xs bg-white border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Tgl</option>
-              {Array.from({ length: 31 }, (_, i) => {
-                const val = String(i + 1).padStart(2, "0");
-                return <option key={val} value={val}>{i + 1}</option>;
-              })}
-            </Select>
-            <Select
-              value={customMonth}
-              onChange={(e) => handleDateSelectChange(customDay, e.target.value, customYear)}
-              className="h-7 w-[85px] px-1 text-xs bg-white border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Bulan</option>
-              {[
-                { val: "01", name: "Jan" },
-                { val: "02", name: "Feb" },
-                { val: "03", name: "Mar" },
-                { val: "04", name: "Apr" },
-                { val: "05", name: "Mei" },
-                { val: "06", name: "Jun" },
-                { val: "07", name: "Jul" },
-                { val: "08", name: "Agus" },
-                { val: "09", name: "Sep" },
-                { val: "10", name: "Okt" },
-                { val: "11", name: "Nov" },
-                { val: "12", name: "Des" }
-              ].map((m) => (
-                <option key={m.val} value={m.val}>{m.name}</option>
-              ))}
-            </Select>
-            <Select
-              value={customYear}
-              onChange={(e) => handleDateSelectChange(customDay, customMonth, e.target.value)}
-              className="h-7 w-[72px] px-1 text-xs bg-white border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Thn</option>
-              {["2024", "2025", "2026", "2027", "2028", "2029", "2030"].map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </Select>
+            <span className="text-[11px] font-bold text-slate-500 uppercase whitespace-nowrap">Per Tgl:</span>
+            <Input
+              type="date"
+              value={serviceCustomDate}
+              onChange={(e) => {
+                setServiceCustomDate(e.target.value);
+                if (e.target.value) setServicePeriod("custom");
+                else setServicePeriod("all");
+              }}
+              className={cn(
+                "h-7 w-36 px-2 text-xs bg-white font-medium border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-2xs",
+                servicePeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold bg-blue-50/40"
+              )}
+            />
           </div>
         </div>
 
