@@ -95,7 +95,7 @@ export function formatWhatsAppServiceReceipt(data: {
   const lines = [
     `*Adicom99*`,
     `_Service hardware, laptop, PC, HP, pulsa, token listrik, dan produk digital._`,
-    `WA: 081234567899`,
+    `WA: +62 812-3456-8987`,
     `--------------------------------------------------`,
     `*Kode Service:* ${data.kodeService}`,
     `*Tanggal Masuk:* ${dateStr}`,

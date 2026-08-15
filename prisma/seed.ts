@@ -239,7 +239,7 @@ async function main() {
     create: {
       storeName: "PosPintar",
       address: "Service hardware, laptop, PC, HP, pulsa, token listrik, dan produk digital.",
-      whatsapp: "081234567899",
+      whatsapp: "+62 812-3456-8987",
       email: "support@pospintar.com",
       invoicePrefix: "INV",
       invoiceFooter: "Terima kasih sudah mempercayakan kebutuhan service dan produk digital ke PosPintar.",

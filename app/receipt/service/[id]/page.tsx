@@ -33,7 +33,7 @@ export default async function PublicServiceReceiptPage({
   const cost = toNumber(service.finalCost) || toNumber(service.estimatedCost);
   const storeName = service.outlet?.name || setting?.storeName || "Adicom99";
   const storeAddress = setting?.address || "Service hardware, laptop, PC, HP, pulsa, token listrik, dan produk digital.";
-  const storeWA = setting?.whatsapp || "081234567899";
+  const storeWA = setting?.whatsapp || "+62 812-3456-8987";
 
   return (
     <div className="min-h-screen bg-slate-100 py-4 sm:py-8 px-3 sm:px-4 text-slate-900 font-sans">
