@@ -187,7 +187,7 @@ test.describe("UAT operational workflow", () => {
 
     await page.goto("/services");
     const paymentRow = page.getByRole("row").filter({ hasText: service.kodeService });
-    const actionMenu = paymentRow.locator("button").first();
+    const actionMenu = paymentRow.locator("button[title='Menu Aksi']").first();
     await actionMenu.click();
     const markPaidItem = page.getByRole("menuitem", { name: "Tandai Lunas" });
     await markPaidItem.click();
