@@ -424,7 +424,7 @@ export function ServiceClient({
                 else setServicePeriod("all");
               }}
               className={cn(
-                "h-7 w-36 px-2 text-xs bg-white font-medium border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-2xs",
+                "h-7.5 w-[160px] pl-2.5 pr-1 text-xs bg-white font-medium border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-2xs [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100",
                 servicePeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold bg-blue-50/40"
               )}
             />
