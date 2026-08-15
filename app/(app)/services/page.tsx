@@ -1,7 +1,7 @@
 import { PaymentStatus, Prisma, ServiceStatus } from "@prisma/client";
 import { ServiceClient } from "@/components/service-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/permissions";
+import { getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -12,6 +12,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
   const user = await requirePermission("services.view");
+  const permissions = await getUserPermissionKeys(user);
   const { activeOutlet } = await outletContext(user);
   const status = Object.values(ServiceStatus).find((value) => value === query.status);
   const payment = Object.values(PaymentStatus).find((value) => value === query.payment);
@@ -50,6 +51,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
         customers={customers.map((customer) => ({ id: customer.id, name: customer.name, phone: customer.phone }))}
         items={items.map((item) => ({ id: item.id, namaBarang: item.namaBarang, kodeBarang: item.kodeBarang, hargaJual: toNumber(item.hargaJual), stok: item.stok, categoryName: item.category.name }))}
         role={user.role.name}
+        permissions={permissions}
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
         filterValues={{ status: query.status ?? "", payment: query.payment ?? "" }}
       />

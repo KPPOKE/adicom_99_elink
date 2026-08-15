@@ -362,9 +362,9 @@ function revalidateServicePaths() {
 
 export async function upsertService(formData: FormData) {
   await assertTrustedOrigin();
-  const user = await requirePermission("services.manage");
-  const { activeOutlet } = await outletContext(user);
   const parsed = parseServiceForm(formData);
+  const user = await requirePermission(parsed.id ? "services.edit" : "services.manage");
+  const { activeOutlet } = await outletContext(user);
   const { id, parts, ...fields } = parsed;
   const finalCost = fields.laborCost + parts.reduce((sum, part) => sum + part.qty * part.price, 0);
   const targetMode = serviceStockMode(fields.status);
@@ -522,7 +522,7 @@ export async function updateServiceStatus(id: number, status: string) {
 export async function deleteService(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("services.manage");
+    const user = await requirePermission("services.delete");
     const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const service = await tx.service.findUnique({ where: { id }, include: { parts: true, financeRecords: true } });

@@ -18,6 +18,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
 import { cn, formatCurrency, formatDate, formatWhatsAppPhone, formatWhatsAppServiceReceipt } from "@/lib/utils";
+import { hasPermission } from "@/lib/permission-keys";
 
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,6 +57,8 @@ export function ServiceClient({
   services,
   customers = [],
   items = [],
+  role = "staff",
+  permissions = [],
   pagination,
   filterValues
 }: {
@@ -63,6 +66,7 @@ export function ServiceClient({
   customers?: { id: number; name: string; phone: string | null }[];
   items?: SparePartOption[];
   role?: "admin" | "staff";
+  permissions?: string[];
   pagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { status: string; payment: string };
 }) {
@@ -72,6 +76,33 @@ export function ServiceClient({
   const [editing, setEditing] = useState<ServiceRow | null>(null);
   const [servicePeriod, setServicePeriod] = useState<"all" | "today" | "month" | "year" | "custom">("all");
   const [serviceCustomDate, setServiceCustomDate] = useState("");
+  const [customDay, setCustomDay] = useState("");
+  const [customMonth, setCustomMonth] = useState("");
+  const [customYear, setCustomYear] = useState("");
+
+  const canEditService = hasPermission(role, permissions, "services.edit");
+  const canDeleteService = hasPermission(role, permissions, "services.delete");
+  const canManageService = hasPermission(role, permissions, "services.manage");
+
+  const handleDateSelectChange = (day: string, month: string, year: string) => {
+    setCustomDay(day);
+    setCustomMonth(month);
+    setCustomYear(year);
+
+    if (day && month && year) {
+      setServiceCustomDate(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+      setServicePeriod("custom");
+    } else if (month && year) {
+      setServiceCustomDate(`${year}-${month.padStart(2, "0")}`);
+      setServicePeriod("month");
+    } else if (year) {
+      setServiceCustomDate(year);
+      setServicePeriod("year");
+    } else {
+      setServiceCustomDate("");
+      setServicePeriod("all");
+    }
+  };
 
   const displayServices = useMemo(() => {
     if (servicePeriod === "custom" && serviceCustomDate) {
@@ -102,6 +133,9 @@ export function ServiceClient({
   const handleResetFilters = () => {
     setServicePeriod("all");
     setServiceCustomDate("");
+    setCustomDay("");
+    setCustomMonth("");
+    setCustomYear("");
     router.push("/services");
   };
 
@@ -266,10 +300,12 @@ export function ServiceClient({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 p-1.5">
-              <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
-                <Edit className="h-3.5 w-3.5 text-blue-600" />
-                <span>Edit Service</span>
-              </DropdownMenuItem>
+              {canEditService ? (
+                <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                  <Edit className="h-3.5 w-3.5 text-blue-600" />
+                  <span>Edit Service</span>
+                </DropdownMenuItem>
+              ) : null}
 
               <DropdownMenuItem asChild className="text-slate-700 focus:bg-slate-50">
                 <Link href={`/services/${row.original.id}`}>
@@ -342,30 +378,33 @@ export function ServiceClient({
                 />
               ) : null}
 
-              <DropdownMenuSeparator />
-
-              <ConfirmDialog
-                title="Hapus service ini?"
-                description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
-                confirmLabel="Hapus Service"
-                onConfirm={() =>
-                  startTransition(async () => {
-                    try {
-                      await deleteService(row.original.id);
-                      toast.success("Service dihapus");
-                      router.refresh();
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+              {canDeleteService ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <ConfirmDialog
+                    title="Hapus service ini?"
+                    description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
+                    confirmLabel="Hapus Service"
+                    onConfirm={() =>
+                      startTransition(async () => {
+                        try {
+                          await deleteService(row.original.id);
+                          toast.success("Service dihapus");
+                          router.refresh();
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+                        }
+                      })
                     }
-                  })
-                }
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
-                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                    <span>Hapus Service</span>
-                  </DropdownMenuItem>
-                }
-              />
+                    trigger={
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                        <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                        <span>Hapus Service</span>
+                      </DropdownMenuItem>
+                    }
+                  />
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -400,22 +439,53 @@ export function ServiceClient({
               {p.label}
             </button>
           ))}
-          <div className="flex items-center gap-1.5 pl-2 pr-1 border-l border-slate-300">
+          <div className="flex items-center gap-1 pl-2 pr-1 border-l border-slate-300">
             <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-            <span className="text-[11px] font-bold text-slate-500 uppercase whitespace-nowrap">Per Tgl:</span>
-            <Input
-              type="date"
-              value={serviceCustomDate}
-              onChange={(e) => {
-                setServiceCustomDate(e.target.value);
-                if (e.target.value) setServicePeriod("custom");
-                else setServicePeriod("all");
-              }}
-              className={cn(
-                "h-7 w-32 px-2 text-xs bg-white font-medium border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500",
-                servicePeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold"
-              )}
-            />
+            <span className="text-[11px] font-bold text-slate-500 uppercase whitespace-nowrap mr-0.5">Per Tgl:</span>
+            <Select
+              value={customDay}
+              onChange={(e) => handleDateSelectChange(e.target.value, customMonth, customYear)}
+              className="h-7 w-[55px] px-1 text-xs bg-white border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Tgl</option>
+              {Array.from({ length: 31 }, (_, i) => {
+                const val = String(i + 1).padStart(2, "0");
+                return <option key={val} value={val}>{i + 1}</option>;
+              })}
+            </Select>
+            <Select
+              value={customMonth}
+              onChange={(e) => handleDateSelectChange(customDay, e.target.value, customYear)}
+              className="h-7 w-[85px] px-1 text-xs bg-white border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Bulan</option>
+              {[
+                { val: "01", name: "Jan" },
+                { val: "02", name: "Feb" },
+                { val: "03", name: "Mar" },
+                { val: "04", name: "Apr" },
+                { val: "05", name: "Mei" },
+                { val: "06", name: "Jun" },
+                { val: "07", name: "Jul" },
+                { val: "08", name: "Agus" },
+                { val: "09", name: "Sep" },
+                { val: "10", name: "Okt" },
+                { val: "11", name: "Nov" },
+                { val: "12", name: "Des" }
+              ].map((m) => (
+                <option key={m.val} value={m.val}>{m.name}</option>
+              ))}
+            </Select>
+            <Select
+              value={customYear}
+              onChange={(e) => handleDateSelectChange(customDay, customMonth, e.target.value)}
+              className="h-7 w-[72px] px-1 text-xs bg-white border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Thn</option>
+              {["2024", "2025", "2026", "2027", "2028", "2029", "2030"].map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </Select>
           </div>
         </div>
 
@@ -450,13 +520,14 @@ export function ServiceClient({
             </optgroup>
           </Select>
 
-          <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-              <Button onClick={() => handleOpenChange(true)} className="bg-blue-600 hover:bg-blue-700 font-semibold shadow-2xs">
-                <Plus className="h-4 w-4" />
-                Service Masuk
-              </Button>
-            </DialogTrigger>
+          {canManageService ? (
+            <Dialog open={open} onOpenChange={handleOpenChange}>
+              <DialogTrigger asChild>
+                <Button onClick={() => handleOpenChange(true)} className="bg-blue-600 hover:bg-blue-700 font-semibold shadow-2xs">
+                  <Plus className="h-4 w-4" />
+                  Service Masuk
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editing ? "Edit Service" : "Input Service Masuk"}</DialogTitle>
@@ -780,6 +851,7 @@ export function ServiceClient({
               </Form>
             </DialogContent>
           </Dialog>
+          ) : null}
         </div>
       </div>
       <DataTable

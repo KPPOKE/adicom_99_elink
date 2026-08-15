@@ -109,10 +109,6 @@ export function hasPermission(role: "admin" | "staff", permissions: string[], ke
   if (role === "admin" || key === "dashboard.view") return true;
   if (permissions.includes(key)) return true;
 
-  if (permissions.includes("services.manage")) {
-    if (key === "services.edit" || key === "services.delete") return true;
-  }
-
   // Backward compatibility fallback for master keys
   if (permissions.includes("fundMutations.manage")) {
     if (
