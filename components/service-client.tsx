@@ -294,7 +294,8 @@ export function ServiceClient({
                         paymentStatus: row.original.paymentStatus,
                         estimatedCost: row.original.estimatedCost,
                         laborCost: row.original.laborCost,
-                        finalCost: row.original.finalCost
+                        finalCost: row.original.finalCost,
+                        serviceUrl: `${typeof window !== "undefined" ? window.location.origin : ""}/receipt/service/${row.original.id}`
                       })
                     )}`}
                     target="_blank"

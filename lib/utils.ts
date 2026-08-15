@@ -82,6 +82,7 @@ export function formatWhatsAppServiceReceipt(data: {
   estimatedCost?: unknown;
   laborCost?: unknown;
   finalCost?: unknown;
+  serviceUrl?: string;
 }) {
   const dateStr = formatDateTime(data.receivedDate);
   const deviceStr = [data.deviceType, data.deviceBrand, data.deviceModel].filter(Boolean).join(" ");
@@ -91,7 +92,7 @@ export function formatWhatsAppServiceReceipt(data: {
   const laborCost = formatCurrency(toNumber(data.laborCost));
   const finalCost = formatCurrency(toNumber(data.finalCost) || toNumber(data.estimatedCost));
 
-  return [
+  const lines = [
     `*Adicom99*`,
     `_Service hardware, laptop, PC, HP, pulsa, token listrik, dan produk digital._`,
     `WA: 081234567899`,
@@ -119,5 +120,15 @@ export function formatWhatsAppServiceReceipt(data: {
     `*Estimasi:* ${estCost}`,
     `*Biaya Jasa:* ${laborCost}`,
     `*Biaya Final:* ${finalCost}`
-  ].join("\n");
+  ];
+
+  if (data.serviceUrl) {
+    lines.push(
+      `--------------------------------------------------`,
+      `📄 *Lihat & Unduh Tanda Terima Online:*`,
+      data.serviceUrl
+    );
+  }
+
+  return lines.join("\n");
 }
