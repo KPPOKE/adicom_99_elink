@@ -36,10 +36,10 @@ export default async function PublicServiceReceiptPage({
   const storeWA = setting?.whatsapp || "+62 812-3456-8987";
 
   return (
-    <div className="min-h-screen bg-slate-100 py-4 sm:py-8 px-3 sm:px-4 text-slate-900 font-sans">
-      <div className="mx-auto max-w-md bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+    <div className="min-h-screen bg-slate-100 py-4 sm:py-8 px-3 sm:px-4 text-slate-900 font-sans print:bg-white print:py-0 print:px-0 print:min-h-0">
+      <div className="mx-auto max-w-md bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 print:shadow-none print:border-none print:max-w-full print:rounded-none">
         {/* Banner Header */}
-        <header className="p-6 text-center border-b border-slate-100 bg-slate-50/50">
+        <header className="p-6 text-center border-b border-slate-100 bg-slate-50/50 print:bg-white print:p-4">
           {setting?.logo ? (
             <img src={setting.logo} alt={storeName} className="mx-auto mb-2 h-14 w-14 object-contain" />
           ) : null}
@@ -134,7 +134,7 @@ export default async function PublicServiceReceiptPage({
         </div>
 
         {/* Action Controls */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-2">
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-2 no-print">
           <PrintButton />
           {storeWA ? (
             <Button asChild variant="outline" className="w-full text-emerald-700 border-emerald-300 hover:bg-emerald-50">

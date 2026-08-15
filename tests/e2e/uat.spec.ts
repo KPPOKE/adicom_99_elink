@@ -187,15 +187,11 @@ test.describe("UAT operational workflow", () => {
 
     await page.goto("/services");
     const paymentRow = page.getByRole("row").filter({ hasText: service.kodeService });
-    const paymentTrigger = paymentRow.getByTitle("Tandai dibayar");
-    await paymentTrigger.click();
-    try {
-      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 2_000 });
-    } catch {
-      await paymentTrigger.click();
-      await expect(page.getByRole("dialog")).toBeVisible();
-    }
-    await page.getByRole("button", { name: "Tandai Lunas" }).click();
+    const actionMenu = paymentRow.locator("button").first();
+    await actionMenu.click();
+    const markPaidItem = page.getByRole("menuitem", { name: "Tandai Lunas" });
+    await markPaidItem.click();
+    await page.getByRole("dialog").getByRole("button", { name: "Tandai Lunas" }).click();
     await expect(page.getByText("Service ditandai lunas")).toBeVisible();
     const paidService = await prisma.service.findUniqueOrThrow({ where: { id: service.id }, include: { financeRecords: true } });
     expect(paidService.paymentStatus).toBe("paid");
