@@ -184,27 +184,34 @@ export function ServiceClient({
   };
 
   const columns: ColumnDef<ServiceRow>[] = [
-    { accessorKey: "kodeService", header: "Kode" },
+    { accessorKey: "kodeService", header: "Kode", cell: ({ row }) => <span className="font-semibold text-slate-800 whitespace-nowrap text-xs">{row.original.kodeService}</span> },
     {
       header: "Customer",
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-slate-900">{row.original.customerName}</p>
-          <p className="text-xs text-slate-500">{row.original.customerPhone || "-"}</p>
+        <div className="max-w-[130px] truncate">
+          <p className="font-medium text-slate-900 truncate text-xs">{row.original.customerName}</p>
+          <p className="text-[11px] text-slate-500 truncate">{row.original.customerPhone || "-"}</p>
         </div>
       )
     },
-    { header: "Perangkat", cell: ({ row }) => `${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}` },
+    {
+      header: "Perangkat",
+      cell: ({ row }) => (
+        <div className="max-w-[130px] truncate text-xs" title={`${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}`}>
+          {`${row.original.deviceType} ${row.original.deviceBrand ?? ""} ${row.original.deviceModel ?? ""}`}
+        </div>
+      )
+    },
     { id: "status", header: () => <div className="text-center">Status</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => <div className="flex w-full justify-center"><ServiceStatusBadge status={row.original.status} /></div> },
     { id: "paymentStatus", header: () => <div className="text-center">Pembayaran</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => <div className="flex w-full justify-center"><PaymentStatusBadge status={row.original.paymentStatus} /></div> },
-    { header: "Biaya", cell: ({ row }) => formatCurrency(row.original.finalCost || row.original.estimatedCost) },
-    { header: "Masuk", cell: ({ row }) => formatDate(row.original.receivedDate) },
+    { header: "Biaya", cell: ({ row }) => <span className="whitespace-nowrap font-medium text-xs">{formatCurrency(row.original.finalCost || row.original.estimatedCost)}</span> },
+    { header: "Masuk", cell: ({ row }) => <span className="whitespace-nowrap text-xs">{formatDate(row.original.receivedDate)}</span> },
     {
       id: "quick",
       header: "Update Cepat",
       cell: ({ row }) => (
         <Select
-          className="w-28"
+          className="w-24 h-7 text-[11px] py-0 px-1 font-medium bg-white"
           value={row.original.status}
           onChange={(event) =>
             startTransition(async () => {
@@ -230,22 +237,23 @@ export function ServiceClient({
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <div className="flex min-w-max justify-end gap-2">
+        <div className="flex items-center justify-end gap-1">
           <Button
             variant="outline"
             size="icon"
+            className="h-7 w-7 p-0 shrink-0"
             title="Edit Service"
             onClick={() => handleEdit(row.original)}
           >
-            <Edit className="h-4 w-4 text-blue-600" />
+            <Edit className="h-3.5 w-3.5 text-blue-600" />
           </Button>
           {row.original.customerPhone ? (
             <Button
               asChild
               variant="outline"
               size="icon"
+              className="h-7 w-7 p-0 shrink-0 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
               title="Bagikan Bukti Service via WhatsApp"
-              className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
             >
               <a
                 href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(row.original.customerPhone)}&text=${encodeURIComponent(
@@ -270,18 +278,18 @@ export function ServiceClient({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <MessageSquare className="h-4 w-4" />
+                <MessageSquare className="h-3.5 w-3.5" />
               </a>
             </Button>
           ) : null}
-          <Button asChild variant="outline" size="icon" title={`Cetak Invoice ${row.original.kodeService}`}>
+          <Button asChild variant="outline" size="icon" className="h-7 w-7 p-0 shrink-0 text-slate-600 hover:bg-slate-50" title={`Cetak Invoice ${row.original.kodeService}`}>
             <Link href={`/services/${row.original.id}/invoice`}>
-              <Printer className="h-4 w-4" />
+              <Printer className="h-3.5 w-3.5" />
             </Link>
           </Button>
-          <Button asChild variant="outline" size="icon" title={`Detail Service ${row.original.kodeService}`}>
+          <Button asChild variant="outline" size="icon" className="h-7 w-7 p-0 shrink-0 text-slate-600 hover:bg-slate-50" title={`Detail Service ${row.original.kodeService}`}>
             <Link href={`/services/${row.original.id}`}>
-              <Eye className="h-4 w-4" />
+              <Eye className="h-3.5 w-3.5" />
             </Link>
           </Button>
           {row.original.paymentStatus !== "paid" ? (
@@ -301,8 +309,8 @@ export function ServiceClient({
                 })
               }
               trigger={
-                <Button variant="outline" size="icon" title="Tandai dibayar">
-                  <CreditCard className="h-4 w-4 text-emerald-600" />
+                <Button variant="outline" size="icon" className="h-7 w-7 p-0 shrink-0 text-emerald-600" title="Tandai dibayar">
+                  <CreditCard className="h-3.5 w-3.5" />
                 </Button>
               }
             />
@@ -323,8 +331,8 @@ export function ServiceClient({
               })
             }
             trigger={
-              <Button variant="outline" size="icon" title="Hapus Service" className="text-red-600 hover:bg-red-50 hover:text-red-700">
-                <Trash2 className="h-4 w-4" />
+              <Button variant="outline" size="icon" title="Hapus Service" className="h-7 w-7 p-0 shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700">
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             }
           />
@@ -741,7 +749,7 @@ export function ServiceClient({
         </Dialog>
       </div>
       <DataTable
-        tableClassName="min-w-[1120px]"
+        tableClassName="w-full text-xs"
         columns={columns}
         data={displayServices}
         serverPagination={pagination}

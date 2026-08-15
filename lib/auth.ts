@@ -55,10 +55,12 @@ export function verifySessionToken(token?: string): SessionPayload | null {
 
 export async function setSession(userId: number, role: "admin" | "staff", sessionVersion: number, remember = false) {
   const cookieStore = await cookies();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const isHttps = appUrl.startsWith("https://");
   cookieStore.set(COOKIE_NAME, createSessionToken({ userId, role, sessionVersion }, remember ? REMEMBER_SESSION : SHORT_SESSION), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isHttps,
     path: "/",
     ...(remember ? { maxAge: Math.floor(REMEMBER_SESSION / 1000) } : {})
   });
