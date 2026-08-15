@@ -165,12 +165,12 @@ export function FinanceClient({ records, canManage, canViewProfit, pagination, f
         searchPlaceholder="Cari catatan keuangan..."
         filters={
           <>
-            <Select name="type" defaultValue={filterValues.type} className="w-[160px]">
+            <Select name="type" value={filterValues.type} onChange={(e) => e.currentTarget.form?.requestSubmit()} className="w-[160px]">
               <option value="">Semua tipe</option>
               <option value="income">Pemasukan</option>
               <option value="expense">Pengeluaran</option>
             </Select>
-            <Select name="category" defaultValue={filterValues.category} className="w-[180px]">
+            <Select name="category" value={filterValues.category} onChange={(e) => e.currentTarget.form?.requestSubmit()} className="w-[180px]">
               <option value="">Semua kategori</option>
               {categories.map((category) => (
                 <option key={category} value={category}>

@@ -408,7 +408,7 @@ export function InventoryClient({
         searchPlaceholder="Cari barang, kode, kategori..."
         filters={
           <>
-            <Select name="category" defaultValue={filterValues.category} className="w-[170px]">
+            <Select name="category" value={filterValues.category} onChange={(e) => e.currentTarget.form?.requestSubmit()} className="w-[170px]">
               <option value="all">Semua kategori</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
@@ -416,7 +416,7 @@ export function InventoryClient({
                 </option>
               ))}
             </Select>
-            <Select name="supplier" defaultValue={filterValues.supplier} className="w-[170px]">
+            <Select name="supplier" value={filterValues.supplier} onChange={(e) => e.currentTarget.form?.requestSubmit()} className="w-[170px]">
               <option value="all">Semua supplier</option>
               <option value="none">Tanpa supplier</option>
               {suppliers.map((supplier) => (
@@ -425,7 +425,7 @@ export function InventoryClient({
                 </option>
               ))}
             </Select>
-            <Select name="stock" defaultValue={filterValues.stock} className="w-[150px]">
+            <Select name="stock" value={filterValues.stock} onChange={(e) => e.currentTarget.form?.requestSubmit()} className="w-[150px]">
               <option value="all">Semua stok</option>
               <option value="safe">Aman</option>
               <option value="low">Hampir habis</option>

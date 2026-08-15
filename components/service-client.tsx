@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CreditCard, Edit, Eye, MessageSquare, MoreHorizontal, Plus, Printer, Trash2 } from "lucide-react";
+import { Calendar, CreditCard, Edit, Eye, MessageSquare, MoreHorizontal, Plus, Printer, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -94,6 +94,16 @@ export function ServiceClient({
       return true;
     });
   }, [services, servicePeriod, serviceCustomDate]);
+
+  const hasActiveFilters = Boolean(
+    filterValues.status || filterValues.payment || pagination?.query.q || servicePeriod !== "all" || serviceCustomDate
+  );
+
+  const handleResetFilters = () => {
+    setServicePeriod("all");
+    setServiceCustomDate("");
+    router.push("/services");
+  };
 
   const form = useForm({
     resolver: zodResolver(serviceSchema),
@@ -365,10 +375,53 @@ export function ServiceClient({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2 bg-slate-200/70 p-1.5 rounded-xl border border-slate-300/70 shadow-2xs">
+          {(
+            [
+              { id: "all", label: "Semua" },
+              { id: "today", label: "Hari Ini" },
+              { id: "month", label: "Bulan Ini" },
+              { id: "year", label: "Tahun Ini" }
+            ] as const
+          ).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                setServicePeriod(p.id);
+                setServiceCustomDate("");
+              }}
+              className={cn(
+                "px-3 py-1.5 text-xs font-semibold rounded-lg transition duration-150",
+                servicePeriod === p.id ? "bg-white text-blue-600 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+          <div className="flex items-center gap-1.5 pl-2 pr-1 border-l border-slate-300">
+            <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase whitespace-nowrap">Per Tgl:</span>
+            <Input
+              type="date"
+              value={serviceCustomDate}
+              onChange={(e) => {
+                setServiceCustomDate(e.target.value);
+                if (e.target.value) setServicePeriod("custom");
+                else setServicePeriod("all");
+              }}
+              className={cn(
+                "h-7 w-32 px-2 text-xs bg-white font-medium border-slate-300 rounded-md shrink-0 focus:ring-1 focus:ring-blue-500",
+                servicePeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold"
+              )}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
           <Select
-            className="w-[240px] text-xs font-bold"
+            className="w-[210px] text-xs font-semibold bg-white shadow-2xs"
             defaultValue=""
             onChange={(e) => {
               const val = e.target.value;
@@ -397,378 +450,337 @@ export function ServiceClient({
             </optgroup>
           </Select>
 
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
-            {(
-              [
-                { id: "all", label: "Semua" },
-                { id: "today", label: "Hari Ini (Harian)" },
-                { id: "month", label: "Bulan Ini (Bulanan)" },
-                { id: "year", label: "Tahun Ini (Tahunan)" }
-              ] as const
-            ).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  setServicePeriod(p.id);
-                  setServiceCustomDate("");
-                }}
-                className={cn(
-                  "px-3 py-1 text-xs font-bold rounded-md transition duration-150",
-                  servicePeriod === p.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-            <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-300">
-              <span className="text-[10px] font-bold text-slate-500 uppercase">Per Tgl:</span>
-              <Input
-                type="date"
-                value={serviceCustomDate}
-                onChange={(e) => {
-                  setServiceCustomDate(e.target.value);
-                  if (e.target.value) setServicePeriod("custom");
-                  else setServicePeriod("all");
-                }}
-                className={cn(
-                  "h-7 w-36 text-xs bg-white font-medium border-slate-300",
-                  servicePeriod === "custom" && "border-blue-600 ring-1 ring-blue-600 text-blue-700 font-bold"
-                )}
-              />
-            </div>
-          </div>
-        </div>
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenChange(true)}>
-              <Plus className="h-4 w-4" />
-              Service Masuk
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editing ? "Edit Service" : "Input Service Masuk"}</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="customerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Pelanggan Terdaftar</FormLabel>
-                      <Select name="customerId"
-                        onChange={(event) => {
-                          field.onChange(Number(event.target.value) || undefined);
-                          const customer = customers.find((item) => item.id === Number(event.target.value));
-                          if (customer) {
-                            form.setValue("customerName", customer.name);
-                            form.setValue("customerPhone", customer.phone ?? "");
-                          }
-                        }}
-                        value={String(field.value || "")}
-                      >
-                        <option value="">Customer baru/manual</option>
-                        {customers.map((customer) => (
-                          <option key={customer.id} value={customer.id}>
-                            {customer.name}
-                          </option>
-                        ))}
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="customerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nama Customer</FormLabel>
-                      <FormControl>
-                        <Input placeholder="cth: Budi" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="customerPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>No. HP</FormLabel>
-                      <FormControl>
-                        <Input placeholder="cth: 08123456789" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="deviceType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Jenis Perangkat</FormLabel>
-                      <FormControl>
-                        <Input placeholder="cth: Laptop, HP, Printer" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="deviceBrand"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Brand</FormLabel>
-                      <FormControl>
-                        <Input placeholder="cth: Asus" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="deviceModel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Model</FormLabel>
-                      <FormControl>
-                        <Input placeholder="cth: ROG Strix" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="estimatedCost"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Estimasi Biaya</FormLabel>
-                      <FormControl>
-                        <CurrencyInput name="estimatedCost" value={field.value} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="laborCost"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Biaya Jasa</FormLabel>
-                      <div className="space-y-1.5">
-                        <Select
-                          onChange={(e) => {
-                            const selectedId = Number(e.target.value);
-                            const found = items.find((item) => item.id === selectedId);
-                            if (found) {
-                              field.onChange(found.hargaJual);
+          <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+              <Button onClick={() => handleOpenChange(true)} className="bg-blue-600 hover:bg-blue-700 font-semibold shadow-2xs">
+                <Plus className="h-4 w-4" />
+                Service Masuk
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editing ? "Edit Service" : "Input Service Masuk"}</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="customerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pelanggan Terdaftar</FormLabel>
+                        <Select name="customerId"
+                          onChange={(event) => {
+                            field.onChange(Number(event.target.value) || undefined);
+                            const customer = customers.find((item) => item.id === Number(event.target.value));
+                            if (customer) {
+                              form.setValue("customerName", customer.name);
+                              form.setValue("customerPhone", customer.phone ?? "");
                             }
                           }}
-                          defaultValue=""
+                          value={String(field.value || "")}
                         >
-                          <option value="">-- Pilih Jenis Jasa (Master Data) --</option>
-                          {(() => {
-                            const jasaOptions = items.filter(
-                              (item) =>
-                                item.categoryName?.trim().toLowerCase() === "jasa" ||
-                                item.kodeBarang?.toUpperCase().startsWith("JSA-") ||
-                                item.satuan?.toLowerCase() === "jasa"
-                            );
-                            const listToRender = jasaOptions.length > 0 ? jasaOptions : items;
-                            return listToRender.map((jasa) => (
-                              <option key={jasa.id} value={jasa.id}>
-                                {jasa.namaBarang} - {formatCurrency(jasa.hargaJual)}
-                              </option>
-                            ));
-                          })()}
+                          <option value="">Customer baru/manual</option>
+                          {customers.map((customer) => (
+                            <option key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </option>
+                          ))}
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nama Customer</FormLabel>
                         <FormControl>
-                          <CurrencyInput name="laborCost" value={field.value} onChange={field.onChange} disabled={costLocked} />
+                          <Input placeholder="cth: Budi" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="customerPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>No. HP</FormLabel>
+                        <FormControl>
+                          <Input placeholder="cth: 08123456789" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="deviceType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Jenis Perangkat</FormLabel>
+                        <FormControl>
+                          <Input placeholder="cth: Laptop, HP, Printer" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="deviceBrand"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Brand</FormLabel>
+                        <FormControl>
+                          <Input placeholder="cth: Asus" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="deviceModel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Model</FormLabel>
+                        <FormControl>
+                          <Input placeholder="cth: ROG Strix" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="estimatedCost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimasi Biaya</FormLabel>
+                        <FormControl>
+                          <CurrencyInput name="estimatedCost" value={field.value} onChange={field.onChange} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="laborCost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Biaya Jasa</FormLabel>
+                        <div className="space-y-1.5">
+                          <Select
+                            onChange={(e) => {
+                              const selectedId = Number(e.target.value);
+                              const found = items.find((item) => item.id === selectedId);
+                              if (found) {
+                                field.onChange(found.hargaJual);
+                              }
+                            }}
+                            defaultValue=""
+                          >
+                            <option value="">-- Pilih Jenis Jasa (Master Data) --</option>
+                            {(() => {
+                              const jasaOptions = items.filter(
+                                (item) =>
+                                  item.categoryName?.trim().toLowerCase() === "jasa" ||
+                                  item.kodeBarang?.toUpperCase().startsWith("JSA-") ||
+                                  item.satuan?.toLowerCase() === "jasa"
+                              );
+                              const listToRender = jasaOptions.length > 0 ? jasaOptions : items;
+                              return listToRender.map((jasa) => (
+                                <option key={jasa.id} value={jasa.id}>
+                                  {jasa.namaBarang} - {formatCurrency(jasa.hargaJual)}
+                                </option>
+                              ));
+                            })()}
+                          </Select>
+                          <FormControl>
+                            <CurrencyInput name="laborCost" value={field.value} onChange={field.onChange} disabled={costLocked} />
+                          </FormControl>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-900">Inventori Sparepart</h3>
+                        <p className="text-xs text-slate-500">Barang dicadangkan sampai service mulai diproses.</p>
                       </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900">Inventori Sparepart</h3>
-                      <p className="text-xs text-slate-500">Barang dicadangkan sampai service mulai diproses.</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={costLocked || !items.some((item) => item.stok > 0)}
+                        onClick={() => {
+                          const item = items.find((option) => option.stok > 0);
+                          if (item) appendPart({ itemId: item.id, qty: 1, price: item.hargaJual });
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Tambah
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={costLocked || !items.some((item) => item.stok > 0)}
-                      onClick={() => {
-                        const item = items.find((option) => option.stok > 0);
-                        if (item) appendPart({ itemId: item.id, qty: 1, price: item.hargaJual });
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Tambah
-                    </Button>
-                  </div>
-                  {partFields.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">Belum ada sparepart.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {partFields.map((partField, index) => {
-                        const value = watchedParts[index];
-                        return (
-                          <div key={partField.id} className="grid gap-2 rounded-md border border-slate-200 p-3 sm:grid-cols-[minmax(180px,1fr)_90px_160px_140px_36px] sm:items-end">
-                            <FormField
-                              control={form.control}
-                              name={`parts.${index}.itemId`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Barang</FormLabel>
-                                  <Select
-                                    name="partItemId"
-                                    value={String(field.value || "")}
-                                    disabled={costLocked}
-                                    onChange={(event) => {
-                                      const itemId = Number(event.target.value);
-                                      const item = items.find((option) => option.id === itemId);
-                                      field.onChange(itemId);
-                                      form.setValue(`parts.${index}.price`, item?.hargaJual ?? 0);
-                                    }}
-                                  >
-                                    {items.map((item) => (
-                                      <option key={item.id} value={item.id} disabled={item.stok <= 0 && item.id !== field.value}>
-                                        {item.namaBarang} ({item.stok} tersedia)
-                                      </option>
-                                    ))}
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name={`parts.${index}.qty`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Qty</FormLabel>
-                                  <FormControl><CurrencyInput name="partQty" prefix="" decimalScale={0} value={field.value} onChange={field.onChange} disabled={costLocked} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name={`parts.${index}.price`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Harga</FormLabel>
-                                  <FormControl><CurrencyInput name="partPrice" value={field.value} onChange={field.onChange} disabled={costLocked} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <div className="pb-2">
-                              <p className="text-xs text-slate-500">Subtotal</p>
-                              <p className="mt-1 text-sm font-medium text-slate-800">{formatCurrency((Number(value?.qty) || 0) * (Number(value?.price) || 0))}</p>
+                    {partFields.length === 0 ? (
+                      <p className="rounded-md border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">Belum ada sparepart.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {partFields.map((partField, index) => {
+                          const value = watchedParts[index];
+                          return (
+                            <div key={partField.id} className="grid gap-2 rounded-md border border-slate-200 p-3 sm:grid-cols-[minmax(180px,1fr)_90px_160px_140px_36px] sm:items-end">
+                              <FormField
+                                control={form.control}
+                                name={`parts.${index}.itemId`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Barang</FormLabel>
+                                    <Select
+                                      name="partItemId"
+                                      value={String(field.value || "")}
+                                      disabled={costLocked}
+                                      onChange={(event) => {
+                                        const itemId = Number(event.target.value);
+                                        const item = items.find((option) => option.id === itemId);
+                                        field.onChange(itemId);
+                                        form.setValue(`parts.${index}.price`, item?.hargaJual ?? 0);
+                                      }}
+                                    >
+                                      {items.map((item) => (
+                                        <option key={item.id} value={item.id} disabled={item.stok <= 0 && item.id !== field.value}>
+                                          {item.namaBarang} ({item.stok} tersedia)
+                                        </option>
+                                      ))}
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`parts.${index}.qty`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Qty</FormLabel>
+                                    <FormControl><CurrencyInput name="partQty" prefix="" decimalScale={0} value={field.value} onChange={field.onChange} disabled={costLocked} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name={`parts.${index}.price`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Harga</FormLabel>
+                                    <FormControl><CurrencyInput name="partPrice" value={field.value} onChange={field.onChange} disabled={costLocked} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <div className="pb-2">
+                                <p className="text-xs text-slate-500">Subtotal</p>
+                                <p className="mt-1 text-sm font-medium text-slate-800">{formatCurrency((Number(value?.qty) || 0) * (Number(value?.price) || 0))}</p>
+                              </div>
+                              <Button type="button" variant="outline" size="icon" disabled={costLocked} onClick={() => removePart(index)} title="Hapus sparepart">
+                                <Trash2 className="h-4 w-4 text-red-300" />
+                              </Button>
                             </div>
-                            <Button type="button" variant="outline" size="icon" disabled={costLocked} onClick={() => removePart(index)} title="Hapus sparepart">
-                              <Trash2 className="h-4 w-4 text-red-300" />
-                            </Button>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1 border-t border-slate-200 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-slate-500">Sparepart: {formatCurrency(partsTotal)} | Jasa: {formatCurrency(Number(laborCost))}</span>
+                      <strong className="text-base text-blue-600">Biaya Final: {formatCurrency(partsTotal + Number(laborCost))}</strong>
                     </div>
-                  )}
-                  <div className="flex flex-col gap-1 border-t border-slate-200 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-slate-500">Sparepart: {formatCurrency(partsTotal)} | Jasa: {formatCurrency(Number(laborCost))}</span>
-                    <strong className="text-base text-blue-600">Biaya Final: {formatCurrency(partsTotal + Number(laborCost))}</strong>
-                  </div>
-                </section>
+                  </section>
 
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select name="status" onChange={(e) => field.onChange(e.target.value)} value={field.value}>
-                        {statuses.map((status) => (
-                          <option key={status} value={status}>
-                            {status.replace("_", " ")}
-                          </option>
-                        ))}
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select name="status" onChange={(e) => field.onChange(e.target.value)} value={field.value}>
+                          {statuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status.replace("_", " ")}
+                            </option>
+                          ))}
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="problemDescription"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Keluhan</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Keluhan..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="problemDescription"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Keluhan</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Keluhan..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="diagnosis"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Diagnosa</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Hasil diagnosa teknisi..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="diagnosis"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Diagnosa</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Hasil diagnosa teknisi..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="technicianNote"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Catatan Teknisi</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Catatan internal teknisi..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="technicianNote"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Catatan Teknisi</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Catatan internal teknisi..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <Button type="submit" className="sm:col-span-2" disabled={isPending}>
-                  {isPending ? "Menyimpan..." : "Simpan Service"}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  <Button type="submit" className="sm:col-span-2" disabled={isPending}>
+                    {isPending ? "Menyimpan..." : "Simpan Service"}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <DataTable
         tableClassName="w-full text-xs"
@@ -777,8 +789,13 @@ export function ServiceClient({
         serverPagination={pagination}
         searchPlaceholder="Cari kode service, pelanggan, nomor HP..."
         filters={
-          <>
-            <Select name="status" defaultValue={filterValues.status} className="w-[180px]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Select
+              name="status"
+              value={filterValues.status}
+              onChange={(e) => e.currentTarget.form?.requestSubmit()}
+              className="w-[170px] bg-white text-xs font-medium"
+            >
               <option value="">Semua status</option>
               {statuses.map((status) => (
                 <option key={status} value={status}>
@@ -786,12 +803,29 @@ export function ServiceClient({
                 </option>
               ))}
             </Select>
-            <Select name="payment" defaultValue={filterValues.payment} className="w-[170px]">
+            <Select
+              name="payment"
+              value={filterValues.payment}
+              onChange={(e) => e.currentTarget.form?.requestSubmit()}
+              className="w-[170px] bg-white text-xs font-medium"
+            >
               <option value="">Semua pembayaran</option>
               <option value="unpaid">Belum dibayar</option>
               <option value="paid">Lunas</option>
             </Select>
-          </>
+            {hasActiveFilters ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResetFilters}
+                className="h-10 text-xs text-slate-600 hover:text-slate-900 bg-white border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 font-medium"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
+                Reset Filter
+              </Button>
+            ) : null}
+          </div>
         }
       />
     </>
