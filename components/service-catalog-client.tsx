@@ -14,6 +14,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { deleteItem, upsertItem } from "@/app/actions/master-data";
 import { formatCurrency } from "@/lib/utils";
+import { hasPermission } from "@/lib/permission-keys";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,16 +37,20 @@ type JasaRow = {
 export function ServiceCatalogClient({
   items,
   jasaCategoryId,
-  role
+  role = "staff",
+  permissions = []
 }: {
   items: JasaRow[];
   jasaCategoryId: number;
-  role: "admin" | "staff";
+  role?: "admin" | "staff";
+  permissions?: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<JasaRow | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const canManageCatalog = hasPermission(role, permissions, "services.manage");
 
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
@@ -167,32 +172,34 @@ export function ServiceCatalogClient({
       header: "AKSI",
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Edit Jasa">
-            <Edit className="h-4 w-4 text-blue-600" />
-          </Button>
-          {role === "admin" && (
-            <ConfirmDialog
-              title="Hapus Jasa?"
-              description={`Jasa ${row.original.namaBarang} akan dihapus dari katalog.`}
-              confirmLabel="Hapus Jasa"
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteItem(row.original.id);
-                    toast.success("Jasa telah dihapus");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menghapus jasa");
-                  }
-                })
-              }
-              trigger={
-                <Button variant="ghost" size="icon" title="Hapus Jasa">
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
-              }
-            />
-          )}
+          {canManageCatalog ? (
+            <>
+              <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)} title="Edit Jasa">
+                <Edit className="h-4 w-4 text-blue-600" />
+              </Button>
+              <ConfirmDialog
+                title="Hapus Jasa?"
+                description={`Jasa ${row.original.namaBarang} akan dihapus dari katalog.`}
+                confirmLabel="Hapus Jasa"
+                onConfirm={() =>
+                  startTransition(async () => {
+                    try {
+                      await deleteItem(row.original.id);
+                      toast.success("Jasa telah dihapus");
+                      router.refresh();
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Gagal menghapus jasa");
+                    }
+                  })
+                }
+                trigger={
+                  <Button variant="ghost" size="icon" title="Hapus Jasa">
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                }
+              />
+            </>
+          ) : null}
         </div>
       )
     }
@@ -201,6 +208,7 @@ export function ServiceCatalogClient({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
+        {canManageCatalog ? (
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 font-bold">
@@ -282,6 +290,7 @@ export function ServiceCatalogClient({
             </Form>
           </DialogContent>
         </Dialog>
+        ) : null}
       </div>
 
       <DataTable columns={columns} data={items} searchPlaceholder="Cari nama atau kode jasa..." />

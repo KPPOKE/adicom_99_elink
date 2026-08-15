@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StockBadge } from "@/components/shared/status-badge";
 import { deleteItem, upsertItem } from "@/app/actions/master-data";
 import { formatCurrency } from "@/lib/utils";
+import { hasPermission } from "@/lib/permission-keys";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,14 +48,16 @@ export function InventoryClient({
   items,
   categories,
   suppliers,
-  role,
+  role = "staff",
+  permissions = [],
   pagination,
   filterValues
 }: {
   items: ItemRow[];
   categories: { id: number; name: string }[];
   suppliers: { id: number; name: string }[];
-  role: "admin" | "staff";
+  role?: "admin" | "staff";
+  permissions?: string[];
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { category: string; supplier: string; stock: string };
 }) {
@@ -63,6 +66,8 @@ export function InventoryClient({
   const [editing, setEditing] = useState<ItemRow | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const canManageInventory = hasPermission(role, permissions, "inventory.manage");
 
   const form = useForm({
     resolver: zodResolver(itemSchema),
@@ -180,7 +185,7 @@ export function InventoryClient({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          {role === "admin" ? (
+          {canManageInventory ? (
             <>
               <Button
                 variant="outline"
@@ -227,7 +232,7 @@ export function InventoryClient({
             Unduh PDF Barang Harus Dipesan
           </Link>
         </Button>
-        {role === "admin" ? (
+        {canManageInventory ? (
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenChange(true)}>

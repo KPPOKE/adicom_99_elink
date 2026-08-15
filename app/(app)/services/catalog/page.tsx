@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/permissions";
+import { getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { ServiceCatalogClient } from "@/components/service-catalog-client";
 
 export default async function ServicesCatalogPage() {
   const user = await requirePermission("services.view");
+  const permissions = await getUserPermissionKeys(user);
   const { activeOutlet } = await outletContext(user);
 
   let jasaCategory = await prisma.category.findFirst({ where: { name: "Jasa" } });
@@ -33,6 +34,7 @@ export default async function ServicesCatalogPage() {
         }))}
         jasaCategoryId={jasaCategory.id}
         role={user.role.name}
+        permissions={permissions}
       />
     </>
   );

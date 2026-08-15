@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { outletReportPeriod } from "@/lib/outlet-dashboard-report";
 import { cn, formatCurrency } from "@/lib/utils";
-import { requireProfitAccess } from "@/lib/permissions";
 export default async function DashboardOutletDetailPage({
   params,
   searchParams
@@ -26,7 +25,7 @@ export default async function DashboardOutletDetailPage({
   const period = outletReportPeriod(legacyPeriod ?? (rawYear && rawMonth ? `${rawYear}-${String(rawMonth).padStart(2, "0")}` : undefined));
   const years = Array.from({ length: Number(period.current.slice(0, 4)) - 2019 }, (_, index) => Number(period.current.slice(0, 4)) - index);
   const { outlet: selectedOutlet } = await requireDashboardOutlet(Number(outletId));
-  await requireProfitAccess();
+  await requirePermission("dashboard.monthlyReport");
   const report = await loadOutletReport(selectedOutlet.id, period.start, period.end, period.visibleEnd);
   const monthLabel = period.start.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
   const chartData = report.days.map((day) => ({

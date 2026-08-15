@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { InventoryClient } from "@/components/inventory-client";
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/permissions";
+import { getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
@@ -12,6 +12,7 @@ export default async function InventoriPage({ searchParams }: { searchParams?: P
   const { page, q } = parseListParams(params);
   const query = queryValues(params);
   const user = await requirePermission("inventory.view");
+  const permissions = await getUserPermissionKeys(user);
   const { activeOutlet } = await outletContext(user);
   const categoryId = Number(query.category) || undefined;
   const supplier = query.supplier;
@@ -41,6 +42,7 @@ export default async function InventoriPage({ searchParams }: { searchParams?: P
         categories={categories}
         suppliers={suppliers}
         role={user.role.name}
+        permissions={permissions}
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
         filterValues={{ category: query.category ?? "all", supplier: query.supplier ?? "all", stock: query.stock ?? "all" }}
       />

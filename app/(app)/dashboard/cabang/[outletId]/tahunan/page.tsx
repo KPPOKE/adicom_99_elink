@@ -7,8 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { buildOutletAnnualReport, outletAnnualReportYear } from "@/lib/outlet-dashboard-report";
-import { canCurrentUser } from "@/lib/permissions";
-import { requireProfitAccess } from "@/lib/permissions";
+import { canCurrentUser, requirePermission } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function DashboardOutletAnnualPage({
@@ -23,7 +22,7 @@ export default async function DashboardOutletAnnualPage({
   const rawYear = Array.isArray(query.tahun) ? query.tahun[0] : query.tahun;
   const period = outletAnnualReportYear(rawYear);
   const { outlet } = await requireDashboardOutlet(Number(outletId));
-  await requireProfitAccess();
+  await requirePermission("dashboard.annualReport");
   const [report, canExport] = await Promise.all([
     loadOutletReport(outlet.id, period.start, period.end),
     canCurrentUser("reports.export")

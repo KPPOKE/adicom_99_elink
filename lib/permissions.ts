@@ -29,6 +29,14 @@ export async function canCurrentUser(key: PermissionKey) {
 
 export async function requireProfitAccess() {
   const user = await requireUser();
-  if (user.role.name !== "admin") redirect("/dashboard");
+  if (user.role.name === "admin") return user;
+  const keys = await getUserPermissionKeys(user);
+  if (
+    !keys.includes("dashboard.viewProfit") &&
+    !keys.includes("dashboard.annualReport") &&
+    !keys.includes("dashboard.monthlyReport")
+  ) {
+    redirect("/dashboard");
+  }
   return user;
 }
