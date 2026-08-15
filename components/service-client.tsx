@@ -1,13 +1,14 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CreditCard, Edit, Eye, MessageSquare, Plus, Printer, Trash2 } from "lucide-react";
+import { ChevronDown, CreditCard, Edit, Eye, MessageSquare, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -211,7 +212,7 @@ export function ServiceClient({
       header: "Update Cepat",
       cell: ({ row }) => (
         <Select
-          className="w-24 h-7 text-[11px] py-0 px-1 font-medium bg-white"
+          className="w-[130px] h-8 text-xs py-1 px-2 font-medium bg-white border-slate-300 shadow-xs"
           value={row.original.status}
           onChange={(event) =>
             startTransition(async () => {
@@ -235,107 +236,118 @@ export function ServiceClient({
     },
     {
       id: "actions",
-      header: "",
+      header: () => <div className="text-right">Aksi</div>,
       cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7 p-0 shrink-0"
-            title="Edit Service"
-            onClick={() => handleEdit(row.original)}
-          >
-            <Edit className="h-3.5 w-3.5 text-blue-600" />
-          </Button>
-          {row.original.customerPhone ? (
-            <Button
-              asChild
-              variant="outline"
-              size="icon"
-              className="h-7 w-7 p-0 shrink-0 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-              title="Bagikan Bukti Service via WhatsApp"
-            >
-              <a
-                href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(row.original.customerPhone)}&text=${encodeURIComponent(
-                  formatWhatsAppServiceReceipt({
-                    kodeService: row.original.kodeService,
-                    receivedDate: row.original.receivedDate,
-                    customerName: row.original.customerName,
-                    customerPhone: row.original.customerPhone,
-                    deviceType: row.original.deviceType,
-                    deviceBrand: row.original.deviceBrand,
-                    deviceModel: row.original.deviceModel,
-                    problemDescription: row.original.problemDescription,
-                    diagnosis: row.original.diagnosis,
-                    technicianNote: row.original.technicianNote,
-                    status: row.original.status,
-                    paymentStatus: row.original.paymentStatus,
-                    estimatedCost: row.original.estimatedCost,
-                    laborCost: row.original.laborCost,
-                    finalCost: row.original.finalCost
-                  })
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-              </a>
-            </Button>
-          ) : null}
-          <Button asChild variant="outline" size="icon" className="h-7 w-7 p-0 shrink-0 text-slate-600 hover:bg-slate-50" title={`Cetak Invoice ${row.original.kodeService}`}>
-            <Link href={`/services/${row.original.id}/invoice`}>
-              <Printer className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="icon" className="h-7 w-7 p-0 shrink-0 text-slate-600 hover:bg-slate-50" title={`Detail Service ${row.original.kodeService}`}>
-            <Link href={`/services/${row.original.id}`}>
-              <Eye className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
-          {row.original.paymentStatus !== "paid" ? (
-            <ConfirmDialog
-              title="Tandai service lunas?"
-              description="Pemasukan service akan dibuat di catatan keuangan."
-              confirmLabel="Tandai Lunas"
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await markServicePaid(row.original.id);
-                    toast.success("Service ditandai lunas");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal memproses pembayaran");
-                  }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon" className="h-7 w-7 p-0 shrink-0 text-emerald-600" title="Tandai dibayar">
-                  <CreditCard className="h-3.5 w-3.5" />
-                </Button>
-              }
-            />
-          ) : null}
-          <ConfirmDialog
-            title="Hapus service ini?"
-            description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
-            confirmLabel="Hapus Service"
-            onConfirm={() =>
-              startTransition(async () => {
-                try {
-                  await deleteService(row.original.id);
-                  toast.success("Service dihapus");
-                  router.refresh();
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
-                }
-              })
-            }
-            trigger={
-              <Button variant="outline" size="icon" title="Hapus Service" className="h-7 w-7 p-0 shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700">
-                <Trash2 className="h-3.5 w-3.5" />
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs">
+                Aksi
+                <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
               </Button>
-            }
-          />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 p-1.5">
+              <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                <Edit className="h-3.5 w-3.5 text-blue-600" />
+                <span>Edit Service</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem asChild className="text-slate-700 focus:bg-slate-50">
+                <Link href={`/services/${row.original.id}`}>
+                  <Eye className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Detail Service</span>
+                </Link>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem asChild className="text-slate-700 focus:bg-slate-50">
+                <Link href={`/services/${row.original.id}/invoice`}>
+                  <Printer className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Cetak Invoice</span>
+                </Link>
+              </DropdownMenuItem>
+
+              {row.original.customerPhone ? (
+                <DropdownMenuItem asChild className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                  <a
+                    href={`https://api.whatsapp.com/send?phone=${formatWhatsAppPhone(row.original.customerPhone)}&text=${encodeURIComponent(
+                      formatWhatsAppServiceReceipt({
+                        kodeService: row.original.kodeService,
+                        receivedDate: row.original.receivedDate,
+                        customerName: row.original.customerName,
+                        customerPhone: row.original.customerPhone,
+                        deviceType: row.original.deviceType,
+                        deviceBrand: row.original.deviceBrand,
+                        deviceModel: row.original.deviceModel,
+                        problemDescription: row.original.problemDescription,
+                        diagnosis: row.original.diagnosis,
+                        technicianNote: row.original.technicianNote,
+                        status: row.original.status,
+                        paymentStatus: row.original.paymentStatus,
+                        estimatedCost: row.original.estimatedCost,
+                        laborCost: row.original.laborCost,
+                        finalCost: row.original.finalCost
+                      })
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Bagikan via WA</span>
+                  </a>
+                </DropdownMenuItem>
+              ) : null}
+
+              {row.original.paymentStatus !== "paid" ? (
+                <ConfirmDialog
+                  title="Tandai service lunas?"
+                  description="Pemasukan service akan dibuat di catatan keuangan."
+                  confirmLabel="Tandai Lunas"
+                  onConfirm={() =>
+                    startTransition(async () => {
+                      try {
+                        await markServicePaid(row.original.id);
+                        toast.success("Service ditandai lunas");
+                        router.refresh();
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : "Gagal memproses pembayaran");
+                      }
+                    })
+                  }
+                  trigger={
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                      <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Tandai Lunas</span>
+                    </DropdownMenuItem>
+                  }
+                />
+              ) : null}
+
+              <DropdownMenuSeparator />
+
+              <ConfirmDialog
+                title="Hapus service ini?"
+                description={`Service ${row.original.kodeService} milik ${row.original.customerName} akan dihapus secara permanen.`}
+                confirmLabel="Hapus Service"
+                onConfirm={() =>
+                  startTransition(async () => {
+                    try {
+                      await deleteService(row.original.id);
+                      toast.success("Service dihapus");
+                      router.refresh();
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+                    }
+                  })
+                }
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    <span>Hapus Service</span>
+                  </DropdownMenuItem>
+                }
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )
     }
