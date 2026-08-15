@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ChevronDown, CreditCard, Edit, Eye, MessageSquare, Plus, Printer, Trash2 } from "lucide-react";
+import { CreditCard, Edit, Eye, MessageSquare, MoreHorizontal, Plus, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -37,53 +37,60 @@ type ServiceRow = {
   deviceModel: string | null;
   problemDescription: string;
   diagnosis: string | null;
+  technicianNote: string | null;
+  status: ServiceFormValues["status"];
+  paymentStatus: string;
   estimatedCost: number;
   laborCost: number;
   finalCost: number;
-  status: ServiceFormValues["status"];
-  paymentStatus: string;
-  paidAt: string | Date | null;
-  technicianNote: string | null;
-  receivedDate: string | Date;
-  createdAt?: string | Date;
-  parts: { id: number; itemId: number; qty: number; price: number; subtotal: number }[];
+  grossProfit: number;
+  receivedDate: string;
+  createdAt?: string;
+  completedDate: string | null;
+  pickedUpDate: string | null;
 };
 
 type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName?: string; satuan?: string };
 
 export function ServiceClient({
   services,
-  customers,
-  items,
+  customers = [],
+  items = [],
   pagination,
   filterValues
 }: {
   services: ServiceRow[];
-  customers: { id: number; name: string; phone: string | null }[];
-  items: SparePartOption[];
+  customers?: { id: number; name: string; phone: string | null }[];
+  items?: SparePartOption[];
   role?: "admin" | "staff";
-  pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
+  pagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { status: string; payment: string };
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
-  const [isPending, startTransition] = useTransition();
   const [servicePeriod, setServicePeriod] = useState<"all" | "today" | "month" | "year" | "custom">("all");
   const [serviceCustomDate, setServiceCustomDate] = useState("");
 
   const displayServices = useMemo(() => {
+    if (servicePeriod === "custom" && serviceCustomDate) {
+      return services.filter((item) => {
+        const itemDateStr = item.createdAt ? item.createdAt.substring(0, 10) : "";
+        return itemDateStr === serviceCustomDate;
+      });
+    }
     if (servicePeriod === "all") return services;
     const now = new Date();
-    return services.filter((s) => {
-      const d = new Date(s.receivedDate);
-      if (servicePeriod === "today") return d.toDateString() === now.toDateString();
-      if (servicePeriod === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      if (servicePeriod === "year") return d.getFullYear() === now.getFullYear();
-      if (servicePeriod === "custom" && serviceCustomDate) {
-        const target = new Date(serviceCustomDate);
-        return d.toDateString() === target.toDateString();
-      }
+    const todayStr = now.toISOString().split("T")[0];
+    const monthStr = todayStr.substring(0, 7);
+    const yearStr = todayStr.substring(0, 4);
+
+    return services.filter((item) => {
+      const itemDateStr = item.createdAt ? item.createdAt.substring(0, 10) : "";
+      if (servicePeriod === "today") return itemDateStr === todayStr;
+      if (servicePeriod === "month") return itemDateStr.startsWith(monthStr);
+      if (servicePeriod === "year") return itemDateStr.startsWith(yearStr);
       return true;
     });
   }, [services, servicePeriod, serviceCustomDate]);
@@ -137,20 +144,19 @@ export function ServiceClient({
   const handleEdit = (service: ServiceRow) => {
     setEditing(service);
     form.reset({
-      id: service.id,
-      customerId: service.customerId ?? 0,
+      customerId: service.customerId || 0,
       customerName: service.customerName,
-      customerPhone: service.customerPhone ?? "",
+      customerPhone: service.customerPhone || "",
       deviceType: service.deviceType,
-      deviceBrand: service.deviceBrand ?? "",
-      deviceModel: service.deviceModel ?? "",
+      deviceBrand: service.deviceBrand || "",
+      deviceModel: service.deviceModel || "",
       problemDescription: service.problemDescription,
-      diagnosis: service.diagnosis ?? "",
+      diagnosis: service.diagnosis || "",
       estimatedCost: service.estimatedCost,
       laborCost: service.laborCost,
       status: service.status,
-      technicianNote: service.technicianNote ?? "",
-      parts: service.parts.map((part) => ({ itemId: part.itemId, qty: part.qty, price: part.price }))
+      technicianNote: service.technicianNote || "",
+      parts: []
     });
     setOpen(true);
   };
@@ -159,8 +165,8 @@ export function ServiceClient({
     startTransition(async () => {
       try {
         const formData = new FormData();
-        if (values.id) formData.append("id", String(values.id));
-        if (values.customerId) formData.append("customerId", String(values.customerId));
+        if (editing) formData.append("id", String(editing.id));
+        formData.append("customerId", String(values.customerId || ""));
         formData.append("customerName", values.customerName);
         formData.append("customerPhone", values.customerPhone ?? "");
         formData.append("deviceType", values.deviceType);
@@ -209,41 +215,44 @@ export function ServiceClient({
     { header: "Masuk", cell: ({ row }) => <span className="whitespace-nowrap text-xs">{formatDate(row.original.receivedDate)}</span> },
     {
       id: "quick",
-      header: "Update Cepat",
+      header: () => <div className="text-center">Update Cepat</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
       cell: ({ row }) => (
-        <Select
-          className="w-[130px] h-8 text-xs py-1 px-2 font-medium bg-white border-slate-300 shadow-xs"
-          value={row.original.status}
-          onChange={(event) =>
-            startTransition(async () => {
-              try {
-                await updateServiceStatus(row.original.id, event.target.value);
-                toast.success("Status service diperbarui");
-                router.refresh();
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Gagal memperbarui status");
-              }
-            })
-          }
-        >
-          {statuses.map((status) => (
-            <option key={status} value={status}>
-              {status.replace("_", " ")}
-            </option>
-          ))}
-        </Select>
+        <div className="flex w-full justify-center">
+          <Select
+            className="w-[130px] h-8 text-xs font-medium bg-white border-slate-300 shadow-xs rounded-md"
+            value={row.original.status}
+            onChange={(event) =>
+              startTransition(async () => {
+                try {
+                  await updateServiceStatus(row.original.id, event.target.value);
+                  toast.success("Status service diperbarui");
+                  router.refresh();
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Gagal memperbarui status");
+                }
+              })
+            }
+          >
+            {statuses.map((status) => (
+              <option key={status} value={status}>
+                {status.replace("_", " ")}
+              </option>
+            ))}
+          </Select>
+        </div>
       )
     },
     {
       id: "actions",
-      header: () => <div className="text-right">Aksi</div>,
+      header: () => <div className="text-center">Aksi</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex w-full justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs">
-                Aksi
-                <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+              <Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi">
+                <MoreHorizontal className="h-4 w-4 text-slate-600" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 p-1.5">
