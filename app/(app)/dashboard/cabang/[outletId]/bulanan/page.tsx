@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { outletReportPeriod } from "@/lib/outlet-dashboard-report";
 import { cn, formatCurrency } from "@/lib/utils";
+import { requirePermission } from "@/lib/permissions";
 export default async function DashboardOutletDetailPage({
   params,
   searchParams
