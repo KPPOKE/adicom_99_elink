@@ -3,7 +3,8 @@ import { BankTransferClient } from "@/components/bank-transfer-client";
 import { PageHeader } from "@/components/shared/page-header";
 import { outletContext, startOfToday, tomorrowOf } from "@/lib/outlet";
 import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
-import { canCurrentUser, requirePermission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permission-keys";
+import { canCurrentUser, getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { toNumber } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
   const status = Object.values(BankTransferStatus).includes(query.status as BankTransferStatus) ? query.status as BankTransferStatus : undefined;
   const kind = Object.values(BankTransferKind).includes(query.kind as BankTransferKind) ? query.kind as BankTransferKind : undefined;
   const user = await requirePermission("bankTransfers.view");
+  const permissions = await getUserPermissionKeys(user);
   const { activeOutlet } = await outletContext(user);
   const start = startOfToday();
   const end = tomorrowOf(start);
@@ -83,6 +85,9 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
       <BankTransferClient
         role={user.role.name}
         canManage={canManage}
+        canViewAsset={hasPermission(user.role.name, permissions, "transactions.viewAsset")}
+        canViewBankFee={hasPermission(user.role.name, permissions, "dashboard.viewBankFee")}
+        canViewProfit={hasPermission(user.role.name, permissions, "dashboard.viewProfit")}
         transfers={transfers.map((item) => ({
           id: item.id,
           kodeTransfer: item.kodeTransfer,

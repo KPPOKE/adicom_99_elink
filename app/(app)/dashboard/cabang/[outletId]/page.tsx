@@ -115,14 +115,16 @@ export default async function DashboardOutletDetailPage({
             {can("dashboard.viewBankFee") ? <StatCard title="Potongan Bank + Ops" value={formatCurrency(summary.bankFee + summary.operational)} icon={TrendingDown} tone="orange" helper="Biaya tercatat" /> : null}
             {can("dashboard.viewProfit") ? <StatCard title="Pengeluaran" value={formatCurrency(summary.expense)} icon={Banknote} tone="red" helper="Pengeluaran harian" /> : null}
             {can("dashboard.viewProfit") ? <StatCard title="Profit Bersih" value={formatCurrency(summary.netProfit)} icon={BriefcaseBusiness} tone="green" helper="Profit - pengeluaran" /> : null}
-            <StatCard title="Aset Barang" value={formatCurrency(stockAsset)} icon={Package} tone="orange" helper="Nilai modal stok fisik" />
+            {can("transactions.viewAsset") ? <StatCard title="Aset Barang" value={formatCurrency(stockAsset)} icon={Package} tone="orange" helper="Nilai modal stok fisik" /> : null}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard title="Aset Cash" value={formatCurrency(cashAsset)} icon={Wallet} tone="blue" helper="Saldo kas tunai" />
-            <StatCard title="Aset Saldo" value={formatCurrency(balanceAsset)} icon={Landmark} tone="green" helper="Bank dan e-wallet" />
-            <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset + stockAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh kas, saldo & stok" />
-          </div>
+          {can("transactions.viewAsset") ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <StatCard title="Aset Cash" value={formatCurrency(cashAsset)} icon={Wallet} tone="blue" helper="Saldo kas tunai" />
+              <StatCard title="Aset Saldo" value={formatCurrency(balanceAsset)} icon={Landmark} tone="green" helper="Bank dan e-wallet" />
+              <StatCard title="Total Aset" value={formatCurrency(cashAsset + balanceAsset + stockAsset)} icon={CircleDollarSign} tone="cyan" helper="Seluruh kas, saldo & stok" />
+            </div>
+          ) : null}
 
           <div className={`grid gap-3 ${can("dashboard.annualReport") || can("dashboard.monthlyReport") ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
             {can("dashboard.annualReport") ? <Button asChild variant="secondary" className="w-full"><Link href={`/dashboard/cabang/${outlet.id}/tahunan?tahun=${period.year}`}><BarChart3 className="h-4 w-4" />Laporan Tahunan</Link></Button> : null}

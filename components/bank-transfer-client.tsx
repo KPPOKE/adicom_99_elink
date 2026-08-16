@@ -107,10 +107,13 @@ function SummaryCard({
   );
 }
 
-export function BankTransferClient({ transfers, role, canManage, pagination, filterValues, outletName, userName, whatsapp, summary, funds, staff }: {
+export function BankTransferClient({ transfers, role, canManage, canViewAsset, canViewBankFee, canViewProfit, pagination, filterValues, outletName, userName, whatsapp, summary, funds, staff }: {
   transfers: TransferRow[];
   role: "admin" | "staff";
   canManage: boolean;
+  canViewAsset: boolean;
+  canViewBankFee: boolean;
+  canViewProfit: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { status: string; kind: string; date: string; fund: string; pegawai: string };
   outletName: string;
@@ -221,9 +224,9 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
       <SummaryCard label="Transfer" value={summary.transferAmount} helper="Hari ini" icon={<Send className="h-4 w-4" />} className="bg-[#1d4ed8] text-white border-transparent" />
       <SummaryCard label="Tarik Tunai" value={summary.tarikAmount} helper="Hari ini" icon={<Wallet className="h-4 w-4" />} className="bg-[#166534] text-white border-transparent" />
       <SummaryCard label="Omset" value={summary.turnover} helper="Nominal transaksi" icon={<Landmark className="h-4 w-4" />} className="bg-[#0284c7] text-white border-transparent" />
-      <SummaryCard label="Admin Bank" value={summary.bankFee} helper="Biaya bank" icon={<Landmark className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" />
-      <SummaryCard label="Operasional" value={summary.operational} helper="Biaya saldo" icon={<Wallet className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" />
-      {role === "admin" ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} className="bg-[#065f46] text-white border-transparent" /> : null}
+      {canViewBankFee ? <SummaryCard label="Admin Bank" value={summary.bankFee} helper="Biaya bank" icon={<Landmark className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" /> : null}
+      {canViewBankFee ? <SummaryCard label="Operasional" value={summary.operational} helper="Biaya saldo" icon={<Wallet className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" /> : null}
+      {canViewProfit ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} className="bg-[#065f46] text-white border-transparent" /> : null}
     </section>
 
     <div 
@@ -239,39 +242,41 @@ export function BankTransferClient({ transfers, role, canManage, pagination, fil
       }}
     />
 
-    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-semibold text-slate-900">Aset {outletName}</h2>
-          <p className="mt-1 text-sm text-slate-500">Saldo kas, bank, dan e-wallet aktif.</p>
-        </div>
-        <p className="text-lg font-bold text-slate-900">{formatCurrency(cashAsset + balanceAsset)}</p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Aset Cash" value={cashAsset} helper="Kas tunai" icon={<Wallet className="h-4 w-4" />} />
-        <SummaryCard label="Aset Saldo" value={balanceAsset} helper="Bank dan e-wallet" icon={<Landmark className="h-4 w-4" />} />
-        <SummaryCard label="Total Aset" value={cashAsset + balanceAsset} helper="Seluruh sumber dana" icon={<Landmark className="h-4 w-4" />} />
-      </div>
-
-      <hr className="border-slate-100" />
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {funds.map((fund) => (
-          <div key={fund.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#2563eb] p-3 text-white shadow-sm transition hover:bg-[#1d4ed8]">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-semibold uppercase tracking-wider opacity-85">{fund.name}:</p>
-              <p className="mt-1 text-sm font-bold truncate">{formatCurrency(fund.balance)}</p>
-            </div>
-            {fund.image ? (
-              <div className="h-8 w-10 shrink-0 overflow-hidden rounded bg-white p-1 flex items-center justify-center shadow-xs">
-                <img src={fund.image} alt="" className="h-full w-full object-contain" />
-              </div>
-            ) : null}
+    {canViewAsset ? (
+      <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-900">Aset {outletName}</h2>
+            <p className="mt-1 text-sm text-slate-500">Saldo kas, bank, dan e-wallet aktif.</p>
           </div>
-        ))}
-      </div>
-    </section>
+          <p className="text-lg font-bold text-slate-900">{formatCurrency(cashAsset + balanceAsset)}</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <SummaryCard label="Aset Cash" value={cashAsset} helper="Kas tunai" icon={<Wallet className="h-4 w-4" />} />
+          <SummaryCard label="Aset Saldo" value={balanceAsset} helper="Bank dan e-wallet" icon={<Landmark className="h-4 w-4" />} />
+          <SummaryCard label="Total Aset" value={cashAsset + balanceAsset} helper="Seluruh sumber dana" icon={<Landmark className="h-4 w-4" />} />
+        </div>
+
+        <hr className="border-slate-100" />
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {funds.map((fund) => (
+            <div key={fund.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#2563eb] p-3 text-white shadow-sm transition hover:bg-[#1d4ed8]">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold uppercase tracking-wider opacity-85">{fund.name}:</p>
+                <p className="mt-1 text-sm font-bold truncate">{formatCurrency(fund.balance)}</p>
+              </div>
+              {fund.image ? (
+                <div className="h-8 w-10 shrink-0 overflow-hidden rounded bg-white p-1 flex items-center justify-center shadow-xs">
+                  <img src={fund.image} alt="" className="h-full w-full object-contain" />
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
+    ) : null}
 
     <section className="rounded-lg border border-slate-200 bg-white p-5">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-900">Riwayat Transaksi</h2><p className="mt-1 text-sm text-slate-500">Transfer dan tarik tunai cabang aktif.</p></div><ClosingCashDialog funds={cashFunds} outletName={outletName} userName={userName} whatsapp={whatsapp} /></div>

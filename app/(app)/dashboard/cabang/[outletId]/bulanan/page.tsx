@@ -8,8 +8,9 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { outletReportPeriod } from "@/lib/outlet-dashboard-report";
+import { hasPermission } from "@/lib/permission-keys";
+import { getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { cn, formatCurrency } from "@/lib/utils";
-import { requirePermission } from "@/lib/permissions";
 export default async function DashboardOutletDetailPage({
   params,
   searchParams
@@ -26,7 +27,9 @@ export default async function DashboardOutletDetailPage({
   const period = outletReportPeriod(legacyPeriod ?? (rawYear && rawMonth ? `${rawYear}-${String(rawMonth).padStart(2, "0")}` : undefined));
   const years = Array.from({ length: Number(period.current.slice(0, 4)) - 2019 }, (_, index) => Number(period.current.slice(0, 4)) - index);
   const { outlet: selectedOutlet } = await requireDashboardOutlet(Number(outletId));
-  await requirePermission("dashboard.monthlyReport");
+  const user = await requirePermission("dashboard.monthlyReport");
+  const permissions = await getUserPermissionKeys(user);
+  const can = (key: Parameters<typeof hasPermission>[2]) => hasPermission(user.role.name, permissions, key);
   const report = await loadOutletReport(selectedOutlet.id, period.start, period.end, period.visibleEnd);
   const monthLabel = period.start.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
   const chartData = report.days.map((day) => ({
@@ -72,15 +75,17 @@ export default async function DashboardOutletDetailPage({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard title="Transaksi Digital" value={String(report.summary.digitalTransactions)} icon={Smartphone} tone="cyan" helper={monthLabel} />
         <StatCard title="Transaksi Fisik" value={String(report.summary.physicalTransactions)} icon={PackageCheck} tone="blue" helper={monthLabel} />
-        <StatCard title="Profit" value={formatCurrency(report.summary.profit)} icon={CircleDollarSign} tone="blue" helper="Kotor - potongan - operasional" />
+        {can("dashboard.viewProfit") ? <StatCard title="Profit" value={formatCurrency(report.summary.profit)} icon={CircleDollarSign} tone="blue" helper="Kotor - potongan - operasional" /> : null}
         <StatCard title="Transaksi Service" value={String(report.summary.serviceTransactions)} icon={Stethoscope} tone="green" helper={monthLabel} />
-        <StatCard title="Pengeluaran" value={formatCurrency(report.summary.expense)} icon={TrendingDown} tone="red" helper="Pengeluaran tercatat" />
-        <StatCard title="Profit Bersih" value={formatCurrency(report.summary.netProfit)} icon={Banknote} tone="green" helper="Profit - pengeluaran" />
+        {can("dashboard.viewProfit") ? <StatCard title="Pengeluaran" value={formatCurrency(report.summary.expense)} icon={TrendingDown} tone="red" helper="Pengeluaran tercatat" /> : null}
+        {can("dashboard.viewProfit") ? <StatCard title="Profit Bersih" value={formatCurrency(report.summary.netProfit)} icon={Banknote} tone="green" helper="Profit - pengeluaran" /> : null}
       </div>
 
-      <div className="mt-6">
-        <OutletProfitChart data={chartData} />
-      </div>
+      {can("dashboard.viewProfit") ? (
+        <div className="mt-6">
+          <OutletProfitChart data={chartData} />
+        </div>
+      ) : null}
 
       <section className="mt-6" aria-labelledby="daily-report-title">
         <div className="mb-4">
@@ -116,12 +121,12 @@ export default async function DashboardOutletDetailPage({
                     <span>Transaksi Service</span>
                     <strong className="ml-auto text-violet-700">{day.serviceTransactions}</strong>
                   </div>
-                  <DailyRow label="Profit Kotor" value={formatCurrency(day.grossProfit)} />
-                  <DailyRow label="Potongan Bank" value={formatCurrency(day.bankFee)} valueClassName="text-amber-300" />
-                  <DailyRow label="Operasional" value={formatCurrency(day.operational)} valueClassName="text-orange-300" />
-                  <DailyRow className="rounded-md border border-emerald-300 bg-emerald-100/90 px-3 py-2 shadow-sm" label="Profit" value={formatCurrency(day.profit)} strong labelClassName="text-emerald-950 font-extrabold" valueClassName="text-emerald-950 font-extrabold text-base" />
-                  <DailyRow label="Pengeluaran" value={formatCurrency(day.expense)} valueClassName="text-rose-300" />
-                  <DailyRow className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2" label="Profit Bersih" value={formatCurrency(day.netProfit)} strong labelClassName="text-blue-700" valueClassName="text-blue-700" />
+                  {can("dashboard.viewProfit") ? <DailyRow label="Profit Kotor" value={formatCurrency(day.grossProfit)} /> : null}
+                  {can("dashboard.viewBankFee") ? <DailyRow label="Potongan Bank" value={formatCurrency(day.bankFee)} valueClassName="text-amber-300" /> : null}
+                  {can("dashboard.viewBankFee") ? <DailyRow label="Operasional" value={formatCurrency(day.operational)} valueClassName="text-orange-300" /> : null}
+                  {can("dashboard.viewProfit") ? <DailyRow className="rounded-md border border-emerald-300 bg-emerald-100/90 px-3 py-2 shadow-sm" label="Profit" value={formatCurrency(day.profit)} strong labelClassName="text-emerald-950 font-extrabold" valueClassName="text-emerald-950 font-extrabold text-base" /> : null}
+                  {can("dashboard.viewProfit") ? <DailyRow label="Pengeluaran" value={formatCurrency(day.expense)} valueClassName="text-rose-300" /> : null}
+                  {can("dashboard.viewProfit") ? <DailyRow className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2" label="Profit Bersih" value={formatCurrency(day.netProfit)} strong labelClassName="text-blue-700" valueClassName="text-blue-700" /> : null}
                 </dl>
               </CardContent>
             </Card>

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import type { PermissionKey } from "@/lib/permission-keys";
+import { hasPermission, type PermissionKey } from "@/lib/permission-keys";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -15,16 +15,15 @@ export async function getUserPermissionKeys(user: PermissionUser) {
 
 export async function requirePermission(key: PermissionKey) {
   const user = await requireUser();
-  if (user.role.name === "admin" || key === "dashboard.view") return user;
   const keys = await getUserPermissionKeys(user);
-  if (!keys.includes(key)) redirect("/dashboard");
+  if (!hasPermission(user.role.name, keys, key)) redirect("/dashboard");
   return user;
 }
 
 export async function canCurrentUser(key: PermissionKey) {
   const user = await requireUser();
-  if (user.role.name === "admin" || key === "dashboard.view") return true;
-  return (await getUserPermissionKeys(user)).includes(key);
+  const keys = await getUserPermissionKeys(user);
+  return hasPermission(user.role.name, keys, key);
 }
 
 export async function requireProfitAccess() {

@@ -7,7 +7,8 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { loadOutletReport, requireDashboardOutlet } from "@/lib/outlet-dashboard-data";
 import { buildOutletAnnualReport, outletAnnualReportYear } from "@/lib/outlet-dashboard-report";
-import { canCurrentUser, requirePermission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permission-keys";
+import { canCurrentUser, getUserPermissionKeys, requirePermission } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function DashboardOutletAnnualPage({
@@ -22,7 +23,10 @@ export default async function DashboardOutletAnnualPage({
   const rawYear = Array.isArray(query.tahun) ? query.tahun[0] : query.tahun;
   const period = outletAnnualReportYear(rawYear);
   const { outlet } = await requireDashboardOutlet(Number(outletId));
-  await requirePermission("dashboard.annualReport");
+  const user = await requirePermission("dashboard.annualReport");
+  const permissions = await getUserPermissionKeys(user);
+  const canViewBankFee = hasPermission(user.role.name, permissions, "dashboard.viewBankFee");
+  const canViewProfit = hasPermission(user.role.name, permissions, "dashboard.viewProfit");
   const [report, canExport] = await Promise.all([
     loadOutletReport(outlet.id, period.start, period.end),
     canCurrentUser("reports.export")
@@ -72,47 +76,53 @@ export default async function DashboardOutletAnnualPage({
             <thead className="border-y border-slate-300 bg-white text-xs uppercase text-slate-600">
               <tr>
                 <th className="px-4 py-3 text-left">Bulan</th>
-                <th className="px-4 py-3 text-right">Potongan Bank</th>
-                <th className="px-4 py-3 text-right">Operasional</th>
-                <th className="px-4 py-3 text-right">Profit</th>
-                <th className="px-4 py-3 text-right">Pengeluaran</th>
-                <th className="px-4 py-3 text-right">Profit Bersih</th>
+                {canViewBankFee ? <th className="px-4 py-3 text-right">Potongan Bank</th> : null}
+                {canViewBankFee ? <th className="px-4 py-3 text-right">Operasional</th> : null}
+                {canViewProfit ? <th className="px-4 py-3 text-right">Profit</th> : null}
+                {canViewProfit ? <th className="px-4 py-3 text-right">Pengeluaran</th> : null}
+                {canViewProfit ? <th className="px-4 py-3 text-right">Profit Bersih</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {annual.months.map((month) => (
-                <AnnualRow key={month.month} label={month.name} values={month} />
+                <AnnualRow key={month.month} label={month.name} values={month} canViewBankFee={canViewBankFee} canViewProfit={canViewProfit} />
               ))}
             </tbody>
             <tfoot className="border-t border-slate-300 bg-white font-semibold">
-              <AnnualRow label="Total" values={annual.total} />
+              <AnnualRow label="Total" values={annual.total} canViewBankFee={canViewBankFee} canViewProfit={canViewProfit} />
             </tfoot>
           </table>
         </CardContent>
       </Card>
 
-      <div className="mt-6">
-        <OutletAnnualChart data={annual.months} />
-      </div>
+      {canViewProfit ? (
+        <div className="mt-6">
+          <OutletAnnualChart data={annual.months} />
+        </div>
+      ) : null}
     </>
   );
 }
 
 function AnnualRow({
   label,
-  values
+  values,
+  canViewBankFee,
+  canViewProfit
 }: {
   label: string;
   values: { bankFee: number; operational: number; profit: number; expense: number; netProfit: number };
+  canViewBankFee: boolean;
+  canViewProfit: boolean;
 }) {
   return (
     <tr>
       <th scope="row" className="px-4 py-3 text-left font-medium capitalize text-slate-800">{label}</th>
-      <td className="px-4 py-3 text-right text-amber-300">{formatCurrency(values.bankFee)}</td>
-      <td className="px-4 py-3 text-right text-orange-300">{formatCurrency(values.operational)}</td>
-      <td className="px-4 py-3 text-right text-blue-600">{formatCurrency(values.profit)}</td>
-      <td className="px-4 py-3 text-right text-rose-300">{formatCurrency(values.expense)}</td>
-      <td className="px-4 py-3 text-right text-emerald-300">{formatCurrency(values.netProfit)}</td>
+      {canViewBankFee ? <td className="px-4 py-3 text-right text-amber-300">{formatCurrency(values.bankFee)}</td> : null}
+      {canViewBankFee ? <td className="px-4 py-3 text-right text-orange-300">{formatCurrency(values.operational)}</td> : null}
+      {canViewProfit ? <td className="px-4 py-3 text-right text-blue-600">{formatCurrency(values.profit)}</td> : null}
+      {canViewProfit ? <td className="px-4 py-3 text-right text-rose-300">{formatCurrency(values.expense)}</td> : null}
+      {canViewProfit ? <td className="px-4 py-3 text-right text-emerald-300">{formatCurrency(values.netProfit)}</td> : null}
     </tr>
   );
 }
