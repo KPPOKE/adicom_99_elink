@@ -109,10 +109,11 @@ export async function deleteCustomer(id: number) {
 export async function upsertItem(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("inventory.manage");
+    const values = Object.fromEntries(formData);
+    const isEditing = Boolean(values.id);
+    const user = await requirePermission(isEditing ? "inventory.edit" : "inventory.manage");
     const { activeOutlet } = await outletContext(user);
     const image = await saveImageUpload(formData.get("image") as File | null, "item");
-    const values = Object.fromEntries(formData);
     delete values.image;
     const parsed = itemSchema.parse({ ...values, supplierId: cleanNullable(values.supplierId), gambar: image || values.gambar || undefined });
     const data = {
@@ -155,7 +156,7 @@ export async function upsertItem(formData: FormData) {
 export async function deleteItem(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("inventory.manage");
+    const user = await requirePermission("inventory.delete");
     const { activeOutlet } = await outletContext(user);
     const item = await prisma.item.findUnique({ where: { id } });
     if (!item || item.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
@@ -171,7 +172,7 @@ export async function deleteItem(id: number) {
 export async function addStockItem(id: number, addQty: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("inventory.manage");
+    const user = await requirePermission("inventory.edit");
     const { activeOutlet } = await outletContext(user);
     if (!addQty || addQty <= 0 || !Number.isInteger(addQty)) {
       throw new Error("Jumlah stok tambahan harus berupa angka bulat positif");

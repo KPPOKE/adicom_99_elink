@@ -9,7 +9,9 @@ export const PERMISSIONS = [
   { key: "dashboard.annualReport", label: "Laporan Tahunan", group: "Dasbor" },
   { key: "dashboard.monthlyReport", label: "Laporan Bulanan", group: "Dasbor" },
   { key: "inventory.view", label: "Lihat inventori", group: "Inventori" },
-  { key: "inventory.manage", label: "Kelola inventori", group: "Inventori" },
+  { key: "inventory.manage", label: "Tambah Barang", group: "Inventori" },
+  { key: "inventory.edit", label: "Edit Barang", group: "Inventori" },
+  { key: "inventory.delete", label: "Hapus Barang", group: "Inventori" },
   { key: "categories.view", label: "Lihat kategori", group: "Kategori" },
   { key: "categories.manage", label: "Kelola kategori", group: "Kategori" },
   { key: "suppliers.view", label: "Lihat supplier", group: "Supplier" },
@@ -56,6 +58,8 @@ export const PERMISSIONS = [
 export type PermissionKey = typeof PERMISSIONS[number]["key"];
 export const PERMISSION_DEPENDENCIES: Partial<Record<PermissionKey, PermissionKey>> = {
   "inventory.manage": "inventory.view",
+  "inventory.edit": "inventory.manage",
+  "inventory.delete": "inventory.manage",
   "categories.manage": "categories.view",
   "suppliers.manage": "suppliers.view",
   "customers.manage": "customers.view",
@@ -91,6 +95,10 @@ export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
   "dashboard.viewTransactions",
   "dashboard.viewTurnover",
   "dashboard.viewChart",
+  "inventory.view",
+  "inventory.manage",
+  "inventory.edit",
+  "inventory.delete",
   "customers.view",
   "customers.manage",
   "transactions.view",
@@ -110,6 +118,12 @@ export function hasPermission(role: "admin" | "staff", permissions: string[], ke
   if (permissions.includes(key)) return true;
 
   // Backward compatibility fallback for master keys
+  if (permissions.includes("inventory.manage")) {
+    if (key === "inventory.edit" || key === "inventory.delete") {
+      return true;
+    }
+  }
+
   if (permissions.includes("fundMutations.manage")) {
     if (
       key === "fundMutations.deposit" ||

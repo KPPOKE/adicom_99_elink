@@ -69,7 +69,9 @@ export function InventoryClient({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const canManageInventory = hasPermission(role, permissions, "inventory.manage");
+  const canAddInventory = hasPermission(role, permissions, "inventory.manage");
+  const canEditInventory = hasPermission(role, permissions, "inventory.edit");
+  const canDeleteInventory = hasPermission(role, permissions, "inventory.delete");
 
   const handleRestockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,7 +215,7 @@ export function InventoryClient({
       header: "",
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          {canManageInventory ? (
+          {canEditInventory ? (
             <>
               <Button
                 variant="outline"
@@ -237,29 +239,31 @@ export function InventoryClient({
               >
                 <Edit className="h-4 w-4 text-slate-600" />
               </Button>
-              <ConfirmDialog
-                onConfirm={() =>
-                  startTransition(async () => {
-                    try {
-                      await deleteItem(row.original.id);
-                      toast.success("Barang dihapus", {
-                        description: `Data ${row.original.namaBarang} telah dihapus.`
-                      });
-                      router.refresh();
-                    } catch (error) {
-                      toast.error("Gagal menghapus barang", {
-                        description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
-                      });
-                    }
-                  })
-                }
-                trigger={
-                  <Button variant="outline" size="icon" className="h-8 w-8">
-                    <Trash2 className="h-4 w-4 text-red-400" />
-                  </Button>
-                }
-              />
             </>
+          ) : null}
+          {canDeleteInventory ? (
+            <ConfirmDialog
+              onConfirm={() =>
+                startTransition(async () => {
+                  try {
+                    await deleteItem(row.original.id);
+                    toast.success("Barang dihapus", {
+                      description: `Data ${row.original.namaBarang} telah dihapus.`
+                    });
+                    router.refresh();
+                  } catch (error) {
+                    toast.error("Gagal menghapus barang", {
+                      description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
+                    });
+                  }
+                })
+              }
+              trigger={
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <Trash2 className="h-4 w-4 text-red-400" />
+                </Button>
+              }
+            />
           ) : null}
         </div>
       )
@@ -275,7 +279,7 @@ export function InventoryClient({
             Unduh PDF Barang Harus Dipesan
           </Link>
         </Button>
-        {canManageInventory ? (
+        {canAddInventory ? (
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenChange(true)}>
