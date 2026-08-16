@@ -168,6 +168,46 @@ export async function deleteItem(id: number) {
   }
 }
 
+export async function addStockItem(id: number, addQty: number) {
+  try {
+    await assertTrustedOrigin();
+    const user = await requirePermission("inventory.manage");
+    const { activeOutlet } = await outletContext(user);
+    if (!addQty || addQty <= 0 || !Number.isInteger(addQty)) {
+      throw new Error("Jumlah stok tambahan harus berupa angka bulat positif");
+    }
+    const item = await prisma.item.findUnique({ where: { id } });
+    if (!item || item.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
+
+    const updated = await prisma.item.update({
+      where: { id },
+      data: { stok: { increment: addQty } }
+    });
+
+    await writeAuditLog({
+      userId: user.id,
+      userEmail: user.email,
+      outletId: activeOutlet.id,
+      action: "update_stock",
+      entity: "item",
+      entityId: item.id,
+      metadata: {
+        name: item.namaBarang,
+        code: item.kodeBarang,
+        previousStock: item.stok,
+        addedQty: addQty,
+        newStock: updated.stok
+      }
+    });
+
+    revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    return { success: true, newStock: updated.stok };
+  } catch (error) {
+    handleActionError(error);
+  }
+}
+
 
 
 

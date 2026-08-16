@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, FileDown, Plus, Trash2 } from "lucide-react";
+import { Edit, FileDown, PackagePlus, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StockBadge } from "@/components/shared/status-badge";
-import { deleteItem, upsertItem } from "@/app/actions/master-data";
+import { addStockItem, deleteItem, upsertItem } from "@/app/actions/master-data";
 import { formatCurrency } from "@/lib/utils";
 import { hasPermission } from "@/lib/permission-keys";
 
@@ -64,10 +64,38 @@ export function InventoryClient({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ItemRow | null>(null);
+  const [restockingItem, setRestockingItem] = useState<ItemRow | null>(null);
+  const [addQtyInput, setAddQtyInput] = useState<string>("1");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const canManageInventory = hasPermission(role, permissions, "inventory.manage");
+
+  const handleRestockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockingItem) return;
+    const qty = parseInt(addQtyInput, 10);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Jumlah stok tambahan harus minimal 1");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await addStockItem(restockingItem.id, qty);
+        toast.success("Stok berhasil ditambahkan", {
+          description: `Stok ${restockingItem.namaBarang} bertambah +${qty} ${restockingItem.satuan}. Total stok sekarang: ${restockingItem.stok + qty} ${restockingItem.satuan}.`
+        });
+        setRestockingItem(null);
+        setAddQtyInput("1");
+        router.refresh();
+      } catch (error) {
+        toast.error("Gagal menambah stok", {
+          description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
+        });
+      }
+    });
+  };
 
   const form = useForm({
     resolver: zodResolver(itemSchema),
@@ -189,10 +217,25 @@ export function InventoryClient({
             <>
               <Button
                 variant="outline"
-                size="icon"
-                onClick={() => handleEdit(row.original)}
+                size="sm"
+                onClick={() => {
+                  setRestockingItem(row.original);
+                  setAddQtyInput("1");
+                }}
+                className="h-8 gap-1 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 font-semibold shadow-2xs"
+                title="Tambah Stok Barang"
               >
-                <Edit className="h-4 w-4" />
+                <PackagePlus className="h-3.5 w-3.5 text-emerald-600" />
+                <span>+ Stok</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleEdit(row.original)}
+                title="Edit Detail Barang"
+              >
+                <Edit className="h-4 w-4 text-slate-600" />
               </Button>
               <ConfirmDialog
                 onConfirm={() =>
@@ -211,8 +254,8 @@ export function InventoryClient({
                   })
                 }
                 trigger={
-                  <Button variant="outline" size="icon">
-                    <Trash2 className="h-4 w-4 text-red-300" />
+                  <Button variant="outline" size="icon" className="h-8 w-8">
+                    <Trash2 className="h-4 w-4 text-red-400" />
                   </Button>
                 }
               />
@@ -439,6 +482,72 @@ export function InventoryClient({
           </>
         }
       />
+
+      <Dialog open={Boolean(restockingItem)} onOpenChange={(openState) => { if (!openState) setRestockingItem(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-700 font-bold">
+              <PackagePlus className="h-5 w-5 text-emerald-600" />
+              <span>Tambah Stok Barang</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {restockingItem ? (
+            <form onSubmit={handleRestockSubmit} className="space-y-4 pt-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Nama Barang:</span>
+                  <span className="font-bold text-slate-800">{restockingItem.namaBarang}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Kode Barang:</span>
+                  <span className="font-mono text-slate-700">{restockingItem.kodeBarang}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Stok Saat Ini:</span>
+                  <span className="font-bold text-blue-600">{restockingItem.stok} {restockingItem.satuan}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="addQtyInput" className="text-xs font-semibold text-slate-700">
+                  Jumlah Stok Masuk (+)
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="addQtyInput"
+                    type="number"
+                    min="1"
+                    step="1"
+                    autoFocus
+                    value={addQtyInput}
+                    onChange={(e) => setAddQtyInput(e.target.value)}
+                    className="h-10 text-sm font-semibold focus:ring-emerald-500"
+                    placeholder="Masukkan jumlah barang masuk..."
+                  />
+                  <span className="text-xs font-semibold text-slate-500 shrink-0">{restockingItem.satuan}</span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs flex items-center justify-between text-emerald-950 font-medium">
+                <span>Total Stok Baru:</span>
+                <span className="text-sm font-extrabold text-emerald-700">
+                  {restockingItem.stok} + {parseInt(addQtyInput, 10) || 0} = {(restockingItem.stok + (parseInt(addQtyInput, 10) || 0))} {restockingItem.satuan}
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setRestockingItem(null)}>
+                  Batal
+                </Button>
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" disabled={isPending}>
+                  {isPending ? "Memproses..." : "Simpan Tambah Stok"}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
