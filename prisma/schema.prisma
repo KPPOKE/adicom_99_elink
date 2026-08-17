@@ -61,6 +61,9 @@ enum BankTransferKind {
   Tarik_Tunai
   Jasa_Transfer
   Fee_Brilink
+  Mode_Pulsa
+  Pembayaran_Digital
+  Operasional
 }
 
 enum FundAccountType {
@@ -406,6 +409,7 @@ model BankTransfer {
   accountNumber    String             @map("account_number")
   accountName      String             @map("account_name")
   amount           Decimal            @db.Decimal(14, 2)
+  costAmount       Decimal            @default(0) @map("cost_amount") @db.Decimal(14, 2)
   adminFee         Decimal            @default(0) @map("admin_fee") @db.Decimal(14, 2)
   adminBankFee     Decimal            @default(0) @map("admin_bank_fee") @db.Decimal(14, 2)
   externalAdminFee Decimal            @default(0) @map("external_admin_fee") @db.Decimal(14, 2)

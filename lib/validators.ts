@@ -103,10 +103,10 @@ export type FinanceFormValues = z.output<typeof financeSchema>;
 
 export const bankTransferSchema = z.object({
   id: z.coerce.number<number>().optional(),
-  kind: z.enum(["Transfer", "Tarik_Tunai", "Jasa_Transfer", "Fee_Brilink"]).default("Transfer"),
+  kind: z.enum(["Transfer", "Tarik_Tunai", "Jasa_Transfer", "Fee_Brilink", "Mode_Pulsa", "Pembayaran_Digital", "Operasional"]).default("Transfer"),
   transactionType: z.string().trim().max(80).optional(),
   sourceFundId: z.coerce.number<number>().int().min(1).optional(),
-  targetFundId: z.coerce.number<number>().int().min(1, "Terima dana wajib dipilih"),
+  targetFundId: z.coerce.number<number>().int().min(1).optional(),
   customerId: z.coerce.number<number>().optional().nullable(),
   senderName: z.string().trim().max(100, "Nama pengirim maksimal 100 karakter").optional(),
   senderPhone: z.string().trim().max(30, "Nomor telepon maksimal 30 karakter").optional(),
@@ -114,13 +114,32 @@ export const bankTransferSchema = z.object({
   accountNumber: z.string().trim().max(30, "Nomor rekening maksimal 30 digit").optional(),
   accountName: z.string().trim().max(100, "Nama pemilik rekening maksimal 100 karakter").optional(),
   amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
+  costAmount: money.default(0),
   adminFee: money,
   adminBankFee: money.default(0),
   externalAdminFee: money.default(0),
   note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional()
 }).superRefine((value, context) => {
   const isFeeIncome = value.kind === "Jasa_Transfer" || value.kind === "Fee_Brilink";
-  if (isFeeIncome) return;
+  const isOperational = value.kind === "Operasional";
+  const isPulsa = value.kind === "Mode_Pulsa" || value.kind === "Pembayaran_Digital";
+
+  if (isFeeIncome) {
+    if (!value.targetFundId) context.addIssue({ code: "custom", path: ["targetFundId"], message: "Terima dana wajib dipilih" });
+    return;
+  }
+  if (isOperational) {
+    if (!value.sourceFundId) context.addIssue({ code: "custom", path: ["sourceFundId"], message: "Sumber dana wajib dipilih" });
+    return;
+  }
+  if (isPulsa) {
+    if (!value.sourceFundId) context.addIssue({ code: "custom", path: ["sourceFundId"], message: "Sumber dana wajib dipilih" });
+    if (!value.targetFundId) context.addIssue({ code: "custom", path: ["targetFundId"], message: "Terima dana wajib dipilih" });
+    if (!value.costAmount || value.costAmount <= 0) context.addIssue({ code: "custom", path: ["costAmount"], message: "Harga modal wajib diisi" });
+    return;
+  }
+
+  if (!value.targetFundId) context.addIssue({ code: "custom", path: ["targetFundId"], message: "Terima dana wajib dipilih" });
   if (!value.sourceFundId) {
     context.addIssue({ code: "custom", path: ["sourceFundId"], message: "Sumber dana wajib dipilih" });
   }

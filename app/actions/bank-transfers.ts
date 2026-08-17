@@ -3,7 +3,7 @@
 import type { BankTransfer } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { applyFundDelta, cashWithdrawalLedger, feeIncomeLedger, transferLedger } from "@/lib/fund-ledger";
+import { applyFundDelta, cashWithdrawalLedger, feeIncomeLedger, operationalLedger, pulsaLedger, transferLedger } from "@/lib/fund-ledger";
 import { outletContext } from "@/lib/outlet";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -29,18 +29,27 @@ function revalidateTransferPaths() {
 function isFeeIncomeKind(kind: BankTransfer["kind"]) {
   return kind === "Jasa_Transfer" || kind === "Fee_Brilink";
 }
+function isPulsaKind(kind: BankTransfer["kind"]) {
+  return kind === "Mode_Pulsa" || kind === "Pembayaran_Digital";
+}
+function isOperationalKind(kind: BankTransfer["kind"]) {
+  return kind === "Operasional";
+}
 
-const feeIncomeLabel: Record<string, string> = {
+const kindProfitLabel: Record<string, string> = {
   Jasa_Transfer: "Jasa Transfer",
-  Fee_Brilink: "Fee Brilink"
+  Fee_Brilink: "Fee Brilink",
+  Mode_Pulsa: "Mode Pulsa",
+  Pembayaran_Digital: "Pembayaran Digital",
+  Operasional: "Biaya Operasional"
 };
 
 function profitRecord(profit: number, transfer: Pick<BankTransfer, "id" | "kodeTransfer" | "outletId" | "kind">, userId: number) {
   if (profit === 0) return null;
-  const feeLabel = feeIncomeLabel[transfer.kind];
+  const label = kindProfitLabel[transfer.kind];
   return {
     type: profit > 0 ? "income" as const : "expense" as const,
-    category: feeLabel ?? (profit > 0 ? "Profit MiniATM" : "Rugi MiniATM"),
+    category: label ?? (profit > 0 ? "Profit MiniATM" : "Rugi MiniATM"),
     amount: Math.abs(profit),
     description: `MiniATM ${transfer.kodeTransfer}`,
     referenceType: "bank_transfer",
@@ -52,13 +61,35 @@ function profitRecord(profit: number, transfer: Pick<BankTransfer, "id" | "kodeT
 }
 
 async function validateFundFlow(tx: Prisma.TransactionClient, transfer: BankTransfer) {
-  if (!transfer.outletId || !transfer.targetFundId) throw new Error("Terima dana wajib diisi");
+  if (!transfer.outletId) throw new Error("Cabang tidak valid");
+
   if (isFeeIncomeKind(transfer.kind)) {
+    if (!transfer.targetFundId) throw new Error("Terima dana wajib diisi");
     const target = await tx.fundAccount.findFirst({ where: { id: transfer.targetFundId, outletId: transfer.outletId, isActive: true }, select: { id: true } });
     if (!target) throw new Error("Sumber dana tidak valid");
     return;
   }
-  if (!transfer.sourceFundId) throw new Error("Sumber dan terima dana wajib diisi");
+
+  if (isOperationalKind(transfer.kind)) {
+    if (!transfer.sourceFundId) throw new Error("Sumber dana wajib dipilih");
+    const source = await tx.fundAccount.findFirst({ where: { id: transfer.sourceFundId, outletId: transfer.outletId, isActive: true }, select: { id: true } });
+    if (!source) throw new Error("Sumber dana tidak valid");
+    return;
+  }
+
+  if (!transfer.sourceFundId || !transfer.targetFundId) throw new Error("Sumber dan terima dana wajib diisi");
+
+  if (isPulsaKind(transfer.kind)) {
+    const funds = await tx.fundAccount.findMany({
+      where: { id: { in: [transfer.sourceFundId, transfer.targetFundId] }, outletId: transfer.outletId, isActive: true },
+      select: { id: true }
+    });
+    if (!funds.some((fund) => fund.id === transfer.sourceFundId) || !funds.some((fund) => fund.id === transfer.targetFundId)) {
+      throw new Error("Sumber dana tidak valid");
+    }
+    return;
+  }
+
   const funds = await tx.fundAccount.findMany({
     where: { id: { in: [transfer.sourceFundId, transfer.targetFundId] }, outletId: transfer.outletId, isActive: true },
     select: { id: true, type: true }
@@ -78,8 +109,14 @@ async function completeBankTransfer(tx: Prisma.TransactionClient, transfer: Bank
   await validateFundFlow(tx, transfer);
   const amount = toNumber(transfer.amount);
   const feeIncome = isFeeIncomeKind(transfer.kind);
+  const pulsa = isPulsaKind(transfer.kind);
+  const operational = isOperationalKind(transfer.kind);
   const ledger = feeIncome
     ? feeIncomeLedger(amount)
+    : pulsa
+    ? pulsaLedger(amount, toNumber(transfer.costAmount))
+    : operational
+    ? operationalLedger(amount, toNumber(transfer.adminFee))
     : transfer.kind === "Tarik_Tunai"
     ? cashWithdrawalLedger(amount, toNumber(transfer.adminFee), toNumber(transfer.externalAdminFee))
     : transferLedger(amount, toNumber(transfer.adminFee), toNumber(transfer.adminBankFee));
@@ -88,7 +125,7 @@ async function completeBankTransfer(tx: Prisma.TransactionClient, transfer: Bank
     await applyFundDelta(tx, {
       outletId: transfer.outletId!,
       fundAccountId: transfer.sourceFundId,
-      type: transfer.kind === "Tarik_Tunai" ? "Cash_Out" : "Transfer_Out",
+      type: operational ? "Withdraw_Out" : pulsa ? "Withdraw_Out" : transfer.kind === "Tarik_Tunai" ? "Cash_Out" : "Transfer_Out",
       delta: ledger.sourceDelta,
       adminFee: toNumber(transfer.adminBankFee),
       referenceType: "bank_transfer",
@@ -98,18 +135,20 @@ async function completeBankTransfer(tx: Prisma.TransactionClient, transfer: Bank
       userId
     });
   }
-  await applyFundDelta(tx, {
-    outletId: transfer.outletId!,
-    fundAccountId: transfer.targetFundId!,
-    type: feeIncome ? "Deposit_In" : transfer.kind === "Tarik_Tunai" ? "Cash_In" : "Transfer_In",
-    delta: ledger.targetDelta,
-    adminFee: toNumber(transfer.adminFee),
-    referenceType: "bank_transfer",
-    referenceId: transfer.id,
-    bankTransferId: transfer.id,
-    note: transfer.note,
-    userId
-  });
+  if (transfer.targetFundId) {
+    await applyFundDelta(tx, {
+      outletId: transfer.outletId!,
+      fundAccountId: transfer.targetFundId,
+      type: feeIncome || pulsa ? "Deposit_In" : transfer.kind === "Tarik_Tunai" ? "Cash_In" : "Transfer_In",
+      delta: ledger.targetDelta,
+      adminFee: toNumber(transfer.adminFee),
+      referenceType: "bank_transfer",
+      referenceId: transfer.id,
+      bankTransferId: transfer.id,
+      note: transfer.note,
+      userId
+    });
+  }
   const finance = profitRecord(ledger.profit, transfer, userId);
   if (finance) await tx.financeRecord.create({ data: finance });
   await tx.bankTransfer.update({ where: { id: transfer.id }, data: { status: "Berhasil", completedAt: new Date() } });
@@ -132,22 +171,30 @@ export async function upsertBankTransfer(payload: unknown) {
     if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
   }
   const isFeeIncome = parsed.kind === "Jasa_Transfer" || parsed.kind === "Fee_Brilink";
+  const isPulsa = parsed.kind === "Mode_Pulsa" || parsed.kind === "Pembayaran_Digital";
+  const isOperational = parsed.kind === "Operasional";
+  const usesBankFields = !isFeeIncome && !isPulsa && !isOperational;
   const data = {
     kind: parsed.kind,
-    transactionType: isFeeIncome ? null : parsed.transactionType || null,
+    transactionType: parsed.kind === "Transfer" || parsed.kind === "Pembayaran_Digital" ? parsed.transactionType || null : null,
     sourceFundId: isFeeIncome ? null : parsed.sourceFundId,
-    targetFundId: parsed.targetFundId,
+    targetFundId: isOperational ? null : parsed.targetFundId,
     customerId: parsed.customerId || null,
     senderName: parsed.senderName || null,
     senderPhone: parsed.senderPhone || null,
-    destinationBank: isFeeIncome ? "-" : parsed.destinationBank!,
+    destinationBank: usesBankFields ? parsed.destinationBank! : "-",
     accountNumber: parsed.accountNumber || "",
     accountName: parsed.accountName || "",
     amount: parsed.amount,
-    adminFee: isFeeIncome ? 0 : parsed.adminFee,
+    costAmount: isPulsa ? parsed.costAmount : 0,
+    adminFee: isFeeIncome || isPulsa ? 0 : parsed.adminFee,
     adminBankFee: parsed.kind === "Transfer" ? parsed.adminBankFee : 0,
     externalAdminFee: parsed.kind === "Tarik_Tunai" ? parsed.externalAdminFee : 0,
-    totalReceived: isFeeIncome ? parsed.amount : parsed.amount + parsed.adminFee + (parsed.kind === "Tarik_Tunai" ? parsed.externalAdminFee : 0),
+    totalReceived: isFeeIncome || isPulsa
+      ? parsed.amount
+      : isOperational
+      ? parsed.amount + parsed.adminFee
+      : parsed.amount + parsed.adminFee + (parsed.kind === "Tarik_Tunai" ? parsed.externalAdminFee : 0),
     outletId: activeOutlet.id,
     note: parsed.note || null
   };

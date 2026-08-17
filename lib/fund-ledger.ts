@@ -25,6 +25,29 @@ export function feeIncomeLedger(amount: number) {
   };
 }
 
+// Mode Pulsa / Pembayaran Digital: cost leaves the source account (e.g. a
+// pulsa-deposit or bank balance), the sell price lands in the target
+// account, and the difference is the margin. Source and target may be the
+// same account (that just nets straight to profit on that one balance).
+export function pulsaLedger(sellAmount: number, costAmount: number) {
+  return {
+    sourceDelta: -costAmount,
+    targetDelta: sellAmount,
+    profit: sellAmount - costAmount
+  };
+}
+
+// Operasional: a withdrawal where only the admin fee is a real cost (mirrors
+// the existing "Ambil Saldo" fund-mutation formula) - the withdrawn amount
+// itself just leaves the tracked balance, it isn't a loss.
+export function operationalLedger(amount: number, adminFee: number) {
+  return {
+    sourceDelta: -(amount + adminFee),
+    targetDelta: 0,
+    profit: -adminFee
+  };
+}
+
 export function moveLedger(amount: number, admin: number, bearer: "Pengirim" | "Penerima" | "Tidak_Ada") {
   return {
     sourceDelta: -(amount + (bearer === "Pengirim" ? admin : 0)),

@@ -44,7 +44,7 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
     }),
     prisma.bankTransfer.findMany({
       where: { outletId, status: "Berhasil", completedAt: dateRange, ...(userId ? { userId } : {}) },
-      select: { completedAt: true, kind: true, amount: true, adminFee: true, adminBankFee: true, externalAdminFee: true }
+      select: { completedAt: true, kind: true, amount: true, costAmount: true, adminFee: true, adminBankFee: true, externalAdminFee: true }
     }),
     prisma.fundMutation.findMany({
       where: { outletId, createdAt: dateRange, adminFee: { gt: 0 }, bankTransferId: null, ...(userId ? { userId } : {}) },
@@ -83,6 +83,10 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
       amount: toNumber(transaction.amount),
       grossProfit: transaction.kind === "Jasa_Transfer" || transaction.kind === "Fee_Brilink"
         ? toNumber(transaction.amount)
+        : transaction.kind === "Mode_Pulsa" || transaction.kind === "Pembayaran_Digital"
+        ? toNumber(transaction.amount) - toNumber(transaction.costAmount)
+        : transaction.kind === "Operasional"
+        ? -toNumber(transaction.adminFee)
         : toNumber(transaction.adminFee) + (transaction.kind === "Tarik_Tunai" ? toNumber(transaction.externalAdminFee) : 0),
       bankFee: transaction.kind === "Transfer" ? toNumber(transaction.adminBankFee) : 0
     }] : []),
