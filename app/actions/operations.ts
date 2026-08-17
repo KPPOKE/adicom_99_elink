@@ -172,6 +172,162 @@ export async function createTransaction(payload: unknown) {
   throw new Error("Gagal membuat kode transaksi unik");
 }
 
+export async function updateTransaction(id: number, payload: unknown) {
+  await assertTrustedOrigin();
+  const user = await requirePermission("transactions.edit");
+  const { activeOutlet } = await outletContext(user);
+  const parsed = transactionSchema.parse(payload);
+  const itemIds = parsed.items.map((item) => item.itemId);
+
+  if (parsed.customerId) {
+    const customer = await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.customerId, outletId: activeOutlet.id } } });
+    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findUnique({
+      where: { id },
+      include: { items: true, financeRecords: true }
+    });
+    if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Transaksi tidak ditemukan di cabang aktif");
+    if (existing.status === "Batal") throw new Error("Transaksi yang sudah dibatalkan tidak bisa diedit");
+
+    // Kembalikan dulu stok dari item lama sebelum menerapkan item baru,
+    // supaya perubahan qty pada barang yang sama tetap tervalidasi dengan benar.
+    for (const line of existing.items) {
+      const updated = await tx.item.updateMany({
+        where: { id: line.itemId, outletId: activeOutlet.id },
+        data: { stok: { increment: line.qty } }
+      });
+      if (updated.count !== 1) throw new Error("Barang transaksi lama tidak ditemukan di cabang aktif");
+    }
+
+    const stocks = await tx.item.findMany({ where: { id: { in: itemIds }, outletId: activeOutlet.id } });
+    for (const line of parsed.items) {
+      const stock = stocks.find((item) => item.id === line.itemId);
+      if (!stock) throw new Error("Barang tidak ditemukan");
+      if (stock.stok < line.qty) throw new Error(`Stok ${stock.namaBarang} tidak cukup`);
+    }
+    for (const line of parsed.items) {
+      const updated = await tx.item.updateMany({
+        where: { id: line.itemId, outletId: activeOutlet.id, stok: { gte: line.qty } },
+        data: { stok: { decrement: line.qty } }
+      });
+      if (updated.count !== 1) throw new Error("Stok barang tidak cukup atau sudah berubah");
+    }
+
+    const total = parsed.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+    const grandTotal = Math.max(0, total - parsed.diskon);
+    const grossProfit = parsed.items.reduce((sum, item) => sum + item.qty * (item.price - toNumber(stocks.find((stock) => stock.id === item.itemId)!.hargaModal)), 0) - parsed.diskon;
+
+    if (parsed.paymentMethod === "Cash" && parsed.paidAmount < grandTotal) {
+      throw new Error("Uang dibayar tidak boleh kurang dari grand total yang sebenarnya");
+    }
+    const changeAmount = parsed.paymentMethod === "Cash" ? Math.max(0, parsed.paidAmount - grandTotal) : 0;
+
+    await tx.transactionItem.deleteMany({ where: { transactionId: id } });
+    await tx.transactionItem.createMany({
+      data: parsed.items.map((item) => ({
+        transactionId: id,
+        itemId: item.itemId,
+        qty: item.qty,
+        price: item.price,
+        costPrice: stocks.find((stock) => stock.id === item.itemId)!.hargaModal,
+        subtotal: item.qty * item.price
+      }))
+    });
+
+    await tx.transaction.update({
+      where: { id },
+      data: {
+        customerId: parsed.customerId || null,
+        customerName: parsed.customerName || null,
+        total,
+        diskon: parsed.diskon,
+        grossProfit,
+        grandTotal,
+        paymentMethod: parsed.paymentMethod,
+        paidAmount: parsed.paidAmount,
+        changeAmount,
+        fundAccountId: parsed.fundAccountId || null
+      }
+    });
+
+    if (existing.status === "Berhasil") {
+      const oldGrandTotal = toNumber(existing.grandTotal);
+      if (existing.fundAccountId) {
+        await applyFundDelta(tx, {
+          outletId: activeOutlet.id,
+          fundAccountId: existing.fundAccountId,
+          type: "Reversal",
+          delta: -oldGrandTotal,
+          referenceType: "transaction_edit",
+          referenceId: id,
+          note: `Pembalikan Penjualan ${existing.kodeTransaksi} karena transaksi diedit`,
+          userId: user.id
+        });
+      }
+      if (parsed.fundAccountId) {
+        await applyFundDelta(tx, {
+          outletId: activeOutlet.id,
+          fundAccountId: parsed.fundAccountId,
+          type: "Deposit_In",
+          delta: grandTotal,
+          referenceType: "transaction_edit",
+          referenceId: id,
+          note: `Penjualan ${existing.kodeTransaksi} (diedit)`,
+          userId: user.id
+        });
+      }
+
+      const incomeRecord = existing.financeRecords.find((record) => record.type === "income");
+      if (incomeRecord) {
+        await tx.financeRecord.update({
+          where: { id: incomeRecord.id },
+          data: { amount: grandTotal, fundAccountId: parsed.fundAccountId || null }
+        });
+      } else {
+        await tx.financeRecord.create({
+          data: {
+            type: "income",
+            category: "Penjualan",
+            amount: grandTotal,
+            description: `Transaksi ${existing.kodeTransaksi}`,
+            referenceType: "transaction",
+            referenceId: id,
+            transactionId: id,
+            outletId: activeOutlet.id,
+            userId: user.id,
+            fundAccountId: parsed.fundAccountId || null
+          }
+        });
+      }
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        outletId: activeOutlet.id,
+        action: "update",
+        entity: "transaction",
+        entityId: id,
+        metadata: {
+          kodeTransaksi: existing.kodeTransaksi,
+          before: { grandTotal: toNumber(existing.grandTotal), items: existing.items.map((item) => ({ itemId: item.itemId, qty: item.qty, price: toNumber(item.price) })) },
+          after: { grandTotal, items: parsed.items }
+        }
+      }
+    });
+  });
+
+  revalidatePath("/transactions");
+  revalidatePath("/inventory");
+  revalidatePath("/finance");
+  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
+}
+
 export async function deleteTransaction(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("transactions.manage");

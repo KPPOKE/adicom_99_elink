@@ -19,7 +19,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const start = startOfToday();
   const end = tomorrowOf(start);
 
-  const [items, customers, transactions, total, canDelete, todayTransactions, fundAccounts] = await Promise.all([
+  const [items, customers, transactions, total, canDelete, canEdit, todayTransactions, fundAccounts] = await Promise.all([
     prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
@@ -31,6 +31,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
     }),
     prisma.transaction.count({ where }),
     canCurrentUser("transactions.delete"),
+    canCurrentUser("transactions.edit"),
     prisma.transaction.findMany({
       where: {
         outletId: activeOutlet.id,
@@ -73,16 +74,27 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
         transactions={transactions.map((transaction) => ({
           id: transaction.id,
           kodeTransaksi: transaction.kodeTransaksi,
+          customerId: transaction.customerId,
           customerName: transaction.customerName,
+          diskon: toNumber(transaction.diskon),
+          total: toNumber(transaction.total),
           grandTotal: toNumber(transaction.grandTotal),
           paymentMethod: transaction.paymentMethod,
+          paidAmount: toNumber(transaction.paidAmount),
           status: transaction.status,
           createdAt: transaction.createdAt.toISOString(),
-          items: transaction.items.map((item) => ({ qty: item.qty, item: { namaBarang: item.item.namaBarang } })),
+          items: transaction.items.map((item) => ({
+            itemId: item.itemId,
+            qty: item.qty,
+            price: toNumber(item.price),
+            item: { namaBarang: item.item.namaBarang }
+          })),
+          fundAccountId: transaction.fundAccountId,
           fundAccountName: transaction.fundAccount?.name ?? null
         }))}
         role={user.role.name}
         canDelete={canDelete}
+        canEdit={canEdit}
         pagination={{ page, pageSize: TRANSACTION_PAGE_SIZE, total, query: queryValues(params) }}
         todaySummary={todaySummary}
         fundAccounts={fundAccounts.map((fund) => ({

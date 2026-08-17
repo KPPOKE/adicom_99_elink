@@ -1,13 +1,15 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, Eye, Plus, Printer, Trash2, BriefcaseBusiness, Search, Minus } from "lucide-react";
+import { CheckCircle2, Edit, Eye, MoreHorizontal, Plus, Printer, Trash2, BriefcaseBusiness, Search, Minus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useSyncExternalStore, useTransition, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +17,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
-import { deleteTransaction, completePendingTransaction, createTransaction } from "@/app/actions/operations";
+import { deleteTransaction, completePendingTransaction, createTransaction, updateTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
 
 import { useCartStore } from "@/lib/store/useCartStore";
@@ -28,12 +30,17 @@ type CustomerOption = { id: number; name: string; phone: string | null };
 type TransactionRow = {
   id: number;
   kodeTransaksi: string;
+  customerId?: number | null;
   customerName: string | null;
+  diskon?: number;
+  total?: number;
   grandTotal: number;
   paymentMethod: string;
+  paidAmount?: number;
   status: string;
   createdAt: string | Date;
-  items: { qty: number; item: { namaBarang: string } }[];
+  items: { itemId: number; qty: number; price: number; item: { namaBarang: string } }[];
+  fundAccountId?: number | null;
   fundAccountName?: string | null;
 };
 
@@ -75,6 +82,7 @@ export function TransactionClient({
   customers,
   transactions,
   canDelete,
+  canEdit,
   pagination,
   todaySummary,
   fundAccounts = []
@@ -84,6 +92,7 @@ export function TransactionClient({
   transactions: TransactionRow[];
   role: "admin" | "staff";
   canDelete: boolean;
+  canEdit: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   todaySummary: TodaySummary;
   fundAccounts: { id: number; name: string; type: string }[];
@@ -96,6 +105,18 @@ export function TransactionClient({
   // Local state for UI only
   const [isPending, startTransition] = useTransition();
   const hydrated = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
+  // Local state for the "Edit Transaksi" dialog (kept separate from the POS cart store
+  // so editing an old sale never interferes with a sale currently being built)
+  const [editingTx, setEditingTx] = useState<TransactionRow | null>(null);
+  const [editLines, setEditLines] = useState<{ itemId: number; namaBarang: string; qty: number; price: number }[]>([]);
+  const [editDiskon, setEditDiskon] = useState(0);
+  const [editCustomerName, setEditCustomerName] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState<"Cash" | "Transfer" | "QRIS" | "Ewallet">("Cash");
+  const [editPaidAmount, setEditPaidAmount] = useState(0);
+  const [editFundAccountId, setEditFundAccountId] = useState<number | null>(null);
+  const [editAddItemId, setEditAddItemId] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   // Local state for POS layout filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -164,6 +185,88 @@ export function TransactionClient({
   const change = cart.paymentMethod === "Cash" ? Math.max(0, cart.paidAmount - grandTotal) : 0;
   const hasDigitalItem = cart.lines.some((line) => items.find((item) => item.id === line.itemId)?.categoryName === "Produk Digital");
 
+  // Edit Transaksi dialog: totals and account options derived from local edit state
+  const editTotal = useMemo(() => editLines.reduce((sum, line) => sum + line.qty * line.price, 0), [editLines]);
+  const editGrandTotal = Math.max(0, editTotal - editDiskon);
+  const editChange = editPaymentMethod === "Cash" ? Math.max(0, editPaidAmount - editGrandTotal) : 0;
+  const editAvailableAccounts = useMemo(() => {
+    if (editPaymentMethod === "Cash") return fundAccounts.filter((acc) => acc.type === "Cash");
+    if (editPaymentMethod === "Transfer") return fundAccounts.filter((acc) => acc.type === "Bank");
+    if (editPaymentMethod === "QRIS" || editPaymentMethod === "Ewallet") return fundAccounts.filter((acc) => acc.type === "Ewallet");
+    return [];
+  }, [fundAccounts, editPaymentMethod]);
+  // Items that can still be added: not already a line, and currently in stock
+  const editPickableItems = useMemo(
+    () => items.filter((item) => !editLines.some((line) => line.itemId === item.id)),
+    [items, editLines]
+  );
+
+  function openEditTransaction(transaction: TransactionRow) {
+    setEditingTx(transaction);
+    setEditLines(transaction.items.map((line) => ({ itemId: line.itemId, namaBarang: line.item.namaBarang, qty: line.qty, price: line.price })));
+    setEditDiskon(transaction.diskon ?? 0);
+    setEditCustomerName(transaction.customerName ?? "");
+    setEditPaymentMethod((transaction.paymentMethod as "Cash" | "Transfer" | "QRIS" | "Ewallet") ?? "Cash");
+    setEditPaidAmount(transaction.paidAmount ?? transaction.grandTotal);
+    setEditFundAccountId(transaction.fundAccountId ?? null);
+    setEditAddItemId("");
+  }
+
+  function closeEditTransaction() {
+    setEditingTx(null);
+    setEditLines([]);
+    setEditAddItemId("");
+  }
+
+  function updateEditLineQty(itemId: number, delta: number) {
+    setEditLines((lines) => lines.map((line) => (line.itemId === itemId ? { ...line, qty: Math.max(1, line.qty + delta) } : line)));
+  }
+
+  function updateEditLinePrice(itemId: number, price: number) {
+    setEditLines((lines) => lines.map((line) => (line.itemId === itemId ? { ...line, price } : line)));
+  }
+
+  function removeEditLine(itemId: number) {
+    setEditLines((lines) => lines.filter((line) => line.itemId !== itemId));
+  }
+
+  function addEditLine(itemId: number) {
+    const item = items.find((it) => it.id === itemId);
+    if (!item) return;
+    setEditLines((lines) => [...lines, { itemId: item.id, namaBarang: item.namaBarang, qty: 1, price: item.hargaJual }]);
+    setEditAddItemId("");
+  }
+
+  function submitEditTransaction() {
+    if (!editingTx) return;
+    if (editLines.length === 0) {
+      toast.error("Minimal satu item");
+      return;
+    }
+    setEditSaving(true);
+    startTransition(async () => {
+      try {
+        const payload = {
+          customerId: editingTx.customerId ?? null,
+          customerName: editCustomerName,
+          diskon: editDiskon,
+          paymentMethod: editPaymentMethod,
+          paidAmount: editPaidAmount,
+          fundAccountId: editFundAccountId,
+          items: editLines.map((line) => ({ itemId: line.itemId, qty: line.qty, price: line.price }))
+        };
+        await updateTransaction(editingTx.id, payload);
+        toast.success("Transaksi berhasil diperbarui");
+        closeEditTransaction();
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal memperbarui transaksi");
+      } finally {
+        setEditSaving(false);
+      }
+    });
+  }
+
   // Unique categories list
   const categories = useMemo(() => {
     const cats = new Set(items.map((item) => item.categoryName));
@@ -212,65 +315,93 @@ export function TransactionClient({
     { header: "Tanggal", cell: ({ row }) => formatDateTime(row.original.createdAt) },
     {
       id: "actions",
-      header: "Aksi",
+      header: () => <div className="text-center">Aksi</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
       cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          <Button asChild variant="outline" size="icon" title={`Cetak ${row.original.kodeTransaksi}`}>
-            <Link href={`/transactions/${row.original.id}/invoice`}>
-              <Printer className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="icon" title={`Detail ${row.original.kodeTransaksi}`}>
-            <Link href={`/transactions/${row.original.id}`}>
-              <Eye className="h-4 w-4" />
-            </Link>
-          </Button>
-          {row.original.status === "Pending" ? (
-            <ConfirmDialog
-              title="Selesaikan transaksi?"
-              description="Status transaksi menjadi berhasil dan pemasukan akan dibuat di keuangan."
-              confirmLabel="Selesaikan"
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await completePendingTransaction(row.original.id);
-                    toast.success("Transaksi diselesaikan");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menyelesaikan transaksi");
+        <div className="flex w-full justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi">
+                <MoreHorizontal className="h-4 w-4 text-slate-600" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 p-1.5">
+              <DropdownMenuItem asChild className="text-slate-700 focus:bg-slate-50">
+                <Link href={`/transactions/${row.original.id}`}>
+                  <Eye className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Detail Transaksi</span>
+                </Link>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem asChild className="text-slate-700 focus:bg-slate-50">
+                <Link href={`/transactions/${row.original.id}/invoice`}>
+                  <Printer className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Cetak Struk</span>
+                </Link>
+              </DropdownMenuItem>
+
+              {canEdit && row.original.status !== "Batal" ? (
+                <DropdownMenuItem onClick={() => openEditTransaction(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                  <Edit className="h-3.5 w-3.5 text-blue-600" />
+                  <span>Edit Transaksi</span>
+                </DropdownMenuItem>
+              ) : null}
+
+              {row.original.status === "Pending" ? (
+                <ConfirmDialog
+                  title="Selesaikan transaksi?"
+                  description="Status transaksi menjadi berhasil dan pemasukan akan dibuat di keuangan."
+                  confirmLabel="Selesaikan"
+                  tone="success"
+                  onConfirm={() =>
+                    startTransition(async () => {
+                      try {
+                        await completePendingTransaction(row.original.id);
+                        toast.success("Transaksi diselesaikan");
+                        router.refresh();
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : "Gagal menyelesaikan transaksi");
+                      }
+                    })
                   }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon" title="Selesaikan transaksi">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                </Button>
-              }
-            />
-          ) : null}
-          {canDelete ? (
-            <ConfirmDialog
-              title="Hapus transaksi?"
-              description="Transaksi akan dihapus permanen. Stok barang akan otomatis dikembalikan."
-              confirmLabel="Hapus"
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteTransaction(row.original.id);
-                    toast.success("Transaksi dihapus");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menghapus transaksi");
+                  trigger={
+                    <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Selesaikan Transaksi</span>
+                    </DropdownMenuItem>
                   }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon" title={`Hapus ${row.original.kodeTransaksi}`}>
-                  <Trash2 className="h-4 w-4 text-red-400" />
-                </Button>
-              }
-            />
-          ) : null}
+                />
+              ) : null}
+
+              {canDelete ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <ConfirmDialog
+                    title="Hapus transaksi?"
+                    description="Transaksi akan dihapus permanen. Stok barang akan otomatis dikembalikan."
+                    confirmLabel="Hapus"
+                    onConfirm={() =>
+                      startTransition(async () => {
+                        try {
+                          await deleteTransaction(row.original.id);
+                          toast.success("Transaksi dihapus");
+                          router.refresh();
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Gagal menghapus transaksi");
+                        }
+                      })
+                    }
+                    trigger={
+                      <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        <span>Hapus Transaksi</span>
+                      </DropdownMenuItem>
+                    }
+                  />
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )
     }
@@ -840,6 +971,144 @@ export function TransactionClient({
           <DataTable columns={columns} data={displayTransactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
         </CardContent>
       </Card>
+
+      {/* Edit Transaksi dialog */}
+      <Dialog open={editingTx !== null} onOpenChange={(open) => !open && closeEditTransaction()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Transaksi {editingTx?.kodeTransaksi}</DialogTitle>
+            <p className="text-sm text-slate-500">Ubah item, harga, diskon, atau metode pembayaran. Stok dan catatan keuangan akan disesuaikan otomatis.</p>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-600">Item Transaksi</Label>
+              <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+                {editLines.length === 0 ? (
+                  <p className="p-3 text-xs text-slate-400">Belum ada item.</p>
+                ) : (
+                  editLines.map((line) => (
+                    <div key={line.itemId} className="flex flex-wrap items-center gap-2 p-2.5">
+                      <span className="flex-1 min-w-[120px] text-xs font-semibold text-slate-800">{line.namaBarang}</span>
+                      <div className="flex items-center border border-slate-200 rounded-lg bg-white p-0.5">
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateEditLineQty(line.itemId, -1)}>
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-8 text-center text-xs font-bold">{line.qty}</span>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateEditLineQty(line.itemId, 1)}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <CurrencyInput
+                        value={line.price}
+                        onChange={(value) => updateEditLinePrice(line.itemId, value)}
+                        className="h-8 w-32 text-xs"
+                      />
+                      <span className="w-24 text-right text-xs font-bold text-slate-900">{formatCurrency(line.qty * line.price)}</span>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => removeEditLine(line.itemId)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+              {editPickableItems.length > 0 ? (
+                <div className="flex gap-2">
+                  <Select value={editAddItemId} onChange={(event) => setEditAddItemId(event.target.value)} className="h-9 text-xs">
+                    <option value="">Tambah item...</option>
+                    {editPickableItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.namaBarang} (stok {item.stok})
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!editAddItemId}
+                    onClick={() => addEditLine(Number(editAddItemId))}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Tambah
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-600">Nama Pelanggan</Label>
+                <Input value={editCustomerName} onChange={(event) => setEditCustomerName(event.target.value)} placeholder="Opsional" className="h-9 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-600">Diskon</Label>
+                <CurrencyInput value={editDiskon} onChange={setEditDiskon} className="h-9 text-xs" />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-600">Metode Pembayaran</Label>
+                <Select
+                  value={editPaymentMethod}
+                  onChange={(event) => setEditPaymentMethod(event.target.value as "Cash" | "Transfer" | "QRIS" | "Ewallet")}
+                  className="h-9 text-xs"
+                >
+                  <option value="Cash">Tunai</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="QRIS">QRIS</option>
+                  <option value="Ewallet">Ewallet</option>
+                </Select>
+              </div>
+              {editAvailableAccounts.length > 0 ? (
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-600">Akun / Sumber Dana</Label>
+                  <Select
+                    value={editFundAccountId ?? ""}
+                    onChange={(event) => setEditFundAccountId(Number(event.target.value) || null)}
+                    className="h-9 text-xs"
+                  >
+                    {editAvailableAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.03] p-3.5 space-y-2">
+              <div className="flex justify-between text-xs text-slate-500 font-bold">
+                <span>SUBTOTAL</span>
+                <span className="text-slate-800 font-extrabold">{formatCurrency(editTotal)}</span>
+              </div>
+              <div className="border-t border-blue-500/10 pt-2 flex justify-between items-center">
+                <span className="text-sm font-extrabold text-slate-700">TOTAL</span>
+                <span className="text-xl font-black text-blue-600">{formatCurrency(editGrandTotal)}</span>
+              </div>
+            </div>
+
+            {editPaymentMethod === "Cash" ? (
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-600">Jumlah Uang Dibayar</Label>
+                <CurrencyInput value={editPaidAmount} onChange={setEditPaidAmount} className="h-9 text-xs" />
+                <p className="text-[10px] text-slate-500">Kembalian: {formatCurrency(editChange)}</p>
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={closeEditTransaction}>
+                Batal
+              </Button>
+              <Button type="button" onClick={submitEditTransaction} disabled={isPending || editSaving}>
+                {isPending || editSaving ? "Menyimpan..." : "Simpan Perubahan"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

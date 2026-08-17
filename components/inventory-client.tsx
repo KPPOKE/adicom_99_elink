@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, FileDown, PackagePlus, Plus, Trash2 } from "lucide-react";
+import { Edit, FileDown, MoreHorizontal, PackagePlus, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -212,61 +213,73 @@ export function InventoryClient({
     { header: "Status", cell: ({ row }) => <StockBadge stok={row.original.stok} minimum={row.original.stokMinimum} /> },
     {
       id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          {canEditInventory ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setRestockingItem(row.original);
-                  setAddQtyInput("1");
-                }}
-                className="h-8 gap-1 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 font-semibold shadow-2xs"
-                title="Tambah Stok Barang"
-              >
-                <PackagePlus className="h-3.5 w-3.5 text-emerald-600" />
-                <span>+ Stok</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleEdit(row.original)}
-                title="Edit Detail Barang"
-              >
-                <Edit className="h-4 w-4 text-slate-600" />
-              </Button>
-            </>
-          ) : null}
-          {canDeleteInventory ? (
-            <ConfirmDialog
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteItem(row.original.id);
-                    toast.success("Barang dihapus", {
-                      description: `Data ${row.original.namaBarang} telah dihapus.`
-                    });
-                    router.refresh();
-                  } catch (error) {
-                    toast.error("Gagal menghapus barang", {
-                      description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
-                    });
-                  }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon" className="h-8 w-8">
-                  <Trash2 className="h-4 w-4 text-red-400" />
+      header: () => <div className="text-center">Aksi</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
+      cell: ({ row }) => {
+        if (!canEditInventory && !canDeleteInventory) return null;
+        return (
+          <div className="flex w-full justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi">
+                  <MoreHorizontal className="h-4 w-4 text-slate-600" />
                 </Button>
-              }
-            />
-          ) : null}
-        </div>
-      )
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-1.5">
+                {canEditInventory ? (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setRestockingItem(row.original);
+                        setAddQtyInput("1");
+                      }}
+                      className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
+                    >
+                      <PackagePlus className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Tambah Stok</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                      <Edit className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Edit Barang</span>
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {canDeleteInventory ? (
+                  <>
+                    {canEditInventory ? <DropdownMenuSeparator /> : null}
+                    <ConfirmDialog
+                    onConfirm={() =>
+                      startTransition(async () => {
+                        try {
+                          await deleteItem(row.original.id);
+                          toast.success("Barang dihapus", {
+                            description: `Data ${row.original.namaBarang} telah dihapus.`
+                          });
+                          router.refresh();
+                        } catch (error) {
+                          toast.error("Gagal menghapus barang", {
+                            description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
+                          });
+                        }
+                      })
+                    }
+                    trigger={
+                      <DropdownMenuItem
+                        onSelect={(event) => event.preventDefault()}
+                        className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        <span>Hapus Barang</span>
+                      </DropdownMenuItem>
+                    }
+                  />
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      }
     }
   ];
 

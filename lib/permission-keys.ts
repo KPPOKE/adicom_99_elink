@@ -111,26 +111,5 @@ export const DEFAULT_STAFF_PERMISSIONS: PermissionKey[] = [
 
 export function hasPermission(role: "admin" | "staff", permissions: string[], key: PermissionKey) {
   if (role === "admin" || key === "dashboard.view") return true;
-  if (permissions.includes(key)) return true;
-
-  // Backward compatibility fallback for master keys
-  if (permissions.includes("inventory.manage")) {
-    if (key === "inventory.edit" || key === "inventory.delete") {
-      return true;
-    }
-  }
-
-  if (permissions.includes("fundMutations.manage")) {
-    if (
-      key === "fundMutations.deposit" ||
-      key === "fundMutations.withdraw" ||
-      key === "fundMutations.moveCreate" ||
-      key === "fundMutations.moveDelete" ||
-      key === "fundMutations.withdrawDelete"
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+  return permissions.includes(key);
 }
