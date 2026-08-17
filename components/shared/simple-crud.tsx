@@ -1,13 +1,14 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, Eye, Plus, Trash2 } from "lucide-react";
+import { Edit, Eye, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -62,50 +63,68 @@ export function SimpleCrud({
     },
     {
       id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          {detailHrefPrefix ? (
-            <Button asChild variant="outline" size="icon">
-              <Link href={`${detailHrefPrefix}/${row.original.id}`}>
-                <Eye className="h-4 w-4" />
-              </Link>
-            </Button>
-          ) : null}
-          {canManage ? (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                setEditing(row.original);
-                setOpen(true);
-              }}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          ) : null}
-          {canDelete ? (
-            <ConfirmDialog
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteAction(row.original.id);
-                    toast.success(`${title} dihapus`);
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menghapus data");
-                  }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon">
-                  <Trash2 className="h-4 w-4 text-red-300" />
+      header: () => <div className="text-center">Aksi</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
+      cell: ({ row }) => {
+        if (!detailHrefPrefix && !canManage && !canDelete) return null;
+        return (
+          <div className="flex w-full justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi">
+                  <MoreHorizontal className="h-4 w-4 text-slate-600" />
                 </Button>
-              }
-            />
-          ) : null}
-        </div>
-      )
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 p-1.5">
+                {detailHrefPrefix ? (
+                  <DropdownMenuItem asChild className="text-slate-700 focus:bg-slate-50">
+                    <Link href={`${detailHrefPrefix}/${row.original.id}`}>
+                      <Eye className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Detail</span>
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
+                {canManage ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditing(row.original);
+                      setOpen(true);
+                    }}
+                    className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
+                  >
+                    <Edit className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Edit</span>
+                  </DropdownMenuItem>
+                ) : null}
+                {canDelete ? (
+                  <>
+                    {detailHrefPrefix || canManage ? <DropdownMenuSeparator /> : null}
+                    <ConfirmDialog
+                      onConfirm={() =>
+                        startTransition(async () => {
+                          try {
+                            await deleteAction(row.original.id);
+                            toast.success(`${title} dihapus`);
+                            router.refresh();
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "Gagal menghapus data");
+                          }
+                        })
+                      }
+                      trigger={
+                        <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          <span>Hapus</span>
+                        </DropdownMenuItem>
+                      }
+                    />
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      }
     }
   ];
 

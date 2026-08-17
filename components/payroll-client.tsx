@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -41,7 +42,7 @@ export function PayrollClient({ rows, employees, canManage }: { rows: Row[]; emp
     { header: "Total Gaji", cell: ({ row }) => <span className="font-semibold text-emerald-700">{formatCurrency(row.original.totalSalary)}</span> },
     { header: "Tanggal Bayar", cell: ({ row }) => row.original.paymentDate ? formatDate(row.original.paymentDate) : "-" },
     { header: "Status", cell: ({ row }) => <Badge variant={row.original.status === "Dibayar" ? "green" : "slate"}>{row.original.status}</Badge> },
-    { id: "actions", header: "", cell: ({ row }) => canManage ? <div className="flex justify-end gap-2"><Button variant="outline" size="icon" title="Edit" onClick={() => edit(row.original)}><Edit className="h-4 w-4" /></Button><ConfirmDialog onConfirm={() => run(() => deletePayroll(row.original.id), "Penggajian dihapus")} trigger={<Button variant="outline" size="icon" title="Hapus"><Trash2 className="h-4 w-4 text-red-600" /></Button>} /></div> : null }
+    { id: "actions", header: () => <div className="text-center">Aksi</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => canManage ? <div className="flex w-full justify-center"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi"><MoreHorizontal className="h-4 w-4 text-slate-600" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-44 p-1.5"><DropdownMenuItem onClick={() => edit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"><Edit className="h-3.5 w-3.5 text-blue-600" /><span>Edit</span></DropdownMenuItem><DropdownMenuSeparator /><ConfirmDialog onConfirm={() => run(() => deletePayroll(row.original.id), "Penggajian dihapus")} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /><span>Hapus</span></DropdownMenuItem>} /></DropdownMenuContent></DropdownMenu></div> : null }
   ];
   const paid = rows.filter((row) => row.status === "Dibayar").reduce((sum, row) => sum + row.totalSalary, 0);
   const pendingTotal = rows.filter((row) => row.status === "Pending").reduce((sum, row) => sum + row.totalSalary, 0);

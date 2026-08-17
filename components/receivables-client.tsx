@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, Edit, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { CheckCircle2, Edit, MoreHorizontal, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -39,13 +40,22 @@ export function ReceivablesClient({ rows, customers, funds, canManage }: { rows:
     { header: "Sumber Dana", cell: ({ row }) => row.original.recordExpense ? row.original.sourceFundName : "Tidak dicatat" },
     { header: "Nominal", cell: ({ row }) => <span className="font-semibold text-emerald-700">{formatCurrency(row.original.amount)}</span> },
     { accessorKey: "creatorName", header: "Pembuat" },
-    { id: "actions", header: "", cell: ({ row }) => canManage ? <div className="flex justify-end gap-2">
-      {row.original.status === "Belum_Lunas" ? <Button variant="outline" size="icon" title="Edit" onClick={() => edit(row.original)}><Edit className="h-4 w-4" /></Button> : null}
-      <Button variant="outline" size="icon" title={row.original.status === "Lunas" ? "Buka kembali" : "Tandai lunas"} onClick={() => run(() => setReceivableStatus(row.original.id, row.original.status === "Lunas" ? "Belum_Lunas" : "Lunas"), row.original.status === "Lunas" ? "Piutang dibuka kembali" : "Piutang ditandai lunas")}>
-        {row.original.status === "Lunas" ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-      </Button>
-      {row.original.status === "Belum_Lunas" ? <ConfirmDialog onConfirm={() => run(() => deleteReceivable(row.original.id), "Piutang dihapus")} trigger={<Button variant="outline" size="icon" title="Hapus"><Trash2 className="h-4 w-4 text-red-600" /></Button>} /> : null}
-    </div> : null }
+    { id: "actions", header: () => <div className="text-center">Aksi</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => canManage ? <div className="flex w-full justify-center"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi"><MoreHorizontal className="h-4 w-4 text-slate-600" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48 p-1.5">
+      {row.original.status === "Belum_Lunas" ? <DropdownMenuItem onClick={() => edit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"><Edit className="h-3.5 w-3.5 text-blue-600" /><span>Edit</span></DropdownMenuItem> : null}
+      <DropdownMenuItem
+        onClick={() => run(() => setReceivableStatus(row.original.id, row.original.status === "Lunas" ? "Belum_Lunas" : "Lunas"), row.original.status === "Lunas" ? "Piutang dibuka kembali" : "Piutang ditandai lunas")}
+        className={row.original.status === "Lunas" ? "text-slate-700 focus:bg-slate-50" : "text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"}
+      >
+        {row.original.status === "Lunas" ? <RotateCcw className="h-3.5 w-3.5 text-slate-500" /> : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+        <span>{row.original.status === "Lunas" ? "Buka kembali" : "Tandai lunas"}</span>
+      </DropdownMenuItem>
+      {row.original.status === "Belum_Lunas" ? (
+        <>
+          <DropdownMenuSeparator />
+          <ConfirmDialog onConfirm={() => run(() => deleteReceivable(row.original.id), "Piutang dihapus")} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /><span>Hapus</span></DropdownMenuItem>} />
+        </>
+      ) : null}
+    </DropdownMenuContent></DropdownMenu></div> : null }
   ];
   const total = rows.filter((row) => row.status === "Belum_Lunas").reduce((sum, row) => sum + row.amount, 0);
   return <div className="space-y-6">

@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -33,10 +34,22 @@ export function UserManagementClient({ users, currentUserId, outlets }: { users:
     { accessorKey: "role", header: "Peran", cell: ({ row }) => <span className="capitalize">{row.original.role}</span> },
     { accessorKey: "outletName", header: "Cabang" },
     { accessorKey: "isActive", header: "Status", cell: ({ row }) => row.original.isActive ? "Aktif" : "Nonaktif" },
-    { id: "actions", header: "", cell: ({ row }) => (
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="icon" onClick={() => { setEditing(row.original); setRole(row.original.role); setOpen(true); }}><Edit className="h-4 w-4" /></Button>
-        <ConfirmDialog onConfirm={() => startTransition(async () => { try { await deleteUser(row.original.id); toast.success("User dihapus"); router.refresh(); } catch (error) { toast.error(error instanceof Error ? error.message : "Gagal menghapus user"); } })} trigger={<Button variant="outline" size="icon" disabled={row.original.id === currentUserId}><Trash2 className="h-4 w-4 text-red-300" /></Button>} />
+    { id: "actions", header: () => <div className="text-center">Aksi</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => (
+      <div className="flex w-full justify-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi"><MoreHorizontal className="h-4 w-4 text-slate-600" /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44 p-1.5">
+            <DropdownMenuItem onClick={() => { setEditing(row.original); setRole(row.original.role); setOpen(true); }} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"><Edit className="h-3.5 w-3.5 text-blue-600" /><span>Edit</span></DropdownMenuItem>
+            {row.original.id !== currentUserId ? (
+              <>
+                <DropdownMenuSeparator />
+                <ConfirmDialog onConfirm={() => startTransition(async () => { try { await deleteUser(row.original.id); toast.success("User dihapus"); router.refresh(); } catch (error) { toast.error(error instanceof Error ? error.message : "Gagal menghapus user"); } })} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /><span>Hapus</span></DropdownMenuItem>} />
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     ) }
   ];

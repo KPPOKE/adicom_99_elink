@@ -1,12 +1,13 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -116,35 +117,44 @@ export function FinanceClient({ records, canManage, canViewProfit, pagination, f
     { accessorKey: "description", header: "Deskripsi" },
     {
       id: "actions",
-      header: "",
+      header: () => <div className="text-center">Aksi</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
       cell: ({ row }) =>
         canManage && (row.original.referenceType === "manual" || !row.original.referenceType) ? (
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleEdit(row.original)}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <ConfirmDialog
-              onConfirm={() =>
-                startTransition(async () => {
-                  try {
-                    await deleteFinanceRecord(row.original.id);
-                    toast.success("Catatan keuangan dihapus");
-                    router.refresh();
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Gagal menghapus catatan");
-                  }
-                })
-              }
-              trigger={
-                <Button variant="outline" size="icon">
-                  <Trash2 className="h-4 w-4 text-red-300" />
+          <div className="flex w-full justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi">
+                  <MoreHorizontal className="h-4 w-4 text-slate-600" />
                 </Button>
-              }
-            />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 p-1.5">
+                <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                  <Edit className="h-3.5 w-3.5 text-blue-600" />
+                  <span>Edit</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <ConfirmDialog
+                  onConfirm={() =>
+                    startTransition(async () => {
+                      try {
+                        await deleteFinanceRecord(row.original.id);
+                        toast.success("Catatan keuangan dihapus");
+                        router.refresh();
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : "Gagal menghapus catatan");
+                      }
+                    })
+                  }
+                  trigger={
+                    <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      <span>Hapus</span>
+                    </DropdownMenuItem>
+                  }
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ) : null
     }
