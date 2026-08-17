@@ -212,7 +212,7 @@ export function ServiceClient({
     {
       header: "Customer",
       cell: ({ row }) => (
-        <div className="max-w-[130px] truncate">
+        <div className="max-w-[130px]" title={`${row.original.customerName}${row.original.customerPhone ? ` (${row.original.customerPhone})` : ""}`}>
           <p className="font-medium text-slate-900 truncate text-xs">{row.original.customerName}</p>
           <p className="text-[11px] text-slate-500 truncate">{row.original.customerPhone || "-"}</p>
         </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, Filter, Printer } from "lucide-react";
 import { ReportChart } from "@/components/dashboard-charts";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
@@ -106,37 +107,50 @@ export default async function ReportsPage({ searchParams }: { searchParams?: Pro
         {user.role.name === "admin" ? <ReportChart data={chartData} /> : null}
       </div>
       <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-2">
-        <ReportTable title="Laporan Penjualan" rows={transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), item.status, formatCurrency(toNumber(item.grandTotal))])} />
-        <ReportTable title="Laporan Service" rows={services.map((item) => [item.kodeService, item.customerName, item.status.replace("_", " "), item.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar", formatCurrency(toNumber(item.finalCost))])} />
-        <ReportTable title="Stok Habis / Harus Dipesan" rows={items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, `${item.stok} ${item.satuan}`])} />
-        <ReportTable title="Laporan Keuangan" rows={finance.map((item) => [formatDate(item.date), item.type === "income" ? "Pemasukan" : "Pengeluaran", item.category, reportCurrency(item.amount)])} />
+        <ReportTable title="Laporan Penjualan" headers={["Kode", "Tanggal", "Status", "Total"]} rows={transactions.map((item) => [item.kodeTransaksi, formatDate(item.createdAt), item.status, formatCurrency(toNumber(item.grandTotal))])} />
+        <ReportTable title="Laporan Service" headers={["Kode", "Pelanggan", "Status", "Pembayaran", "Biaya"]} rows={services.map((item) => [item.kodeService, item.customerName, item.status.replace("_", " "), item.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar", formatCurrency(toNumber(item.finalCost))])} />
+        <ReportTable title="Stok Habis / Harus Dipesan" headers={["Kode", "Nama Barang", "Kategori", "Stok"]} rows={items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, `${item.stok} ${item.satuan}`])} />
+        <ReportTable title="Laporan Keuangan" headers={["Tanggal", "Jenis", "Kategori", "Nominal"]} rows={finance.map((item) => [formatDate(item.date), item.type === "income" ? "Pemasukan" : "Pengeluaran", item.category, reportCurrency(item.amount)])} />
       </div>
     </>
   );
 }
 
-function ReportTable({ title, rows }: { title: string; rows: string[][] }) {
+function ReportTable({ title, headers, rows }: { title: string; headers: string[]; rows: string[][] }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <tbody className="divide-y divide-slate-200">
-              {rows.slice(0, 8).map((row, index) => (
-                <tr key={index}>
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="py-2 pr-3 text-slate-700">
-                      {cell}
-                    </td>
+        {rows.length === 0 ? (
+          <EmptyState title="Data belum tersedia" description="Tidak ada data pada periode yang dipilih." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  {headers.map((header) => (
+                    <th key={header} className="py-2 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {header}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {rows.slice(0, 8).map((row, index) => (
+                  <tr key={index}>
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="py-2 pr-3 text-slate-700">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

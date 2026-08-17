@@ -155,7 +155,7 @@ export function FinanceClient({ records, canManage, canViewProfit, pagination, f
       <div className={`grid gap-4 ${canViewProfit ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         <Summary label="Pemasukan" value={income} />
         <Summary label="Pengeluaran" value={expense} />
-        {canViewProfit ? <Summary label="Laba Bersih" value={income - expense} /> : null}
+        {canViewProfit ? <Summary label="Laba Bersih" value={income - expense} signed /> : null}
       </div>
 
       <DataTable
@@ -276,11 +276,12 @@ export function FinanceClient({ records, canManage, canViewProfit, pagination, f
   );
 }
 
-function Summary({ label, value }: { label: string; value: number }) {
+function Summary({ label, value, signed }: { label: string; value: number; signed?: boolean }) {
+  const tone = signed ? (value < 0 ? "text-red-600" : value > 0 ? "text-emerald-600" : "text-slate-900") : "text-slate-900";
   return (
     <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-[0_18px_45px_rgba(2,6,23,0.18)]">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(value)}</p>
+      <p className={`mt-2 text-xl font-semibold ${tone}`}>{formatCurrency(value)}</p>
     </div>
   );
 }

@@ -107,6 +107,18 @@ function SummaryCard({
   );
 }
 
+function QuoteTicker({ quotes }: { quotes: string[] }) {
+  const line = quotes.join("   •   ");
+  return (
+    <div className="w-full overflow-hidden rounded-md bg-[#1e3a8a] py-2 shadow-sm select-none">
+      <div className="flex w-max animate-marquee whitespace-nowrap">
+        <span className="px-4 text-sm font-medium tracking-wide text-white">{line}</span>
+        <span className="px-4 text-sm font-medium tracking-wide text-white" aria-hidden="true">{line}</span>
+      </div>
+    </div>
+  );
+}
+
 export function BankTransferClient({ transfers, role, canManage, canViewAsset, canViewBankFee, canViewProfit, pagination, filterValues, outletName, userName, whatsapp, summary, funds, staff }: {
   transfers: TransferRow[];
   role: "admin" | "staff";
@@ -229,17 +241,12 @@ export function BankTransferClient({ transfers, role, canManage, canViewAsset, c
       {canViewProfit ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} className="bg-[#065f46] text-white border-transparent" /> : null}
     </section>
 
-    <div 
-      className="w-full rounded-md bg-[#1e3a8a] text-white py-2 px-4 shadow-sm overflow-hidden select-none"
-      dangerouslySetInnerHTML={{
-        __html: `
-          <marquee scrollamount="5" class="text-sm font-medium tracking-wide block">
-            "Bekerjalah dengan jujur, karena kejujuran adalah kunci kepercayaan." &nbsp;|&nbsp; 
-            "Profesionalisme bukan hanya tentang keahlian, tetapi juga tentang integritas dan tanggung jawab." &nbsp;|&nbsp; 
-            "Setiap transaksi adalah amanah, layani pelanggan dengan senyum dan ketulusan."
-          </marquee>
-        `
-      }}
+    <QuoteTicker
+      quotes={[
+        "Bekerjalah dengan jujur, karena kejujuran adalah kunci kepercayaan.",
+        "Profesionalisme bukan hanya tentang keahlian, tetapi juga tentang integritas dan tanggung jawab.",
+        "Setiap transaksi adalah amanah, layani pelanggan dengan senyum dan ketulusan."
+      ]}
     />
 
     {canViewAsset ? (
@@ -264,7 +271,7 @@ export function BankTransferClient({ transfers, role, canManage, canViewAsset, c
           {funds.map((fund) => (
             <div key={fund.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#2563eb] p-3 text-white shadow-sm transition hover:bg-[#1d4ed8]">
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold uppercase tracking-wider opacity-85">{fund.name}:</p>
+                <p className="truncate text-xs font-semibold uppercase tracking-wider opacity-85" title={fund.name}>{fund.name}:</p>
                 <p className="mt-1 text-sm font-bold truncate">{formatCurrency(fund.balance)}</p>
               </div>
               {fund.image ? (

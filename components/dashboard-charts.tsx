@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { formatCurrency } from "@/lib/utils";
 
 export function DashboardCharts({
@@ -75,28 +76,35 @@ export function DashboardCharts({
 }
 
 export function ReportChart({ data }: { data: { name: string; income: number; expense: number }[] }) {
+  const hasData = data.some((item) => item.income !== 0 || item.expense !== 0);
   return (
     <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Ringkasan Laba Rugi</CardTitle>
       </CardHeader>
       <CardContent className="h-80 min-h-80 min-w-0">
-        <ChartFrame>
-          {(width) => (
-            <BarChart data={data} width={width} height={300}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
-              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
-              <Tooltip
-                contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
-                formatter={(value) => formatCurrency(Number(value))}
-                cursor={{ fill: "transparent" }}
-              />
-              <Bar dataKey="income" stackId="report" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="expense" stackId="report" fill="#f43f5e" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          )}
-        </ChartFrame>
+        {hasData ? (
+          <ChartFrame>
+            {(width) => (
+              <BarChart data={data} width={width} height={300}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `${Number(value) / 1000}k`} />
+                <Tooltip
+                  contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" }}
+                  formatter={(value) => formatCurrency(Number(value))}
+                  cursor={{ fill: "transparent" }}
+                />
+                <Bar dataKey="income" stackId="report" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="expense" stackId="report" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            )}
+          </ChartFrame>
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <EmptyState title="Data belum tersedia" description="Tidak ada pemasukan atau pengeluaran pada periode yang dipilih." />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
