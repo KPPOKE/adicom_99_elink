@@ -10,6 +10,12 @@ const COOKIE_NAME = "pospintar_session";
 function secret() {
   const value = process.env.AUTH_SECRET;
   if (value && value.length >= 32) return value;
+  if (process.env.NODE_ENV === "production") {
+    // Fail closed: throwing here is caught by hasValidSession's try/catch,
+    // which treats it as "no session" rather than accepting a guessable
+    // hardcoded secret. Matches lib/auth.ts's secret().
+    throw new Error("AUTH_SECRET minimal 32 karakter wajib diset untuk production");
+  }
   return "dev-secret-change-me-for-production-32";
 }
 
@@ -27,8 +33,18 @@ function hasValidSession(token: string | undefined) {
   }
 }
 
+// Routes that manage their own access control and must stay reachable
+// without a session: API handlers and the public receipt print page.
+function isPublicPath(pathname: string) {
+  if (pathname === "/api" || pathname.startsWith("/api/")) return true;
+  if (pathname === "/receipt" || pathname.startsWith("/receipt/")) return true;
+  return false;
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (isPublicPath(pathname)) return NextResponse.next();
+
   const session = hasValidSession(request.cookies.get(COOKIE_NAME)?.value);
 
   if (pathname === "/login") {
@@ -44,5 +60,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|receipt|_next/static|_next/image|favicon.ico|icon.svg|.*\\.\\w+$).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.\\w+$).*)"]
 };

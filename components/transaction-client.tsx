@@ -33,7 +33,6 @@ type TransactionRow = {
   customerId?: number | null;
   customerName: string | null;
   diskon?: number;
-  total?: number;
   grandTotal: number;
   paymentMethod: string;
   paidAmount?: number;
@@ -195,6 +194,12 @@ export function TransactionClient({
     if (editPaymentMethod === "QRIS" || editPaymentMethod === "Ewallet") return fundAccounts.filter((acc) => acc.type === "Ewallet");
     return [];
   }, [fundAccounts, editPaymentMethod]);
+  // Falls back to the first account of the newly selected payment type once
+  // editFundAccountId no longer matches it (e.g. user switches Cash -> Transfer),
+  // without needing an effect to keep a separate piece of state in sync.
+  const effectiveEditFundAccountId = editAvailableAccounts.some((acc) => acc.id === editFundAccountId)
+    ? editFundAccountId
+    : (editAvailableAccounts[0]?.id ?? null);
   // Items that can still be added: not already a line, and currently in stock
   const editPickableItems = useMemo(
     () => items.filter((item) => !editLines.some((line) => line.itemId === item.id)),
@@ -252,7 +257,7 @@ export function TransactionClient({
           diskon: editDiskon,
           paymentMethod: editPaymentMethod,
           paidAmount: editPaidAmount,
-          fundAccountId: editFundAccountId,
+          fundAccountId: effectiveEditFundAccountId,
           items: editLines.map((line) => ({ itemId: line.itemId, qty: line.qty, price: line.price }))
         };
         await updateTransaction(editingTx.id, payload);
@@ -1065,7 +1070,7 @@ export function TransactionClient({
                 <div className="space-y-1">
                   <Label className="text-xs font-bold text-slate-600">Akun / Sumber Dana</Label>
                   <Select
-                    value={editFundAccountId ?? ""}
+                    value={effectiveEditFundAccountId ?? ""}
                     onChange={(event) => setEditFundAccountId(Number(event.target.value) || null)}
                     className="h-9 text-xs"
                   >

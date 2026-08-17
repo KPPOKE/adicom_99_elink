@@ -77,7 +77,6 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
           customerId: transaction.customerId,
           customerName: transaction.customerName,
           diskon: toNumber(transaction.diskon),
-          total: toNumber(transaction.total),
           grandTotal: toNumber(transaction.grandTotal),
           paymentMethod: transaction.paymentMethod,
           paidAmount: toNumber(transaction.paidAmount),
