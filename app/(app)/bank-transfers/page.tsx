@@ -77,7 +77,8 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
   const tarikAmount = todayTransfers.filter((item) => item.kind === "Tarik_Tunai").reduce((sum, item) => sum + toNumber(item.amount), 0);
   const bankFee = todayTransfers.reduce((sum, item) => sum + toNumber(item.adminBankFee), 0);
   const operational = toNumber(todayOperations._sum.adminFee);
-  const profit = todayTransfers.reduce((sum, item) => sum + toNumber(item.adminFee) + toNumber(item.externalAdminFee) - toNumber(item.adminBankFee), 0) - operational;
+  const feeIncome = todayTransfers.filter((item) => item.kind === "Jasa_Transfer" || item.kind === "Fee_Brilink").reduce((sum, item) => sum + toNumber(item.amount), 0);
+  const profit = todayTransfers.reduce((sum, item) => sum + toNumber(item.adminFee) + toNumber(item.externalAdminFee) - toNumber(item.adminBankFee), 0) - operational + feeIncome;
 
   return (
     <>

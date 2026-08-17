@@ -59,6 +59,8 @@ enum BankTransferStatus {
 enum BankTransferKind {
   Transfer
   Tarik_Tunai
+  Jasa_Transfer
+  Fee_Brilink
 }
 
 enum FundAccountType {

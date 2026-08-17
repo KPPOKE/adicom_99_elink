@@ -17,6 +17,14 @@ export function cashWithdrawalLedger(amount: number, adminDalam: number, adminLu
   };
 }
 
+export function feeIncomeLedger(amount: number) {
+  return {
+    sourceDelta: 0,
+    targetDelta: amount,
+    profit: amount
+  };
+}
+
 export function moveLedger(amount: number, admin: number, bearer: "Pengirim" | "Penerima" | "Tidak_Ada") {
   return {
     sourceDelta: -(amount + (bearer === "Pengirim" ? admin : 0)),

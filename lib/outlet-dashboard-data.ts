@@ -81,7 +81,9 @@ export async function loadOutletReport(outletId: number, start: Date, end: Date,
     miniAtm: miniAtm.flatMap((transaction) => transaction.completedAt ? [{
       date: transaction.completedAt,
       amount: toNumber(transaction.amount),
-      grossProfit: toNumber(transaction.adminFee) + (transaction.kind === "Tarik_Tunai" ? toNumber(transaction.externalAdminFee) : 0),
+      grossProfit: transaction.kind === "Jasa_Transfer" || transaction.kind === "Fee_Brilink"
+        ? toNumber(transaction.amount)
+        : toNumber(transaction.adminFee) + (transaction.kind === "Tarik_Tunai" ? toNumber(transaction.externalAdminFee) : 0),
       bankFee: transaction.kind === "Transfer" ? toNumber(transaction.adminBankFee) : 0
     }] : []),
     operations: operations.map((operation) => ({ date: operation.createdAt, amount: toNumber(operation.adminFee) }))
