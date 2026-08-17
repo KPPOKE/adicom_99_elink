@@ -47,8 +47,12 @@ export function proxy(request: NextRequest) {
 
   const session = hasValidSession(request.cookies.get(COOKIE_NAME)?.value);
 
+  // Note: /login stays reachable even with a valid session. Bouncing an
+  // authenticated visit straight to /dashboard would also swallow the login
+  // form's own POST (a Next.js server action to this same path), breaking
+  // the legitimate "log in as a different account without clicking Keluar
+  // first" flow - which this app's own e2e suite relies on.
   if (pathname === "/login") {
-    if (session) return NextResponse.redirect(new URL("/dashboard", request.url));
     return NextResponse.next();
   }
 

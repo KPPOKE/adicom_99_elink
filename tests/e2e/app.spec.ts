@@ -382,7 +382,7 @@ test("admin sees balance audit and staff cannot open activity history", async ({
   const balanceBefore = fund.balance;
   const staff = await createStaff(`${marker}-staff`);
   await prisma.userPermission.createMany({
-    data: ["fundMutations.view", "fundMutations.manage"].map((key) => ({ userId: staff.id, key })),
+    data: ["fundMutations.view", "fundMutations.manage", "fundMutations.deposit"].map((key) => ({ userId: staff.id, key })),
     skipDuplicates: true
   });
   let mutationId: number | undefined;
