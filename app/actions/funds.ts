@@ -16,7 +16,7 @@ function revalidateFunds() {
 
 export async function upsertFundAccount(formData: FormData) {
   await assertTrustedOrigin();
-  const user = await requirePermission("funds.manage");
+  const user = await requirePermission(formData.get("id") ? "funds.edit" : "funds.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = fundAccountSchema.parse({ ...Object.fromEntries(formData), isActive: formData.get("isActive") === "true" });
   const uploadedImage = await saveImageUpload(formData.get("imageFile") as File | null, "fund");
@@ -88,9 +88,10 @@ export async function upsertFundAccount(formData: FormData) {
 
 export async function createFundMutation(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requirePermission("fundMutations.manage");
-  const { activeOutlet } = await outletContext(user);
   const parsed = fundMutationSchema.parse(payload);
+  const permissionKey = parsed.mode === "Tambah" ? "fundMutations.deposit" : parsed.mode === "Ambil" ? "fundMutations.withdraw" : "fundMutations.moveCreate";
+  const user = await requirePermission(permissionKey);
+  const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const mutations = [];
     if (parsed.mode === "Tambah") {
@@ -133,7 +134,7 @@ export async function createFundMutation(payload: unknown) {
 
 export async function toggleFundAccount(id: number, isActive: boolean) {
   await assertTrustedOrigin();
-  const user = await requirePermission("funds.manage");
+  const user = await requirePermission("funds.edit");
   const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const account = await tx.fundAccount.findUnique({ where: { id } });

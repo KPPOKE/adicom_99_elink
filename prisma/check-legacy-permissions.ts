@@ -24,7 +24,7 @@ function adapter() {
 
 const prisma = new PrismaClient({ adapter: adapter() });
 
-const FUND_MUTATION_SUB_KEYS = ["fundMutations.deposit", "fundMutations.withdraw", "fundMutations.moveCreate", "fundMutations.moveDelete", "fundMutations.withdrawDelete"];
+const FUND_MUTATION_SUB_KEYS = ["fundMutations.deposit", "fundMutations.withdraw", "fundMutations.moveCreate"];
 
 async function main() {
   const staff = await prisma.user.findMany({

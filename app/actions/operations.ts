@@ -330,7 +330,7 @@ export async function updateTransaction(id: number, payload: unknown) {
 
 export async function deleteTransaction(id: number) {
   await assertTrustedOrigin();
-  const user = await requirePermission("transactions.manage");
+  const user = await requirePermission("transactions.delete");
   const { activeOutlet } = await outletContext(user);
   await prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.findUnique({

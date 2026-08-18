@@ -36,13 +36,14 @@ function AssetSummary({ label, value, icon: Icon, tone }: { label: string; value
   return <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(value)}</p></div><div className={cn("flex h-11 w-11 items-center justify-center rounded-lg border", tone)}><Icon className="h-5 w-5" aria-hidden="true" /></div></div></div>;
 }
 
-export function FundsClient({ funds, canManage }: { funds: FundRow[]; canManage: boolean }) {
+export function FundsClient({ funds, canAdd, canEdit }: { funds: FundRow[]; canAdd: boolean; canEdit: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FundForm>(empty);
   const selected = form.id ? funds.find((item) => item.id === form.id) : undefined;
+  const canManage = form.id ? canEdit : canAdd;
   const balanceChanged = Boolean(selected && selected.balance !== form.balance);
   const visibleFunds = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("id-ID");
@@ -85,7 +86,7 @@ export function FundsClient({ funds, canManage }: { funds: FundRow[]; canManage:
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div><h2 className="text-lg font-semibold text-slate-950">Daftar Sumber Dana</h2><p className="mt-1 text-sm text-slate-600">Klik kartu untuk melihat detail, menyesuaikan saldo, atau membuka riwayat.</p></div>
-        {canManage ? <Button type="button" onClick={() => openFund()}><Plus className="h-4 w-4" />Tambah Sumber Dana</Button> : null}
+        {canAdd ? <Button type="button" onClick={() => openFund()}><Plus className="h-4 w-4" />Tambah Sumber Dana</Button> : null}
       </div>
       <div className="relative my-5 max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" /><Input value={query} onChange={(event) => setQuery(event.target.value)} className="pl-9" placeholder="Cari bank, e-wallet, atau laci..." aria-label="Cari sumber dana" /></div>
       {visibleFunds.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
