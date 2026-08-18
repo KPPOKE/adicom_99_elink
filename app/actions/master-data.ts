@@ -18,8 +18,9 @@ function cleanNullable(value: unknown) {
 export async function upsertCategory(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("categories.manage");
-    const parsed = categorySchema.parse(Object.fromEntries(formData));
+    const values = Object.fromEntries(formData);
+    const user = await requirePermission(values.id ? "categories.edit" : "categories.manage");
+    const parsed = categorySchema.parse(values);
     const data = { name: parsed.name, description: parsed.description || null };
     if (parsed.id) await prisma.category.update({ where: { id: parsed.id }, data });
     else await prisma.category.create({ data });
@@ -33,7 +34,7 @@ export async function upsertCategory(formData: FormData) {
 export async function deleteCategory(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("categories.manage");
+    const user = await requirePermission("categories.delete");
     await prisma.category.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "category", entityId: id });
     revalidatePath("/categories");
@@ -45,8 +46,9 @@ export async function deleteCategory(id: number) {
 export async function upsertSupplier(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("suppliers.manage");
-    const parsed = supplierSchema.parse(Object.fromEntries(formData));
+    const values = Object.fromEntries(formData);
+    const user = await requirePermission(values.id ? "suppliers.edit" : "suppliers.manage");
+    const parsed = supplierSchema.parse(values);
     const data = { name: parsed.name, phone: parsed.phone || null, address: parsed.address || null, note: parsed.note || null };
     if (parsed.id) await prisma.supplier.update({ where: { id: parsed.id }, data });
     else await prisma.supplier.create({ data });
@@ -60,7 +62,7 @@ export async function upsertSupplier(formData: FormData) {
 export async function deleteSupplier(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("suppliers.manage");
+    const user = await requirePermission("suppliers.delete");
     await prisma.supplier.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "supplier", entityId: id });
     revalidatePath("/suppliers");
@@ -72,9 +74,10 @@ export async function deleteSupplier(id: number) {
 export async function upsertCustomer(formData: FormData) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("customers.manage");
+    const values = Object.fromEntries(formData);
+    const user = await requirePermission(values.id ? "customers.edit" : "customers.manage");
     const { activeOutlet } = await outletContext(user);
-    const parsed = customerSchema.parse(Object.fromEntries(formData));
+    const parsed = customerSchema.parse(values);
     const data = { name: parsed.name, phone: parsed.phone || null, email: parsed.email || null, address: parsed.address || null };
     const existing = parsed.id ? await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.id, outletId: activeOutlet.id } } }) : null;
     if (parsed.id && !existing) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
@@ -91,7 +94,7 @@ export async function upsertCustomer(formData: FormData) {
 export async function deleteCustomer(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("customers.manage");
+    const user = await requirePermission("customers.delete");
     const { activeOutlet } = await outletContext(user);
     const customer = await prisma.customer.findFirst({ where: { id, outlets: { some: { outletId: activeOutlet.id } } }, include: { _count: { select: { outlets: true } } } });
     if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");

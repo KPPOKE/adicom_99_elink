@@ -231,6 +231,17 @@ export const receiptBankSchema = z.object({
   accountNumber: z.string().trim().min(3, "Nomor rekening wajib diisi").max(40)
 });
 
+export const adminFeeRuleSchema = z.object({
+  id: z.coerce.number<number>().int().positive().optional(),
+  outletId: z.coerce.number<number>().int().positive(),
+  kind: z.enum(["Tarik_Tunai", "Transfer"]),
+  nominalFrom: money,
+  nominalTo: money,
+  adminAmount: money,
+  adminType: z.enum(["Dalam", "Luar"])
+}).refine((value) => value.nominalTo > value.nominalFrom, { message: "Nominal sampai harus lebih besar dari nominal dari", path: ["nominalTo"] });
+export type AdminFeeRuleFormValues = z.output<typeof adminFeeRuleSchema>;
+
 export const receiptSettingSchema = z.object({
   storeName: z.string().trim().min(2, "Nama toko wajib diisi").max(100),
   address: z.string().trim().max(500, "Alamat maksimal 500 karakter").optional(),

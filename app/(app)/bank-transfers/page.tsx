@@ -47,7 +47,7 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
     ]
   };
 
-  const [transfers, total, todayTransfers, todayOperations, canManage, setting] = await Promise.all([
+  const [transfers, total, todayTransfers, todayOperations, canManage, canEdit, canDelete, setting, adminFeeSetting, adminFeeRules] = await Promise.all([
     prisma.bankTransfer.findMany({
       where,
       include: {
@@ -70,7 +70,11 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
       _sum: { adminFee: true }
     }),
     canCurrentUser("bankTransfers.manage"),
-    prisma.setting.findFirst({ select: { whatsapp: true } })
+    canCurrentUser("bankTransfers.edit"),
+    canCurrentUser("bankTransfers.delete"),
+    prisma.setting.findFirst({ select: { whatsapp: true } }),
+    prisma.adminFeeSetting.findUnique({ where: { outletId: activeOutlet.id } }),
+    prisma.adminFeeRule.findMany({ where: { outletId: activeOutlet.id } })
   ]);
   const fundRows = funds.map((item) => ({ id: item.id, name: item.name, type: item.type, balance: toNumber(item.balance), image: item.image }));
   const transferAmount = todayTransfers.filter((item) => item.kind === "Transfer").reduce((sum, item) => sum + toNumber(item.amount), 0);
@@ -89,6 +93,10 @@ export default async function BankTransfersPage({ searchParams }: { searchParams
       <BankTransferClient
         role={user.role.name}
         canManage={canManage}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        adminFeeActive={adminFeeSetting?.isActive ?? false}
+        adminFeeRules={adminFeeRules.map((rule) => ({ kind: rule.kind, nominalFrom: toNumber(rule.nominalFrom), nominalTo: toNumber(rule.nominalTo), adminAmount: toNumber(rule.adminAmount), adminType: rule.adminType }))}
         canViewAsset={hasPermission(user.role.name, permissions, "transactions.viewAsset")}
         canViewBankFee={hasPermission(user.role.name, permissions, "dashboard.viewBankFee")}
         canViewProfit={hasPermission(user.role.name, permissions, "dashboard.viewProfit")}

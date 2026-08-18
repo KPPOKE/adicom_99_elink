@@ -34,6 +34,8 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
       <PageHeader title="Pengeluaran" description={`Catatan biaya operasional cabang ${activeOutlet.name}.`} />
       <FinanceClient
         canManage={hasPermission(user.role.name, permissions, "finance.manage")}
+        canEdit={hasPermission(user.role.name, permissions, "finance.edit")}
+        canDelete={hasPermission(user.role.name, permissions, "finance.delete")}
         canViewProfit={user.role.name === "admin"}
         records={records.map((record) => ({
           id: record.id,

@@ -1,8 +1,9 @@
 "use server";
 
-import type { BankTransfer } from "@prisma/client";
+import type { BankTransfer, FundMutation } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { findAdminFeeAmount } from "@/lib/admin-fee";
 import { applyFundDelta, cashWithdrawalLedger, feeIncomeLedger, operationalLedger, pulsaLedger, transferLedger } from "@/lib/fund-ledger";
 import { outletContext } from "@/lib/outlet";
 import { requirePermission } from "@/lib/permissions";
@@ -155,6 +156,13 @@ async function completeBankTransfer(tx: Prisma.TransactionClient, transfer: Bank
   return ledger.profit;
 }
 
+async function reverseBankTransfer(tx: Prisma.TransactionClient, transfer: BankTransfer & { fundMutations: FundMutation[] }, userId: number) {
+  for (const mutation of transfer.fundMutations.slice().reverse()) {
+    await applyFundDelta(tx, { outletId: mutation.outletId, fundAccountId: mutation.fundAccountId, type: "Reversal", delta: toNumber(mutation.balanceBefore) - toNumber(mutation.balanceAfter), referenceType: "bank_transfer_reopen", referenceId: transfer.id, bankTransferId: transfer.id, note: `Rollback ${transfer.kodeTransfer}`, userId });
+  }
+  await tx.financeRecord.deleteMany({ where: { bankTransferId: transfer.id } });
+}
+
 async function defaultFundId(outletId: number, name: string) {
   const fund = await prisma.fundAccount.findFirst({ where: { outletId, name, isActive: true }, select: { id: true } });
   if (!fund) throw new Error(`Sumber dana ${name} belum tersedia`);
@@ -163,7 +171,8 @@ async function defaultFundId(outletId: number, name: string) {
 
 export async function upsertBankTransfer(payload: unknown) {
   await assertTrustedOrigin();
-  const user = await requirePermission("bankTransfers.manage");
+  const isEditing = Boolean((payload as { id?: unknown } | null)?.id);
+  const user = await requirePermission(isEditing ? "bankTransfers.edit" : "bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
   const parsed = bankTransferSchema.parse(payload);
   if (parsed.customerId) {
@@ -174,6 +183,21 @@ export async function upsertBankTransfer(payload: unknown) {
   const isPulsa = parsed.kind === "Mode_Pulsa" || parsed.kind === "Pembayaran_Digital";
   const isOperational = parsed.kind === "Operasional";
   const usesBankFields = !isFeeIncome && !isPulsa && !isOperational;
+
+  let effectiveAdminFee = parsed.adminFee;
+  let effectiveAdminBankFee = parsed.adminBankFee;
+  let effectiveExternalAdminFee = parsed.externalAdminFee;
+  if (parsed.kind === "Tarik_Tunai" || parsed.kind === "Transfer") {
+    const adminFeeSetting = await prisma.adminFeeSetting.findUnique({ where: { outletId: activeOutlet.id } });
+    if (adminFeeSetting?.isActive) {
+      const rules = (await prisma.adminFeeRule.findMany({ where: { outletId: activeOutlet.id, kind: parsed.kind } })).map((rule) => ({ kind: rule.kind, nominalFrom: toNumber(rule.nominalFrom), nominalTo: toNumber(rule.nominalTo), adminAmount: toNumber(rule.adminAmount), adminType: rule.adminType }));
+      effectiveAdminFee = findAdminFeeAmount(rules, parsed.kind, "Dalam", parsed.amount) ?? 0;
+      const luar = findAdminFeeAmount(rules, parsed.kind, "Luar", parsed.amount) ?? 0;
+      if (parsed.kind === "Transfer") effectiveAdminBankFee = luar;
+      else effectiveExternalAdminFee = luar;
+    }
+  }
+
   const data = {
     kind: parsed.kind,
     transactionType: parsed.kind === "Transfer" || parsed.kind === "Pembayaran_Digital" ? parsed.transactionType || null : null,
@@ -187,23 +211,23 @@ export async function upsertBankTransfer(payload: unknown) {
     accountName: parsed.accountName || "",
     amount: parsed.amount,
     costAmount: isPulsa ? parsed.costAmount : 0,
-    adminFee: isFeeIncome || isPulsa ? 0 : parsed.adminFee,
-    adminBankFee: parsed.kind === "Transfer" ? parsed.adminBankFee : 0,
-    externalAdminFee: parsed.kind === "Tarik_Tunai" ? parsed.externalAdminFee : 0,
+    adminFee: isFeeIncome || isPulsa ? 0 : effectiveAdminFee,
+    adminBankFee: parsed.kind === "Transfer" ? effectiveAdminBankFee : 0,
+    externalAdminFee: parsed.kind === "Tarik_Tunai" ? effectiveExternalAdminFee : 0,
     totalReceived: isFeeIncome || isPulsa
       ? parsed.amount
       : isOperational
-      ? parsed.amount + parsed.adminFee
-      : parsed.amount + parsed.adminFee + (parsed.kind === "Tarik_Tunai" ? parsed.externalAdminFee : 0),
+      ? parsed.amount + effectiveAdminFee
+      : parsed.amount + effectiveAdminFee + (parsed.kind === "Tarik_Tunai" ? effectiveExternalAdminFee : 0),
     outletId: activeOutlet.id,
     note: parsed.note || null
   };
 
   if (parsed.id) {
     await prisma.$transaction(async (tx) => {
-      const existing = await tx.bankTransfer.findUnique({ where: { id: parsed.id } });
+      const existing = await tx.bankTransfer.findUnique({ where: { id: parsed.id }, include: { fundMutations: true } });
       if (!existing || existing.outletId !== activeOutlet.id) throw new Error("Transfer tidak ditemukan di cabang aktif");
-      if (existing.status !== "Pending") throw new Error("Transfer yang sudah final tidak dapat diedit");
+      if (existing.status !== "Pending") await reverseBankTransfer(tx, existing, user.id);
       const transfer = await tx.bankTransfer.update({ where: { id: parsed.id }, data });
       const profit = await completeBankTransfer(tx, transfer, user.id);
       await tx.auditLog.create({
@@ -263,12 +287,23 @@ export async function reopenBankTransfer(id: number) {
     const transfer = await tx.bankTransfer.findUnique({ where: { id }, include: { fundMutations: true } });
     if (!transfer || transfer.outletId !== activeOutlet.id) throw new Error("Transfer tidak ditemukan di cabang aktif");
     if (transfer.status === "Pending") throw new Error("Transfer masih berstatus Pending");
-    for (const mutation of transfer.fundMutations.slice().reverse()) {
-      await applyFundDelta(tx, { outletId: mutation.outletId, fundAccountId: mutation.fundAccountId, type: "Reversal", delta: toNumber(mutation.balanceBefore) - toNumber(mutation.balanceAfter), referenceType: "bank_transfer_reopen", referenceId: id, bankTransferId: id, note: `Rollback ${transfer.kodeTransfer}`, userId: user.id });
-    }
-    await tx.financeRecord.deleteMany({ where: { bankTransferId: id } });
+    await reverseBankTransfer(tx, transfer, user.id);
     await tx.bankTransfer.update({ where: { id }, data: { status: "Pending", completedAt: null } });
     await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: transfer.outletId, action: "reopen", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer, before: { status: transfer.status }, after: { status: "Pending" } } } });
+  });
+  revalidateTransferPaths();
+}
+
+export async function deleteBankTransfer(id: number) {
+  await assertTrustedOrigin();
+  const user = await requirePermission("bankTransfers.delete");
+  const { activeOutlet } = await outletContext(user);
+  await prisma.$transaction(async (tx) => {
+    const transfer = await tx.bankTransfer.findUnique({ where: { id }, include: { fundMutations: true } });
+    if (!transfer || transfer.outletId !== activeOutlet.id) throw new Error("Transfer tidak ditemukan di cabang aktif");
+    if (transfer.status !== "Pending") await reverseBankTransfer(tx, transfer, user.id);
+    await tx.bankTransfer.delete({ where: { id } });
+    await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: transfer.outletId, action: "delete", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer, before: { status: transfer.status, amount: toNumber(transfer.amount) } } } });
   });
   revalidateTransferPaths();
 }

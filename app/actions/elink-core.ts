@@ -45,7 +45,8 @@ async function reverseReceivable(tx: Prisma.TransactionClient, receivableId: num
 export async function upsertReceivable(payload: unknown) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("receivables.manage");
+    const isEditing = Boolean((payload as { id?: unknown } | null)?.id);
+    const user = await requirePermission(isEditing ? "receivables.edit" : "receivables.manage");
     const { activeOutlet } = await outletContext(user);
     const parsed = receivableSchema.parse(payload);
     const customer = await prisma.customerOutlet.findUnique({ where: { customerId_outletId: { customerId: parsed.customerId, outletId: activeOutlet.id } } });
@@ -116,7 +117,7 @@ export async function upsertReceivable(payload: unknown) {
 export async function setReceivableStatus(id: number, status: "Belum_Lunas" | "Lunas") {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("receivables.manage");
+    const user = await requirePermission("receivables.edit");
     const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const existing = await tx.receivable.findUnique({ where: { id } });
@@ -133,7 +134,7 @@ export async function setReceivableStatus(id: number, status: "Belum_Lunas" | "L
 export async function deleteReceivable(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("receivables.manage");
+    const user = await requirePermission("receivables.delete");
     const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const existing = await tx.receivable.findUnique({ where: { id } });
@@ -152,7 +153,8 @@ export async function deleteReceivable(id: number) {
 export async function upsertPayroll(payload: unknown) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("payroll.manage");
+    const isEditing = Boolean((payload as { id?: unknown } | null)?.id);
+    const user = await requirePermission(isEditing ? "payroll.edit" : "payroll.manage");
     const { activeOutlet } = await outletContext(user);
     const parsed = payrollSchema.parse(payload);
     const totalSalary = parsed.baseSalary + parsed.allowance - parsed.deduction;
@@ -204,7 +206,7 @@ export async function upsertPayroll(payload: unknown) {
 export async function deletePayroll(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("payroll.manage");
+    const user = await requirePermission("payroll.delete");
     const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const existing = await tx.payroll.findUnique({ where: { id } });

@@ -31,6 +31,7 @@ export function SimpleCrud({
   upsertAction,
   deleteAction,
   canManage = true,
+  canAdd = canManage,
   canDelete = canManage,
   detailHrefPrefix,
   pagination
@@ -41,6 +42,7 @@ export function SimpleCrud({
   upsertAction: (formData: FormData) => Promise<void>;
   deleteAction: (id: number) => Promise<void>;
   canManage?: boolean;
+  canAdd?: boolean;
   canDelete?: boolean;
   detailHrefPrefix?: string;
   pagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
@@ -150,19 +152,21 @@ export function SimpleCrud({
         searchPlaceholder={`Cari ${title.toLowerCase()}...`}
         serverPagination={pagination}
         filters={
-          canManage ? (
+          canAdd || canManage ? (
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setEditing(null);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </Button>
-              </DialogTrigger>
+              {canAdd ? (
+                <DialogTrigger asChild>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setEditing(null);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tambah
+                  </Button>
+                </DialogTrigger>
+              ) : null}
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{editing ? `Edit ${title}` : `Tambah ${title}`}</DialogTitle>

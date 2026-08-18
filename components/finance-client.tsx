@@ -33,9 +33,11 @@ type FinanceRow = {
   referenceType: string | null;
 };
 
-export function FinanceClient({ records, canManage, canViewProfit, pagination, filterValues, categories, summary }: {
+export function FinanceClient({ records, canManage, canEdit, canDelete, canViewProfit, pagination, filterValues, categories, summary }: {
   records: FinanceRow[];
   canManage: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   canViewProfit: boolean;
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { type: string; category: string };
@@ -120,7 +122,7 @@ export function FinanceClient({ records, canManage, canViewProfit, pagination, f
       header: () => <div className="text-center">Aksi</div>,
       meta: { headerClassName: "text-center", cellClassName: "text-center" },
       cell: ({ row }) =>
-        canManage && (row.original.referenceType === "manual" || !row.original.referenceType) ? (
+        (canEdit || canDelete) && (row.original.referenceType === "manual" || !row.original.referenceType) ? (
           <div className="flex w-full justify-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -129,30 +131,36 @@ export function FinanceClient({ records, canManage, canViewProfit, pagination, f
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44 p-1.5">
-                <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
-                  <Edit className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Edit</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <ConfirmDialog
-                  onConfirm={() =>
-                    startTransition(async () => {
-                      try {
-                        await deleteFinanceRecord(row.original.id);
-                        toast.success("Catatan keuangan dihapus");
-                        router.refresh();
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "Gagal menghapus catatan");
+                {canEdit ? (
+                  <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                    <Edit className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Edit</span>
+                  </DropdownMenuItem>
+                ) : null}
+                {canDelete ? (
+                  <>
+                    {canEdit ? <DropdownMenuSeparator /> : null}
+                    <ConfirmDialog
+                      onConfirm={() =>
+                        startTransition(async () => {
+                          try {
+                            await deleteFinanceRecord(row.original.id);
+                            toast.success("Catatan keuangan dihapus");
+                            router.refresh();
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "Gagal menghapus catatan");
+                          }
+                        })
                       }
-                    })
-                  }
-                  trigger={
-                    <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                      <span>Hapus</span>
-                    </DropdownMenuItem>
-                  }
-                />
+                      trigger={
+                        <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          <span>Hapus</span>
+                        </DropdownMenuItem>
+                      }
+                    />
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

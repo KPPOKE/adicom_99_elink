@@ -134,6 +134,8 @@ model Outlet {
   payrolls             Payroll[]
   receiptBanks         ReceiptBankAccount[]
   receiptSetting       ReceiptSetting?
+  adminFeeSetting      AdminFeeSetting?
+  adminFeeRules        AdminFeeRule[]
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
@@ -451,6 +453,43 @@ model BankTransferDeposit {
   @@index([outletId, date])
   @@index([userId])
   @@map("bank_transfer_deposits")
+}
+
+enum AdminFeeKind {
+  Tarik_Tunai
+  Transfer
+}
+
+enum AdminFeeType {
+  Dalam
+  Luar
+}
+
+model AdminFeeSetting {
+  id        Int      @id @default(autoincrement())
+  outletId  Int      @unique @map("outlet_id")
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_fee_settings")
+}
+
+model AdminFeeRule {
+  id          Int          @id @default(autoincrement())
+  outletId    Int          @map("outlet_id")
+  outlet      Outlet       @relation(fields: [outletId], references: [id])
+  kind        AdminFeeKind
+  nominalFrom Decimal      @map("nominal_from") @db.Decimal(14, 2)
+  nominalTo   Decimal      @map("nominal_to") @db.Decimal(14, 2)
+  adminAmount Decimal      @map("admin_amount") @db.Decimal(14, 2)
+  adminType   AdminFeeType @map("admin_type")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([outletId, kind])
+  @@map("admin_fee_rules")
 }
 
 model FundAccount {

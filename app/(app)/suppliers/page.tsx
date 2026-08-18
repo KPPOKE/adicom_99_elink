@@ -1,7 +1,7 @@
 import { deleteSupplier, upsertSupplier } from "@/app/actions/master-data";
 import { PageHeader } from "@/components/shared/page-header";
 import { SimpleCrud } from "@/components/shared/simple-crud";
-import { requirePermission } from "@/lib/permissions";
+import { canCurrentUser, requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PAGE_SIZE, parseListParams, queryValues, type ListSearchParams } from "@/lib/pagination";
 
@@ -10,9 +10,12 @@ export default async function SuppliersPage({ searchParams }: { searchParams?: P
   const params = (await searchParams) ?? {};
   const { page, q } = parseListParams(params);
   const where = q ? { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { address: { contains: q } }] } : undefined;
-  const [data, total] = await Promise.all([
+  const [data, total, canAdd, canManage, canDelete] = await Promise.all([
     prisma.supplier.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
-    prisma.supplier.count({ where })
+    prisma.supplier.count({ where }),
+    canCurrentUser("suppliers.manage"),
+    canCurrentUser("suppliers.edit"),
+    canCurrentUser("suppliers.delete")
   ]);
   return (
     <>
@@ -28,6 +31,9 @@ export default async function SuppliersPage({ searchParams }: { searchParams?: P
         ]}
         upsertAction={upsertSupplier}
         deleteAction={deleteSupplier}
+        canAdd={canAdd}
+        canManage={canManage}
+        canDelete={canDelete}
         pagination={{ page, pageSize: PAGE_SIZE, total, query: queryValues(params) }}
       />
     </>

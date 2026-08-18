@@ -699,7 +699,7 @@ export async function deleteService(id: number) {
 export async function upsertFinanceRecord(formData: FormData) {
   await assertTrustedOrigin();
   const parsed = financeSchema.parse(Object.fromEntries(formData));
-  const user = await requirePermission("finance.manage");
+  const user = await requirePermission(parsed.id ? "finance.edit" : "finance.manage");
   const { activeOutlet } = await outletContext(user);
   const data: Prisma.FinanceRecordUncheckedCreateInput = {
     type: parsed.type,
@@ -739,7 +739,7 @@ export async function upsertFinanceRecord(formData: FormData) {
 export async function deleteFinanceRecord(id: number) {
   try {
     await assertTrustedOrigin();
-    const user = await requirePermission("finance.manage");
+    const user = await requirePermission("finance.delete");
     const { activeOutlet } = await outletContext(user);
     await prisma.$transaction(async (tx) => {
       const record = await tx.financeRecord.findUnique({ where: { id } });

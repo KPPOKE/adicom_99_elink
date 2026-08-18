@@ -2,13 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Edit, Landmark, Plus, RotateCcw, Send, Wallet, X } from "lucide-react";
+import { Edit, Landmark, MoreHorizontal, Plus, RotateCcw, Send, Trash2, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { finalizeBankTransfer, reopenBankTransfer, upsertBankTransfer } from "@/app/actions/bank-transfers";
+import { deleteBankTransfer, finalizeBankTransfer, reopenBankTransfer, upsertBankTransfer } from "@/app/actions/bank-transfers";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ClosingCashDialog } from "@/components/closing-cash-dialog";
 import { DataTable } from "@/components/shared/data-table";
@@ -16,9 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { findAdminFeeAmount, type AdminFeeRuleLite } from "@/lib/admin-fee";
 import { cashWithdrawalLedger, feeIncomeLedger, operationalLedger, pulsaLedger, transferLedger } from "@/lib/fund-ledger";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { bankTransferSchema, type BankTransferFormValues } from "@/lib/validators";
@@ -145,10 +147,14 @@ function QuoteTicker({ quotes }: { quotes: string[] }) {
   );
 }
 
-export function BankTransferClient({ transfers, role, canManage, canViewAsset, canViewBankFee, canViewProfit, pagination, filterValues, outletName, userName, whatsapp, summary, funds, staff }: {
+export function BankTransferClient({ transfers, role, canManage, canEdit, canDelete, adminFeeActive, adminFeeRules, canViewAsset, canViewBankFee, canViewProfit, pagination, filterValues, outletName, userName, whatsapp, summary, funds, staff }: {
   transfers: TransferRow[];
   role: "admin" | "staff";
   canManage: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  adminFeeActive: boolean;
+  adminFeeRules: AdminFeeRuleLite[];
   canViewAsset: boolean;
   canViewBankFee: boolean;
   canViewProfit: boolean;
@@ -210,6 +216,14 @@ export function BankTransferClient({ transfers, role, canManage, canViewAsset, c
   useEffect(() => {
     if (kind === "Tarik_Tunai" && target) form.setValue("destinationBank", target.name);
   }, [form, kind, target]);
+
+  useEffect(() => {
+    if (!adminFeeActive || (kind !== "Tarik_Tunai" && kind !== "Transfer")) return;
+    const dalam = findAdminFeeAmount(adminFeeRules, kind, "Dalam", amount) ?? 0;
+    const luar = findAdminFeeAmount(adminFeeRules, kind, "Luar", amount) ?? 0;
+    form.setValue("adminFee", dalam);
+    form.setValue(kind === "Transfer" ? "adminBankFee" : "externalAdminFee", luar);
+  }, [adminFeeActive, adminFeeRules, amount, kind, form]);
 
   const closeForm = () => {
     setOpen(false);
@@ -291,12 +305,51 @@ export function BankTransferClient({ transfers, role, canManage, canViewAsset, c
       return <div className="space-y-1 text-xs">{row.original.sourceFundName ? <p>{row.original.sourceFundName}: {sourceMutation ? `${formatCurrency(sourceMutation.balanceBefore)} menjadi ${formatCurrency(sourceMutation.balanceAfter)}` : "-"}</p> : null}{row.original.targetFundName ? <p>{row.original.targetFundName}: {targetMutation ? `${formatCurrency(targetMutation.balanceBefore)} menjadi ${formatCurrency(targetMutation.balanceAfter)}` : "-"}</p> : null}</div>;
     } },
     { header: "Status", cell: ({ row }) => <Badge variant={row.original.status === "Berhasil" ? "green" : row.original.status === "Gagal" ? "red" : "orange"}>{row.original.status}</Badge> },
-    { id: "actions", header: "", cell: ({ row }) => {
-      const item = row.original;
-      if (!canManage) return null;
-      if (item.status === "Pending") return <div className="flex justify-end gap-2"><Button type="button" variant="outline" size="icon" title="Edit dan proses" onClick={() => editTransfer(item)}><Edit className="h-4 w-4" /></Button><ConfirmDialog title="Tandai gagal?" description="Tidak ada mutasi saldo yang dibuat." confirmLabel="Gagal" onConfirm={() => run(() => finalizeBankTransfer(item.id, "Gagal"), "MiniATM ditandai gagal")} trigger={<Button type="button" variant="outline" size="icon" title="Tandai gagal"><X className="h-4 w-4 text-red-300" /></Button>} /></div>;
-      return role === "admin" ? <ConfirmDialog title="Buka ulang?" description="Mutasi saldo dan catatan keuangan akan dibalik." confirmLabel="Buka Ulang" onConfirm={() => run(() => reopenBankTransfer(item.id), "MiniATM dibuka ulang")} trigger={<Button type="button" variant="outline" size="icon" title="Buka ulang"><RotateCcw className="h-4 w-4" /></Button>} /> : null;
-    } }
+    { header: "Keterangan", cell: ({ row }) => row.original.note || "-" },
+    {
+      id: "actions",
+      header: () => <div className="text-center">Aksi</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
+      cell: ({ row }) => {
+        const item = row.original;
+        const canEditRow = canEdit;
+        const canDeleteRow = canDelete;
+        const canReopen = role === "admin" && item.status !== "Pending";
+        const canFail = item.status === "Pending";
+        if (!canEditRow && !canDeleteRow && !canFail && !canReopen) return null;
+        return (
+          <div className="flex w-full justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8 text-slate-700 bg-white hover:bg-slate-50 border-slate-300 shadow-xs" title="Menu Aksi">
+                  <MoreHorizontal className="h-4 w-4 text-slate-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-1.5">
+                {canEditRow ? (
+                  <DropdownMenuItem onClick={() => editTransfer(item)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
+                    <Edit className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Edit Transaksi</span>
+                  </DropdownMenuItem>
+                ) : null}
+                {canFail ? (
+                  <ConfirmDialog title="Tandai gagal?" description="Tidak ada mutasi saldo yang dibuat." confirmLabel="Gagal" onConfirm={() => run(() => finalizeBankTransfer(item.id, "Gagal"), "MiniATM ditandai gagal")} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-orange-600 focus:text-orange-700 focus:bg-orange-50"><X className="h-3.5 w-3.5 text-orange-500" /><span>Tandai Gagal</span></DropdownMenuItem>} />
+                ) : null}
+                {canReopen ? (
+                  <ConfirmDialog title="Buka ulang?" description="Mutasi saldo dan catatan keuangan akan dibalik." confirmLabel="Buka Ulang" onConfirm={() => run(() => reopenBankTransfer(item.id), "MiniATM dibuka ulang")} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-slate-700 focus:bg-slate-50"><RotateCcw className="h-3.5 w-3.5 text-slate-500" /><span>Buka Ulang</span></DropdownMenuItem>} />
+                ) : null}
+                {canDeleteRow ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <ConfirmDialog title="Hapus transaksi?" description="Mutasi saldo dan catatan keuangan terkait akan dibalik, lalu transaksi dihapus permanen." confirmLabel="Hapus" onConfirm={() => run(() => deleteBankTransfer(item.id), "MiniATM dihapus")} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /><span>Hapus Transaksi</span></DropdownMenuItem>} />
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      }
+    }
   ];
 
   const cashAsset = cashFunds.reduce((sum, item) => sum + item.balance, 0);

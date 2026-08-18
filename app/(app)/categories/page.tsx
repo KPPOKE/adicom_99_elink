@@ -1,12 +1,17 @@
 import { upsertCategory, deleteCategory } from "@/app/actions/master-data";
 import { SimpleCrud } from "@/components/shared/simple-crud";
 import { PageHeader } from "@/components/shared/page-header";
-import { requirePermission } from "@/lib/permissions";
+import { canCurrentUser, requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export default async function CategoriesPage() {
   await requirePermission("categories.view");
-  const data = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  const [data, canAdd, canManage, canDelete] = await Promise.all([
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    canCurrentUser("categories.manage"),
+    canCurrentUser("categories.edit"),
+    canCurrentUser("categories.delete")
+  ]);
   return (
     <>
       <PageHeader title="Kategori Barang" description="Kelola kategori inventory termasuk produk digital." />
@@ -19,6 +24,9 @@ export default async function CategoriesPage() {
         ]}
         upsertAction={upsertCategory}
         deleteAction={deleteCategory}
+        canAdd={canAdd}
+        canManage={canManage}
+        canDelete={canDelete}
       />
     </>
   );

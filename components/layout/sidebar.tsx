@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowLeftRight, Banknote, BarChart3, Boxes, Building2, Contact, ChevronRight, FileText, History, Home, Landmark, Layers3, LogOut, PackagePlus, ReceiptText, Send, Settings, ShieldCheck, ShoppingCart, Stethoscope, Truck, UserRoundCog, UsersRound, WalletCards, Wrench } from "lucide-react";
+import { ArrowLeftRight, Banknote, BarChart3, Boxes, Building2, Contact, ChevronRight, FileText, History, Home, Landmark, Layers3, LogOut, PackagePlus, Percent, ReceiptText, Send, Settings, ShieldCheck, ShoppingCart, Stethoscope, Truck, UserRoundCog, UsersRound, WalletCards, Wrench } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { hasPermission, type PermissionKey } from "@/lib/permission-keys";
@@ -65,6 +65,7 @@ export const navGroups: NavGroup[] = [
   ] },
   { label: "Pengaturan", icon: Settings, tone: "indigo", items: [
     { href: "/settings/store", label: "Kelola Toko", icon: Building2, permission: "settings.view", adminOnly: true },
+    { href: "/settings/admin-otomatis", label: "Admin Otomatis", icon: Percent, permission: "settings.adminFee", adminOnly: true },
     { href: "/settings/access", label: "Hak Akses Karyawan", icon: UserRoundCog, permission: "settings.view", adminOnly: true },
     { href: "/settings/activity", label: "Riwayat Aktivitas", icon: History, permission: "settings.view", adminOnly: true },
     { href: "/settings/data", label: "Backup Data", icon: ShieldCheck, permission: "settings.backup" }
