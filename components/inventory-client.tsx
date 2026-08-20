@@ -1,12 +1,13 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, FileDown, MoreHorizontal, PackagePlus, Plus, Trash2 } from "lucide-react";
+import { Edit, FileDown, MoreHorizontal, PackagePlus, Plus, Power, PowerOff, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,7 +19,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StockBadge } from "@/components/shared/status-badge";
-import { addStockItem, deleteItem, upsertItem } from "@/app/actions/master-data";
+import { addStockItem, deleteItem, toggleItemActive, upsertItem } from "@/app/actions/master-data";
 import { formatCurrency } from "@/lib/utils";
 import { hasPermission } from "@/lib/permission-keys";
 
@@ -41,6 +42,7 @@ type ItemRow = {
   deskripsi: string | null;
   categoryId: number;
   supplierId: number | null;
+  isActive: boolean;
   category: { name: string };
   supplier: { name: string } | null;
 };
@@ -206,7 +208,7 @@ export function InventoryClient({
     { header: "Stok", cell: ({ row }) => (
       <div><p>{row.original.stok} {row.original.satuan} tersedia</p>{row.original.reservedStock > 0 ? <p className="text-xs text-orange-300">{row.original.reservedStock} dipesan service</p> : null}</div>
     ) },
-    { header: "Status", cell: ({ row }) => <StockBadge stok={row.original.stok} minimum={row.original.stokMinimum} /> },
+    { header: "Status", cell: ({ row }) => (row.original.isActive ? <StockBadge stok={row.original.stok} minimum={row.original.stokMinimum} /> : <Badge variant="slate">Nonaktif</Badge>) },
     {
       id: "actions",
       header: () => <div className="text-center">Aksi</div>,
@@ -237,6 +239,24 @@ export function InventoryClient({
                     <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
                       <Edit className="h-3.5 w-3.5 text-blue-600" />
                       <span>Edit Barang</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        startTransition(async () => {
+                          const nextActive = !row.original.isActive;
+                          const result = await toggleItemActive(row.original.id, nextActive);
+                          if (!result.success) {
+                            toast.error(result.error);
+                            return;
+                          }
+                          toast.success(nextActive ? "Barang diaktifkan" : "Barang dinonaktifkan");
+                          router.refresh();
+                        })
+                      }
+                      className="text-amber-600 focus:text-amber-700 focus:bg-amber-50"
+                    >
+                      {row.original.isActive ? <PowerOff className="h-3.5 w-3.5 text-amber-600" /> : <Power className="h-3.5 w-3.5 text-amber-600" />}
+                      <span>{row.original.isActive ? "Nonaktifkan Barang" : "Aktifkan Barang"}</span>
                     </DropdownMenuItem>
                   </>
                 ) : null}

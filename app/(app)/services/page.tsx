@@ -26,7 +26,7 @@ export default async function ServicesPage({ searchParams }: { searchParams?: Pr
     prisma.service.findMany({ where, include: { parts: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.service.count({ where }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
-    prisma.item.findMany({ where: { outletId: activeOutlet.id, category: { name: { not: "Produk Digital" } } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT })
+    prisma.item.findMany({ where: { outletId: activeOutlet.id, isActive: true, category: { name: { not: "Produk Digital" } } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT })
   ]);
   return (
     <>

@@ -20,7 +20,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams?
   const end = tomorrowOf(start);
 
   const [items, customers, transactions, total, canDelete, canEdit, todayTransactions, fundAccounts] = await Promise.all([
-    prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 } }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
+    prisma.item.findMany({ where: { ...outletWhere, stok: { gt: 0 }, isActive: true }, include: { category: true }, orderBy: { namaBarang: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.customer.findMany({ where: { outlets: { some: { outletId: activeOutlet.id } } }, orderBy: { name: "asc" }, take: SELECT_OPTION_LIMIT }),
     prisma.transaction.findMany({
       where,

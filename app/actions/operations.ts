@@ -56,8 +56,9 @@ async function createTransactionInner(payload: unknown) {
   for (const line of parsed.items) {
     const stock = stocks.find((item) => item.id === line.itemId);
     if (!stock) throw new Error("Barang tidak ditemukan");
+    if (!stock.isActive) throw new Error(`Barang ${stock.namaBarang} sudah dinonaktifkan`);
     if (stock.stok < line.qty) throw new Error(`Stok ${stock.namaBarang} tidak cukup`);
-    
+
     // Keamanan: Timpa harga dari frontend dengan harga asli dari database
     // untuk mencegah manipulasi harga dari client-side
     line.price = Number(stock.hargaJual);
@@ -520,12 +521,16 @@ async function allocateServiceParts(tx: Prisma.TransactionClient, outletId: numb
   }
 }
 
-async function validateServiceParts(tx: Prisma.TransactionClient, outletId: number, parts: ServicePartInput[]) {
+async function validateServiceParts(tx: Prisma.TransactionClient, outletId: number, parts: ServicePartInput[], enforceActive = false) {
   const ids = parts.map((part) => part.itemId);
   if (new Set(ids).size !== ids.length) throw new Error("Sparepart yang sama tidak boleh dipilih dua kali");
   const items = await tx.item.findMany({ where: { id: { in: ids }, outletId }, include: { category: true } });
   if (items.length !== ids.length) throw new Error("Sparepart tidak ditemukan");
   if (items.some((item) => item.category.name === "Produk Digital")) throw new Error("Produk Digital tidak dapat digunakan sebagai sparepart");
+  if (enforceActive) {
+    const inactive = items.find((item) => !item.isActive);
+    if (inactive) throw new Error(`Sparepart ${inactive.namaBarang} sudah dinonaktifkan`);
+  }
   return items;
 }
 
@@ -616,7 +621,7 @@ async function upsertServiceInner(formData: FormData) {
       const kodeService = await nextCode("SRV", "service");
       try {
         await prisma.$transaction(async (tx) => {
-          const stockItems = await validateServiceParts(tx, activeOutlet.id, parts);
+          const stockItems = await validateServiceParts(tx, activeOutlet.id, parts, true);
           const grossProfit = fields.laborCost + parts.reduce((sum, part) => sum + part.qty * (part.price - Number(stockItems.find((item) => item.id === part.itemId)!.hargaModal)), 0);
           await allocateServiceParts(tx, activeOutlet.id, parts, targetMode);
           const service = await tx.service.create({

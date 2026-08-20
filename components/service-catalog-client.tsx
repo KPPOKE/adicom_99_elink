@@ -1,10 +1,11 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit, MoreHorizontal, Plus, Trash2, Wrench } from "lucide-react";
+import { Edit, MoreHorizontal, Plus, Power, PowerOff, Trash2, Wrench } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { deleteItem, upsertItem } from "@/app/actions/master-data";
+import { deleteItem, toggleItemActive, upsertItem } from "@/app/actions/master-data";
 import { formatCurrency } from "@/lib/utils";
 import { hasPermission } from "@/lib/permission-keys";
 
@@ -33,6 +34,7 @@ type JasaRow = {
   deskripsi: string | null;
   categoryId: number;
   supplierId: number | null;
+  isActive: boolean;
 };
 
 export function ServiceCatalogClient({
@@ -173,6 +175,10 @@ export function ServiceCatalogClient({
       )
     },
     {
+      header: "STATUS",
+      cell: ({ row }) => (row.original.isActive ? <Badge variant="green">Aktif</Badge> : <Badge variant="slate">Nonaktif</Badge>)
+    },
+    {
       id: "actions",
       header: () => <div className="text-center">Aksi</div>,
       meta: { headerClassName: "text-center", cellClassName: "text-center" },
@@ -190,6 +196,24 @@ export function ServiceCatalogClient({
                 <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-blue-600 focus:text-blue-700 focus:bg-blue-50">
                   <Edit className="h-3.5 w-3.5 text-blue-600" />
                   <span>Edit Jasa</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      const nextActive = !row.original.isActive;
+                      const result = await toggleItemActive(row.original.id, nextActive);
+                      if (!result.success) {
+                        toast.error(result.error);
+                        return;
+                      }
+                      toast.success(nextActive ? "Jasa diaktifkan" : "Jasa dinonaktifkan");
+                      router.refresh();
+                    })
+                  }
+                  className="text-amber-600 focus:text-amber-700 focus:bg-amber-50"
+                >
+                  {row.original.isActive ? <PowerOff className="h-3.5 w-3.5 text-amber-600" /> : <Power className="h-3.5 w-3.5 text-amber-600" />}
+                  <span>{row.original.isActive ? "Nonaktifkan Jasa" : "Aktifkan Jasa"}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <ConfirmDialog

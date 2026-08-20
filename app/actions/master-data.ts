@@ -186,6 +186,23 @@ export async function deleteItem(id: number) {
   }
 }
 
+export async function toggleItemActive(id: number, isActive: boolean) {
+  try {
+    await assertTrustedOrigin();
+    const user = await requirePermission("inventory.edit");
+    const { activeOutlet } = await outletContext(user);
+    const item = await prisma.item.findUnique({ where: { id } });
+    if (!item || item.outletId !== activeOutlet.id) return { success: false as const, error: "Barang tidak ditemukan di cabang aktif" };
+    await prisma.item.update({ where: { id }, data: { isActive } });
+    await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: isActive ? "activate" : "deactivate", entity: "item", entityId: id, metadata: { name: item.namaBarang, code: item.kodeBarang } });
+    revalidatePath("/inventory");
+    revalidatePath("/services/catalog");
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
 export async function addStockItem(id: number, addQty: number) {
   try {
     await assertTrustedOrigin();
