@@ -9,12 +9,21 @@ import { assertTrustedOrigin } from "@/lib/security";
 import { toNumber } from "@/lib/utils";
 import { deletePublicUpload, saveImageUpload } from "@/lib/upload";
 import { fundAccountSchema, fundMutationSchema } from "@/lib/validators";
+import { getActionErrorMessage } from "@/lib/errors";
 
 function revalidateFunds() {
   ["/funds", "/fund-mutations", "/bank-transfers", "/dashboard", "/reports"].forEach((path) => revalidatePath(path));
 }
 
 export async function upsertFundAccount(formData: FormData) {
+  try {
+    return await upsertFundAccountInner(formData);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function upsertFundAccountInner(formData: FormData) {
   await assertTrustedOrigin();
   const user = await requirePermission(formData.get("id") ? "funds.edit" : "funds.manage");
   const { activeOutlet } = await outletContext(user);
@@ -84,9 +93,18 @@ export async function upsertFundAccount(formData: FormData) {
   }
   if (uploadedImage) await deletePublicUpload(previousImage);
   revalidateFunds();
+  return { success: true as const };
 }
 
 export async function createFundMutation(payload: unknown) {
+  try {
+    return await createFundMutationInner(payload);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function createFundMutationInner(payload: unknown) {
   await assertTrustedOrigin();
   const parsed = fundMutationSchema.parse(payload);
   const permissionKey = parsed.mode === "Tambah" ? "fundMutations.deposit" : parsed.mode === "Ambil" ? "fundMutations.withdraw" : "fundMutations.moveCreate";
@@ -130,9 +148,18 @@ export async function createFundMutation(payload: unknown) {
     });
   });
   revalidateFunds();
+  return { success: true as const };
 }
 
 export async function resetFundAccount(id: number, reason: string) {
+  try {
+    return await resetFundAccountInner(id, reason);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function resetFundAccountInner(id: number, reason: string) {
   await assertTrustedOrigin();
   const user = await requirePermission("funds.reset");
   const { activeOutlet } = await outletContext(user);
@@ -156,9 +183,18 @@ export async function resetFundAccount(id: number, reason: string) {
     });
   });
   revalidateFunds();
+  return { success: true as const };
 }
 
 export async function toggleFundAccount(id: number, isActive: boolean) {
+  try {
+    return await toggleFundAccountInner(id, isActive);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function toggleFundAccountInner(id: number, isActive: boolean) {
   await assertTrustedOrigin();
   const user = await requirePermission("funds.edit");
   const { activeOutlet } = await outletContext(user);
@@ -180,4 +216,5 @@ export async function toggleFundAccount(id: number, isActive: boolean) {
     });
   });
   revalidateFunds();
+  return { success: true as const };
 }

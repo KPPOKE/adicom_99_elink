@@ -28,9 +28,12 @@ export function ReceivablesClient({ rows, customers, funds, canManage, canEdit, 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
   const [pending, startTransition] = useTransition();
-  const run = (action: () => Promise<void>, message: string, close = false) => startTransition(async () => {
-    try { await action(); toast.success(message); if (close) { setOpen(false); setForm(empty()); } router.refresh(); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Operasi gagal"); }
+  const run = (action: () => Promise<{ success: boolean; error?: string }>, message: string, close = false) => startTransition(async () => {
+    const result = await action();
+    if (!result.success) { toast.error(result.error || "Operasi gagal"); return; }
+    toast.success(message);
+    if (close) { setOpen(false); setForm(empty()); }
+    router.refresh();
   });
   const edit = (row: Row) => { setForm({ id: row.id, customerId: row.customerId, loanDate: row.loanDate.slice(0, 10), amount: row.amount, description: row.description ?? "", recordExpense: row.recordExpense, sourceFundId: row.sourceFundId ?? undefined }); setOpen(true); };
   const columns: ColumnDef<Row>[] = [

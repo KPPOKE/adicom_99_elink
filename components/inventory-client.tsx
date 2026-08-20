@@ -84,19 +84,17 @@ export function InventoryClient({
     }
 
     startTransition(async () => {
-      try {
-        await addStockItem(restockingItem.id, qty);
-        toast.success("Stok berhasil ditambahkan", {
-          description: `Stok ${restockingItem.namaBarang} bertambah +${qty} ${restockingItem.satuan}. Total stok sekarang: ${restockingItem.stok + qty} ${restockingItem.satuan}.`
-        });
-        setRestockingItem(null);
-        setAddQtyInput("1");
-        router.refresh();
-      } catch (error) {
-        toast.error("Gagal menambah stok", {
-          description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
-        });
+      const result = await addStockItem(restockingItem.id, qty);
+      if (!result.success) {
+        toast.error("Gagal menambah stok", { description: result.error });
+        return;
       }
+      toast.success("Stok berhasil ditambahkan", {
+        description: `Stok ${restockingItem.namaBarang} bertambah +${qty} ${restockingItem.satuan}. Total stok sekarang: ${restockingItem.stok + qty} ${restockingItem.satuan}.`
+      });
+      setRestockingItem(null);
+      setAddQtyInput("1");
+      router.refresh();
     });
   };
 
@@ -159,33 +157,31 @@ export function InventoryClient({
 
   const onSubmit = (values: ItemFormValues) => {
     startTransition(async () => {
-      try {
-        const formData = new FormData();
-        if (values.id) formData.append("id", String(values.id));
-        formData.append("namaBarang", values.namaBarang);
-        formData.append("kodeBarang", values.kodeBarang);
-        formData.append("categoryId", String(values.categoryId));
-        if (values.supplierId) formData.append("supplierId", String(values.supplierId));
-        formData.append("hargaModal", String(values.hargaModal));
-        formData.append("hargaJual", String(values.hargaJual));
-        formData.append("stok", String(values.stok));
-        formData.append("stokMinimum", String(values.stokMinimum));
-        formData.append("satuan", values.satuan);
-        formData.append("deskripsi", values.deskripsi ?? "");
-        formData.append("gambar", values.gambar ?? "");
-        if (imageFile) formData.append("image", imageFile);
-        
-        await upsertItem(formData);
-        toast.success("Barang disimpan", {
-          description: "Data barang telah berhasil diperbarui di sistem."
-        });
-        handleOpenChange(false);
-        router.refresh();
-      } catch (error) {
-        toast.error("Gagal menyimpan barang", {
-          description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
-        });
+      const formData = new FormData();
+      if (values.id) formData.append("id", String(values.id));
+      formData.append("namaBarang", values.namaBarang);
+      formData.append("kodeBarang", values.kodeBarang);
+      formData.append("categoryId", String(values.categoryId));
+      if (values.supplierId) formData.append("supplierId", String(values.supplierId));
+      formData.append("hargaModal", String(values.hargaModal));
+      formData.append("hargaJual", String(values.hargaJual));
+      formData.append("stok", String(values.stok));
+      formData.append("stokMinimum", String(values.stokMinimum));
+      formData.append("satuan", values.satuan);
+      formData.append("deskripsi", values.deskripsi ?? "");
+      formData.append("gambar", values.gambar ?? "");
+      if (imageFile) formData.append("image", imageFile);
+
+      const result = await upsertItem(formData);
+      if (!result.success) {
+        toast.error("Gagal menyimpan barang", { description: result.error });
+        return;
       }
+      toast.success("Barang disimpan", {
+        description: "Data barang telah berhasil diperbarui di sistem."
+      });
+      handleOpenChange(false);
+      router.refresh();
     });
   };
 
@@ -250,17 +246,15 @@ export function InventoryClient({
                     <ConfirmDialog
                     onConfirm={() =>
                       startTransition(async () => {
-                        try {
-                          await deleteItem(row.original.id);
-                          toast.success("Barang dihapus", {
-                            description: `Data ${row.original.namaBarang} telah dihapus.`
-                          });
-                          router.refresh();
-                        } catch (error) {
-                          toast.error("Gagal menghapus barang", {
-                            description: error instanceof Error ? error.message : "Terjadi kesalahan sistem."
-                          });
+                        const result = await deleteItem(row.original.id);
+                        if (!result.success) {
+                          toast.error("Gagal menghapus barang", { description: result.error });
+                          return;
                         }
+                        toast.success("Barang dihapus", {
+                          description: `Data ${row.original.namaBarang} telah dihapus.`
+                        });
+                        router.refresh();
                       })
                     }
                     trigger={

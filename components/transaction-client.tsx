@@ -260,7 +260,11 @@ export function TransactionClient({
           fundAccountId: effectiveEditFundAccountId,
           items: editLines.map((line) => ({ itemId: line.itemId, qty: line.qty, price: line.price }))
         };
-        await updateTransaction(editingTx.id, payload);
+        const result = await updateTransaction(editingTx.id, payload);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Transaksi berhasil diperbarui");
         closeEditTransaction();
         router.refresh();
@@ -360,13 +364,13 @@ export function TransactionClient({
                   tone="success"
                   onConfirm={() =>
                     startTransition(async () => {
-                      try {
-                        await completePendingTransaction(row.original.id);
-                        toast.success("Transaksi diselesaikan");
-                        router.refresh();
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "Gagal menyelesaikan transaksi");
+                      const result = await completePendingTransaction(row.original.id);
+                      if (!result.success) {
+                        toast.error(result.error);
+                        return;
                       }
+                      toast.success("Transaksi diselesaikan");
+                      router.refresh();
                     })
                   }
                   trigger={
@@ -387,13 +391,13 @@ export function TransactionClient({
                     confirmLabel="Hapus"
                     onConfirm={() =>
                       startTransition(async () => {
-                        try {
-                          await deleteTransaction(row.original.id);
-                          toast.success("Transaksi dihapus");
-                          router.refresh();
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Gagal menghapus transaksi");
+                        const result = await deleteTransaction(row.original.id);
+                        if (!result.success) {
+                          toast.error(result.error);
+                          return;
                         }
+                        toast.success("Transaksi dihapus");
+                        router.refresh();
                       })
                     }
                     trigger={
@@ -502,7 +506,11 @@ export function TransactionClient({
           throw new Error(parsed.error.issues[0].message);
         }
 
-        await createTransaction(parsed.data);
+        const result = await createTransaction(parsed.data);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Transaksi berhasil disimpan");
         clearCart();
         router.refresh();

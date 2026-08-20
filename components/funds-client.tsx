@@ -66,17 +66,17 @@ export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundR
     if (!resetReason.trim()) return void toast.error("Alasan reset saldo wajib diisi");
     const fundId = form.id;
     startResetTransition(async () => {
-      try {
-        await resetFundAccount(fundId, resetReason);
-        toast.success("Saldo direset ke Rp0");
-        setResetOpen(false);
-        setResetReason("");
-        setOpen(false);
-        setForm(empty);
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal reset saldo");
+      const result = await resetFundAccount(fundId, resetReason);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
       }
+      toast.success("Saldo direset ke Rp0");
+      setResetOpen(false);
+      setResetReason("");
+      setOpen(false);
+      setForm(empty);
+      router.refresh();
     });
   }
 
@@ -86,15 +86,15 @@ export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundR
     const payload = new FormData(event.currentTarget);
     Object.entries(form).forEach(([key, value]) => payload.set(key, String(value)));
     startTransition(async () => {
-      try {
-        await upsertFundAccount(payload);
-        toast.success(form.id ? "Sumber dana diperbarui" : "Sumber dana dibuat");
-        setOpen(false);
-        setForm(empty);
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal menyimpan sumber dana");
+      const result = await upsertFundAccount(payload);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
       }
+      toast.success(form.id ? "Sumber dana diperbarui" : "Sumber dana dibuat");
+      setOpen(false);
+      setForm(empty);
+      router.refresh();
     });
   }
 

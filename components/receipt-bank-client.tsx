@@ -22,9 +22,12 @@ export function ReceiptBankClient({ rows, canManage }: { rows: Row[]; canManage:
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Row | Omit<Row, "id">>(empty);
   const [pending, startTransition] = useTransition();
-  const run = (action: () => Promise<void>, message: string, close = false) => startTransition(async () => {
-    try { await action(); toast.success(message); if (close) { setOpen(false); setForm(empty); } router.refresh(); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Operasi gagal"); }
+  const run = (action: () => Promise<{ success: boolean; error?: string }>, message: string, close = false) => startTransition(async () => {
+    const result = await action();
+    if (!result.success) { toast.error(result.error || "Operasi gagal"); return; }
+    toast.success(message);
+    if (close) { setOpen(false); setForm(empty); }
+    router.refresh();
   });
   const columns: ColumnDef<Row>[] = [
     { accessorKey: "bankName", header: "Nama Bank" },

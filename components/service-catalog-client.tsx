@@ -124,7 +124,11 @@ export function ServiceCatalogClient({
         formData.append("satuan", "jasa");
         formData.append("deskripsi", values.deskripsi ?? "");
 
-        await upsertItem(formData);
+        const result = await upsertItem(formData);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         toast.success(editing ? "Jasa berhasil diperbarui" : "Jasa baru berhasil ditambahkan");
         handleOpenChange(false);
         router.refresh();
@@ -194,13 +198,13 @@ export function ServiceCatalogClient({
                   confirmLabel="Hapus Jasa"
                   onConfirm={() =>
                     startTransition(async () => {
-                      try {
-                        await deleteItem(row.original.id);
-                        toast.success("Jasa telah dihapus");
-                        router.refresh();
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "Gagal menghapus jasa");
+                      const result = await deleteItem(row.original.id);
+                      if (!result.success) {
+                        toast.error(result.error);
+                        return;
                       }
+                      toast.success("Jasa telah dihapus");
+                      router.refresh();
                     })
                   }
                   trigger={

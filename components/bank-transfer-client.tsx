@@ -253,15 +253,15 @@ export function BankTransferClient({ transfers, role, canManage, canEdit, canDel
     });
     setOpen(true);
   };
-  const run = (action: () => Promise<void>, message: string, close = false) => startTransition(async () => {
-    try {
-      await action();
-      toast.success(message);
-      if (close) closeForm();
-      router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal memproses data");
+  const run = (action: () => Promise<{ success: boolean; error?: string }>, message: string, close = false) => startTransition(async () => {
+    const result = await action();
+    if (!result.success) {
+      toast.error(result.error || "Gagal memproses data");
+      return;
     }
+    toast.success(message);
+    if (close) closeForm();
+    router.refresh();
   });
   const onSubmit = (values: BankTransferFormValues) => {
     const payload = kind === "Tarik_Tunai" ? { ...values, destinationBank: target?.name ?? "Saldo tujuan" } : values;

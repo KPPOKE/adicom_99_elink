@@ -95,7 +95,7 @@ export async function requireUser() {
 
 export async function requireRole(roles: Array<"admin" | "staff">) {
   const user = await requireUser();
-  if (!roles.includes(user.role.name)) redirect("/dashboard");
+  if (!roles.includes(user.role.name)) redirect("/dashboard?denied=1");
   return user;
 }
 

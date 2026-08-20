@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { categorySchema, customerSchema, itemSchema, supplierSchema } from "@/lib/validators";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { assertTrustedOrigin } from "@/lib/security";
 import { deletePublicUpload, saveImageUpload } from "@/lib/upload";
 import { outletContext } from "@/lib/outlet";
@@ -26,8 +26,9 @@ export async function upsertCategory(formData: FormData) {
     else await prisma.category.create({ data });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "category", entityId: parsed.id ?? null });
     revalidatePath("/categories");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -38,8 +39,9 @@ export async function deleteCategory(id: number) {
     await prisma.category.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "category", entityId: id });
     revalidatePath("/categories");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -54,8 +56,9 @@ export async function upsertSupplier(formData: FormData) {
     else await prisma.supplier.create({ data });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: parsed.id ? "update" : "create", entity: "supplier", entityId: parsed.id ?? null });
     revalidatePath("/suppliers");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -66,8 +69,9 @@ export async function deleteSupplier(id: number) {
     await prisma.supplier.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, action: "delete", entity: "supplier", entityId: id });
     revalidatePath("/suppliers");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -86,8 +90,9 @@ export async function upsertCustomer(formData: FormData) {
       : await prisma.customer.create({ data: { ...data, outlets: { create: { outletId: activeOutlet.id } } } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: parsed.id ? "update" : "create", entity: "customer", entityId: customer.id });
     revalidatePath("/customers");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -97,15 +102,16 @@ export async function deleteCustomer(id: number) {
     const user = await requirePermission("customers.delete");
     const { activeOutlet } = await outletContext(user);
     const customer = await prisma.customer.findFirst({ where: { id, outlets: { some: { outletId: activeOutlet.id } } }, include: { _count: { select: { outlets: true } } } });
-    if (!customer) throw new Error("Pelanggan tidak ditemukan di cabang aktif");
+    if (!customer) return { success: false as const, error: "Pelanggan tidak ditemukan di cabang aktif" };
     await prisma.$transaction(async (tx) => {
       if (customer._count.outlets > 1) await tx.customerOutlet.delete({ where: { customerId_outletId: { customerId: id, outletId: activeOutlet.id } } });
       else await tx.customer.delete({ where: { id } });
       await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "customer", entityId: id } });
     });
     revalidatePath("/customers");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -134,7 +140,7 @@ export async function upsertItem(formData: FormData) {
       deskripsi: parsed.deskripsi || null
     };
     const existing = parsed.id ? await prisma.item.findUnique({ where: { id: parsed.id } }) : null;
-    if (parsed.id && (!existing || existing.outletId !== activeOutlet.id)) throw new Error("Barang tidak ditemukan di cabang aktif");
+    if (parsed.id && (!existing || existing.outletId !== activeOutlet.id)) return { success: false as const, error: "Barang tidak ditemukan di cabang aktif" };
     const item = parsed.id ? await prisma.item.update({ where: { id: parsed.id }, data }) : await prisma.item.create({ data });
     if (image) await deletePublicUpload(typeof values.gambar === "string" ? values.gambar : null);
     await writeAuditLog({
@@ -151,8 +157,9 @@ export async function upsertItem(formData: FormData) {
     });
     revalidatePath("/inventory");
     revalidatePath("/dashboard");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -161,14 +168,21 @@ export async function deleteItem(id: number) {
     await assertTrustedOrigin();
     const user = await requirePermission("inventory.delete");
     const { activeOutlet } = await outletContext(user);
-    const item = await prisma.item.findUnique({ where: { id } });
-    if (!item || item.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
+    const item = await prisma.item.findUnique({
+      where: { id },
+      include: { _count: { select: { transactionItems: true, serviceParts: true } } }
+    });
+    if (!item || item.outletId !== activeOutlet.id) return { success: false as const, error: "Barang tidak ditemukan di cabang aktif" };
+    if (item._count.transactionItems > 0 || item._count.serviceParts > 0) {
+      return { success: false as const, error: "Barang tidak bisa dihapus karena sudah memiliki riwayat transaksi/servis." };
+    }
     await prisma.item.delete({ where: { id } });
     await deletePublicUpload(item.gambar);
     await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "item", entityId: id, metadata: { name: item.namaBarang, code: item.kodeBarang, cost: Number(item.hargaModal), price: Number(item.hargaJual), stock: item.stok } });
     revalidatePath("/inventory");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -178,10 +192,10 @@ export async function addStockItem(id: number, addQty: number) {
     const user = await requirePermission("inventory.edit");
     const { activeOutlet } = await outletContext(user);
     if (!addQty || addQty <= 0 || !Number.isInteger(addQty)) {
-      throw new Error("Jumlah stok tambahan harus berupa angka bulat positif");
+      return { success: false as const, error: "Jumlah stok tambahan harus berupa angka bulat positif" };
     }
     const item = await prisma.item.findUnique({ where: { id } });
-    if (!item || item.outletId !== activeOutlet.id) throw new Error("Barang tidak ditemukan di cabang aktif");
+    if (!item || item.outletId !== activeOutlet.id) return { success: false as const, error: "Barang tidak ditemukan di cabang aktif" };
 
     const updated = await prisma.item.update({
       where: { id },
@@ -206,9 +220,9 @@ export async function addStockItem(id: number, addQty: number) {
 
     revalidatePath("/inventory");
     revalidatePath("/dashboard");
-    return { success: true, newStock: updated.stok };
+    return { success: true as const, newStock: updated.stok };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 

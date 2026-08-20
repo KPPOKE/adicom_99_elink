@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { applyFundDelta } from "@/lib/fund-ledger";
 import { outletContext } from "@/lib/outlet";
 import { requirePermission } from "@/lib/permissions";
@@ -109,8 +109,9 @@ export async function upsertReceivable(payload: unknown) {
       });
     });
     revalidateCore();
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -126,8 +127,9 @@ export async function setReceivableStatus(id: number, status: "Belum_Lunas" | "L
       await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "update_status", entity: "receivable", entityId: id, metadata: { from: existing.status, to: status } } });
     });
     revalidateCore();
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -145,8 +147,9 @@ export async function deleteReceivable(id: number) {
       await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "receivable", entityId: id, metadata: { customerId: existing.customerId, amount: toNumber(existing.amount) } } });
     });
     revalidateCore();
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -198,8 +201,9 @@ export async function upsertPayroll(payload: unknown) {
       await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: existing ? "update" : "create", entity: "payroll", entityId: payroll.id, metadata: { employeeId: employee.id, period: parsed.period, totalSalary, status: parsed.status } } });
     });
     revalidateCore();
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -216,8 +220,9 @@ export async function deletePayroll(id: number) {
       await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "delete", entity: "payroll", entityId: id, metadata: { employeeId: existing.employeeId, totalSalary: toNumber(existing.totalSalary) } } });
     });
     revalidateCore();
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -236,8 +241,9 @@ export async function upsertReceiptBank(payload: unknown) {
     });
     revalidatePath("/receipts/banks");
     revalidatePath("/receipts");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -254,8 +260,9 @@ export async function deleteReceiptBank(id: number) {
     });
     revalidatePath("/receipts/banks");
     revalidatePath("/receipts");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -276,7 +283,8 @@ export async function updateReceiptSetting(formData: FormData) {
     await prisma.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: existing ? "update" : "create", entity: "receipt_setting", entityId: setting.id, metadata: { storeName: setting.storeName, address: setting.address, footer: setting.footer, logoChanged: Boolean(logo) } } });
     revalidatePath("/receipts/settings");
     revalidatePath("/receipts");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }

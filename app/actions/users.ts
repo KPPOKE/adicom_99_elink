@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { PERMISSION_DEPENDENCIES, PERMISSIONS, type PermissionKey } from "@/lib/permission-keys";
 import { userSchema } from "@/lib/validators";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { assertTrustedOrigin } from "@/lib/security";
 
 const validPermissions = new Set<string>(PERMISSIONS.map((item) => item.key));
@@ -77,8 +77,9 @@ export async function upsertUser(formData: FormData) {
     });
     revalidatePath("/settings/access");
     revalidatePath("/", "layout");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -110,8 +111,9 @@ export async function deleteUser(id: number) {
       });
     });
     revalidatePath("/settings/access");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 

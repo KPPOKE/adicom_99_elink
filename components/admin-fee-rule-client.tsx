@@ -30,29 +30,29 @@ export function AdminFeeRuleClient({ outlets, selectedOutletId, isActive, rules 
   const [editing, setEditing] = useState<Rule | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  const run = (action: () => Promise<void>, message: string, onDone?: () => void) =>
+  const run = (action: () => Promise<{ success: boolean; error?: string }>, message: string, onDone?: () => void) =>
     startTransition(async () => {
-      try {
-        await action();
-        toast.success(message);
-        onDone?.();
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Operasi gagal");
+      const result = await action();
+      if (!result.success) {
+        toast.error(result.error || "Operasi gagal");
+        return;
       }
+      toast.success(message);
+      onDone?.();
+      router.refresh();
     });
 
   const changeOutlet = (outletId: number) => router.push(`/settings/admin-otomatis?outletId=${outletId}`);
 
   const toggleStatus = (next: boolean) =>
     startStatusTransition(async () => {
-      try {
-        await updateAdminFeeStatus(selectedOutletId, next);
-        toast.success(next ? "Admin otomatis diaktifkan" : "Admin otomatis dinonaktifkan");
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal mengubah status");
+      const result = await updateAdminFeeStatus(selectedOutletId, next);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
       }
+      toast.success(next ? "Admin otomatis diaktifkan" : "Admin otomatis dinonaktifkan");
+      router.refresh();
     });
 
   const submitRule = (event: React.FormEvent) => {

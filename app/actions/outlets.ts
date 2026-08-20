@@ -7,7 +7,7 @@ import { requireAdmin, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { outletSchema } from "@/lib/validators";
 import { assertTrustedOrigin } from "@/lib/security";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { toNumber } from "@/lib/utils";
 
 const COOKIE_NAME = "pospintar_outlet";
@@ -79,8 +79,9 @@ export async function upsertOutlet(formData: FormData) {
     });
     revalidatePath("/settings/store");
     revalidatePath("/", "layout");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -89,7 +90,7 @@ export async function deleteOutlet(id: number) {
     await assertTrustedOrigin();
     const user = await requireAdmin();
     const count = await prisma.outlet.count();
-    if (count <= 1) throw new Error("Minimal harus ada satu cabang aktif");
+    if (count <= 1) return { success: false as const, error: "Minimal harus ada satu cabang aktif" };
     const outlet = await prisma.outlet.findUnique({
       where: { id },
       include: {
@@ -99,10 +100,10 @@ export async function deleteOutlet(id: number) {
         fundAccounts: { select: { id: true, balance: true } }
       }
     });
-    if (!outlet) throw new Error("Cabang tidak ditemukan");
+    if (!outlet) return { success: false as const, error: "Cabang tidak ditemukan" };
     const hasFundBalance = outlet.fundAccounts.some((fund) => toNumber(fund.balance) !== 0);
     const used = Object.values(outlet._count).some((value) => value > 0) || Boolean(outlet.receiptSetting) || Boolean(outlet.adminFeeSetting) || hasFundBalance;
-    if (used) throw new Error("Cabang sudah memiliki data dan tidak bisa dihapus");
+    if (used) return { success: false as const, error: "Cabang sudah memiliki data dan tidak bisa dihapus" };
     await prisma.$transaction(async (tx) => {
       if (outlet.fundAccounts.length) await tx.fundAccount.deleteMany({ where: { outletId: id } });
       await tx.outlet.delete({ where: { id } });
@@ -110,7 +111,8 @@ export async function deleteOutlet(id: number) {
     });
     revalidatePath("/settings/store");
     revalidatePath("/", "layout");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }

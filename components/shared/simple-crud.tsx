@@ -39,8 +39,8 @@ export function SimpleCrud({
   title: string;
   data: Row[];
   fields: Field[];
-  upsertAction: (formData: FormData) => Promise<void>;
-  deleteAction: (id: number) => Promise<void>;
+  upsertAction: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+  deleteAction: (id: number) => Promise<{ success: boolean; error?: string }>;
   canManage?: boolean;
   canAdd?: boolean;
   canDelete?: boolean;
@@ -104,13 +104,13 @@ export function SimpleCrud({
                     <ConfirmDialog
                       onConfirm={() =>
                         startTransition(async () => {
-                          try {
-                            await deleteAction(row.original.id);
-                            toast.success(`${title} dihapus`);
-                            router.refresh();
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : "Gagal menghapus data");
+                          const result = await deleteAction(row.original.id);
+                          if (!result.success) {
+                            toast.error(result.error || "Gagal menghapus data");
+                            return;
                           }
+                          toast.success(`${title} dihapus`);
+                          router.refresh();
                         })
                       }
                       trigger={
@@ -132,15 +132,15 @@ export function SimpleCrud({
 
   async function submit(formData: FormData) {
     startTransition(async () => {
-      try {
-        await upsertAction(formData);
-        toast.success(`${title} disimpan`);
-        setOpen(false);
-        setEditing(null);
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal menyimpan data");
+      const result = await upsertAction(formData);
+      if (!result.success) {
+        toast.error(result.error || "Gagal menyimpan data");
+        return;
       }
+      toast.success(`${title} disimpan`);
+      setOpen(false);
+      setEditing(null);
+      router.refresh();
     });
   }
 

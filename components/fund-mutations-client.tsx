@@ -73,15 +73,15 @@ export function FundMutationsClient({ funds, filterFunds, mutations, initialMode
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     startTransition(async () => {
-      try {
-        await createFundMutation(form);
-        toast.success("Mutasi saldo disimpan");
-        setOpenMode(null);
-        setForm(empty(initialMode, funds));
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal menyimpan mutasi");
+      const result = await createFundMutation(form);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
       }
+      toast.success("Mutasi saldo disimpan");
+      setOpenMode(null);
+      setForm(empty(initialMode, funds));
+      router.refresh();
     });
   }
 

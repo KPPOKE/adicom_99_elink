@@ -197,7 +197,11 @@ export function ServiceClient({
         formData.append("technicianNote", values.technicianNote ?? "");
         formData.append("parts", JSON.stringify(values.parts));
         
-        await upsertService(formData);
+        const result = await upsertService(formData);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Service disimpan");
         handleOpenChange(false);
         router.refresh();
@@ -241,13 +245,13 @@ export function ServiceClient({
             value={row.original.status}
             onChange={(event) =>
               startTransition(async () => {
-                try {
-                  await updateServiceStatus(row.original.id, event.target.value);
-                  toast.success("Status service diperbarui");
-                  router.refresh();
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Gagal memperbarui status");
+                const result = await updateServiceStatus(row.original.id, event.target.value);
+                if (!result.success) {
+                  toast.error(result.error);
+                  return;
                 }
+                toast.success("Status service diperbarui");
+                router.refresh();
               })
             }
           >
@@ -333,13 +337,13 @@ export function ServiceClient({
                   confirmLabel="Tandai Lunas"
                   onConfirm={() =>
                     startTransition(async () => {
-                      try {
-                        await markServicePaid(row.original.id);
-                        toast.success("Service ditandai lunas");
-                        router.refresh();
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "Gagal memproses pembayaran");
+                      const result = await markServicePaid(row.original.id);
+                      if (!result.success) {
+                        toast.error(result.error);
+                        return;
                       }
+                      toast.success("Service ditandai lunas");
+                      router.refresh();
                     })
                   }
                   trigger={
@@ -360,13 +364,13 @@ export function ServiceClient({
                     confirmLabel="Hapus Service"
                     onConfirm={() =>
                       startTransition(async () => {
-                        try {
-                          await deleteService(row.original.id);
-                          toast.success("Service dihapus");
-                          router.refresh();
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : "Gagal menghapus service");
+                        const result = await deleteService(row.original.id);
+                        if (!result.success) {
+                          toast.error(result.error);
+                          return;
                         }
+                        toast.success("Service dihapus");
+                        router.refresh();
                       })
                     }
                     trigger={

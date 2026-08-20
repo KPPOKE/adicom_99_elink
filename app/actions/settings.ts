@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/audit";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { assertTrustedOrigin } from "@/lib/security";
 import { deletePublicUpload, saveImageUpload } from "@/lib/upload";
 
@@ -40,7 +40,8 @@ export async function updateSettings(formData: FormData) {
       }
     });
     revalidatePath("/settings/store");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }

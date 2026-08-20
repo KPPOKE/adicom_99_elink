@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Building2, CalendarDays, Loader2, Menu, UserRound, X } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setActiveOutletAction } from "@/app/actions/outlets";
 import { NavList, canAccessNav, nav, resolveActiveNavItem, SidebarFooter } from "@/components/layout/sidebar";
@@ -22,6 +22,14 @@ export function Topbar({ userName, role, outletName, activeOutletId, outlets, pe
   const activeItem = resolveActiveNavItem(menuItems, pathname, searchParams);
   const dashboardPage = pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const hideOutletControl = dashboardPage || pathname === "/settings/activity";
+  useEffect(() => {
+    if (searchParams.get("denied") !== "1") return;
+    toast.error("Anda tidak memiliki akses ke halaman tersebut");
+    const params = new URLSearchParams(searchParams);
+    params.delete("denied");
+    router.replace(params.size ? `${pathname}?${params.toString()}` : pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [selectedValue, setSelectedValue] = useState(String(activeOutletId));
   const displayOutletValue = pending ? selectedValue : String(activeOutletId);
   const changeOutlet = (value: string) => {

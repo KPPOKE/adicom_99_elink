@@ -8,7 +8,7 @@ import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
 import { outletContext } from "@/lib/outlet";
 import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { applyFundDelta } from "@/lib/fund-ledger";
 
 
@@ -34,6 +34,14 @@ async function nextCode(prefix: "TRX" | "SRV", model: "transaction" | "service")
 }
 
 export async function createTransaction(payload: unknown) {
+  try {
+    return await createTransactionInner(payload);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function createTransactionInner(payload: unknown) {
   await assertTrustedOrigin();
   const user = await requirePermission("transactions.manage");
   const { activeOutlet } = await outletContext(user);
@@ -162,7 +170,7 @@ export async function createTransaction(payload: unknown) {
       revalidatePath("/finance");
       revalidatePath("/dashboard");
       revalidatePath("/", "layout");
-      return;
+      return { success: true as const };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && attempt < 4) continue;
       throw error;
@@ -173,6 +181,14 @@ export async function createTransaction(payload: unknown) {
 }
 
 export async function updateTransaction(id: number, payload: unknown) {
+  try {
+    return await updateTransactionInner(id, payload);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function updateTransactionInner(id: number, payload: unknown) {
   await assertTrustedOrigin();
   const user = await requirePermission("transactions.edit");
   const { activeOutlet } = await outletContext(user);
@@ -326,9 +342,18 @@ export async function updateTransaction(id: number, payload: unknown) {
   revalidatePath("/finance");
   revalidatePath("/dashboard");
   revalidatePath("/", "layout");
+  return { success: true as const };
 }
 
 export async function deleteTransaction(id: number) {
+  try {
+    return await deleteTransactionInner(id);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function deleteTransactionInner(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("transactions.delete");
   const { activeOutlet } = await outletContext(user);
@@ -382,9 +407,18 @@ export async function deleteTransaction(id: number) {
   revalidatePath("/inventory");
   revalidatePath("/finance");
   revalidatePath("/dashboard");
+  return { success: true as const };
 }
 
 export async function completePendingTransaction(id: number) {
+  try {
+    return await completePendingTransactionInner(id);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function completePendingTransactionInner(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("transactions.manage");
   const { activeOutlet } = await outletContext(user);
@@ -446,6 +480,7 @@ export async function completePendingTransaction(id: number) {
   revalidatePath("/transactions");
   revalidatePath("/finance");
   revalidatePath("/dashboard");
+  return { success: true as const };
 }
 
 type ServiceStockMode = "reserved" | "consumed" | "released";
@@ -517,6 +552,14 @@ function revalidateServicePaths() {
 }
 
 export async function upsertService(formData: FormData) {
+  try {
+    return await upsertServiceInner(formData);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function upsertServiceInner(formData: FormData) {
   await assertTrustedOrigin();
   const parsed = parseServiceForm(formData);
   const user = await requirePermission(parsed.id ? "services.edit" : "services.manage");
@@ -604,9 +647,18 @@ export async function upsertService(formData: FormData) {
     if (!created) throw new Error("Gagal membuat kode service unik");
   }
   revalidateServicePaths();
+  return { success: true as const };
 }
 
 export async function markServicePaid(id: number) {
+  try {
+    return await markServicePaidInner(id);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function markServicePaidInner(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("services.manage");
   const { activeOutlet } = await outletContext(user);
@@ -637,9 +689,18 @@ export async function markServicePaid(id: number) {
     });
   });
   revalidateServicePaths();
+  return { success: true as const };
 }
 
 export async function updateServiceStatus(id: number, status: string) {
+  try {
+    return await updateServiceStatusInner(id, status);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function updateServiceStatusInner(id: number, status: string) {
   await assertTrustedOrigin();
   const user = await requirePermission("services.manage");
   const { activeOutlet } = await outletContext(user);
@@ -673,6 +734,7 @@ export async function updateServiceStatus(id: number, status: string) {
     });
   });
   revalidateServicePaths();
+  return { success: true as const };
 }
 
 export async function deleteService(id: number) {
@@ -691,12 +753,21 @@ export async function deleteService(id: number) {
       });
     });
     revalidateServicePaths();
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
 export async function upsertFinanceRecord(formData: FormData) {
+  try {
+    return await upsertFinanceRecordInner(formData);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function upsertFinanceRecordInner(formData: FormData) {
   await assertTrustedOrigin();
   const parsed = financeSchema.parse(Object.fromEntries(formData));
   const user = await requirePermission(parsed.id ? "finance.edit" : "finance.manage");
@@ -734,6 +805,7 @@ export async function upsertFinanceRecord(formData: FormData) {
   });
   revalidatePath("/finance");
   revalidatePath("/dashboard");
+  return { success: true as const };
 }
 
 export async function deleteFinanceRecord(id: number) {
@@ -758,7 +830,8 @@ export async function deleteFinanceRecord(id: number) {
       });
     });
     revalidatePath("/finance");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }

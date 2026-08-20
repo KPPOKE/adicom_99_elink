@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { writeAuditLog } from "@/lib/audit";
-import { handleActionError } from "@/lib/errors";
+import { getActionErrorMessage } from "@/lib/errors";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { assertTrustedOrigin } from "@/lib/security";
@@ -19,8 +19,9 @@ export async function updateAdminFeeStatus(outletId: number, isActive: boolean) 
     });
     await writeAuditLog({ userId: user.id, userEmail: user.email, outletId, action: "update", entity: "admin_fee_setting", metadata: { isActive } });
     revalidatePath("/settings/admin-otomatis");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -42,8 +43,9 @@ export async function upsertAdminFeeRule(payload: unknown) {
       : await prisma.adminFeeRule.create({ data });
     await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: parsed.outletId, action: parsed.id ? "update" : "create", entity: "admin_fee_rule", entityId: rule.id, metadata: data });
     revalidatePath("/settings/admin-otomatis");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
@@ -56,7 +58,8 @@ export async function deleteAdminFeeRule(id: number) {
     await prisma.adminFeeRule.delete({ where: { id } });
     await writeAuditLog({ userId: user.id, userEmail: user.email, outletId: existing.outletId, action: "delete", entity: "admin_fee_rule", entityId: id });
     revalidatePath("/settings/admin-otomatis");
+    return { success: true as const };
   } catch (error) {
-    handleActionError(error);
+    return { success: false as const, error: getActionErrorMessage(error) };
   }
 }

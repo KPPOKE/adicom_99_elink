@@ -45,7 +45,7 @@ export function UserManagementClient({ users, currentUserId, outlets }: { users:
             {row.original.id !== currentUserId ? (
               <>
                 <DropdownMenuSeparator />
-                <ConfirmDialog onConfirm={() => startTransition(async () => { try { await deleteUser(row.original.id); toast.success("User dihapus"); router.refresh(); } catch (error) { toast.error(error instanceof Error ? error.message : "Gagal menghapus user"); } })} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /><span>Hapus</span></DropdownMenuItem>} />
+                <ConfirmDialog onConfirm={() => startTransition(async () => { const result = await deleteUser(row.original.id); if (!result.success) { toast.error(result.error); return; } toast.success("User dihapus"); router.refresh(); })} trigger={<DropdownMenuItem onSelect={(event) => event.preventDefault()} className="text-red-600 focus:text-red-700 focus:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /><span>Hapus</span></DropdownMenuItem>} />
               </>
             ) : null}
           </DropdownMenuContent>
@@ -64,7 +64,7 @@ export function UserManagementClient({ users, currentUserId, outlets }: { users:
           <DialogTrigger asChild><Button onClick={openCreate}><Plus className="h-4 w-4" />Tambah User</Button></DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader><DialogTitle>{editing ? "Edit User" : "Tambah User"}</DialogTitle></DialogHeader>
-            <form action={(formData) => startTransition(async () => { try { await upsertUser(formData); toast.success("User disimpan"); setOpen(false); setEditing(null); router.refresh(); } catch (error) { toast.error(error instanceof Error ? error.message : "Gagal menyimpan user"); } })} className="grid gap-4">
+            <form action={(formData) => startTransition(async () => { const result = await upsertUser(formData); if (!result.success) { toast.error(result.error); return; } toast.success("User disimpan"); setOpen(false); setEditing(null); router.refresh(); })} className="grid gap-4">
               {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5"><Label>Nama</Label><Input name="name" defaultValue={editing?.name ?? ""} required /></div>

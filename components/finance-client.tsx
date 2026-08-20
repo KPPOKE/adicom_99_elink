@@ -98,7 +98,11 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
         formData.append("date", values.date);
         formData.append("description", values.description ?? "");
         
-        await upsertFinanceRecord(formData);
+        const result = await upsertFinanceRecord(formData);
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Catatan keuangan disimpan");
         handleOpenChange(false);
         router.refresh();
@@ -143,13 +147,13 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
                     <ConfirmDialog
                       onConfirm={() =>
                         startTransition(async () => {
-                          try {
-                            await deleteFinanceRecord(row.original.id);
-                            toast.success("Catatan keuangan dihapus");
-                            router.refresh();
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : "Gagal menghapus catatan");
+                          const result = await deleteFinanceRecord(row.original.id);
+                          if (!result.success) {
+                            toast.error(result.error);
+                            return;
                           }
+                          toast.success("Catatan keuangan dihapus");
+                          router.refresh();
                         })
                       }
                       trigger={

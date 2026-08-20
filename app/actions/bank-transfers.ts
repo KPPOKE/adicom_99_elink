@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
 import { bankTransferDepositSchema, bankTransferSchema } from "@/lib/validators";
+import { getActionErrorMessage } from "@/lib/errors";
 
 async function nextTransferCode() {
   const prefix = `TRF-${dateCode()}`;
@@ -170,6 +171,14 @@ async function defaultFundId(outletId: number, name: string) {
 }
 
 export async function upsertBankTransfer(payload: unknown) {
+  try {
+    return await upsertBankTransferInner(payload);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function upsertBankTransferInner(payload: unknown) {
   await assertTrustedOrigin();
   const isEditing = Boolean((payload as { id?: unknown } | null)?.id);
   const user = await requirePermission(isEditing ? "bankTransfers.edit" : "bankTransfers.manage");
@@ -243,7 +252,7 @@ export async function upsertBankTransfer(payload: unknown) {
       });
     });
     revalidateTransferPaths();
-    return;
+    return { success: true as const };
   }
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -255,7 +264,7 @@ export async function upsertBankTransfer(payload: unknown) {
         await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "create", entity: "bank_transfer", entityId: transfer.id, metadata: { kodeTransfer, kind: parsed.kind, status: "Berhasil", profit } } });
       });
       revalidateTransferPaths();
-      return;
+      return { success: true as const };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && attempt < 4) continue;
       throw error;
@@ -265,6 +274,14 @@ export async function upsertBankTransfer(payload: unknown) {
 }
 
 export async function finalizeBankTransfer(id: number, status: "Berhasil" | "Gagal") {
+  try {
+    return await finalizeBankTransferInner(id, status);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function finalizeBankTransferInner(id: number, status: "Berhasil" | "Gagal") {
   await assertTrustedOrigin();
   const user = await requirePermission("bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
@@ -277,9 +294,18 @@ export async function finalizeBankTransfer(id: number, status: "Berhasil" | "Gag
     await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: transfer.outletId, action: status === "Berhasil" ? "complete" : "fail", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer, before: { status: transfer.status }, after: { status }, profit } } });
   });
   revalidateTransferPaths();
+  return { success: true as const };
 }
 
 export async function reopenBankTransfer(id: number) {
+  try {
+    return await reopenBankTransferInner(id);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function reopenBankTransferInner(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
@@ -292,9 +318,18 @@ export async function reopenBankTransfer(id: number) {
     await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: transfer.outletId, action: "reopen", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer, before: { status: transfer.status }, after: { status: "Pending" } } } });
   });
   revalidateTransferPaths();
+  return { success: true as const };
 }
 
 export async function deleteBankTransfer(id: number) {
+  try {
+    return await deleteBankTransferInner(id);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function deleteBankTransferInner(id: number) {
   await assertTrustedOrigin();
   const user = await requirePermission("bankTransfers.delete");
   const { activeOutlet } = await outletContext(user);
@@ -306,9 +341,18 @@ export async function deleteBankTransfer(id: number) {
     await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: transfer.outletId, action: "delete", entity: "bank_transfer", entityId: id, metadata: { kodeTransfer: transfer.kodeTransfer, before: { status: transfer.status, amount: toNumber(transfer.amount) } } } });
   });
   revalidateTransferPaths();
+  return { success: true as const };
 }
 
 export async function createBankTransferDeposit(payload: unknown) {
+  try {
+    return await createBankTransferDepositInner(payload);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function createBankTransferDepositInner(payload: unknown) {
   await assertTrustedOrigin();
   const user = await requirePermission("bankTransfers.manage");
   const { activeOutlet } = await outletContext(user);
@@ -320,4 +364,5 @@ export async function createBankTransferDeposit(payload: unknown) {
     await tx.auditLog.create({ data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "create", entity: "bank_transfer_deposit", entityId: deposit.id, metadata: { outletId: activeOutlet.id, fundAccountId, amount: parsed.amount } } });
   });
   revalidateTransferPaths();
+  return { success: true as const };
 }
