@@ -1,11 +1,11 @@
 "use client";
 
-import { Banknote, CircleDollarSign, History, Landmark, Pencil, Plus, Search, Server, Smartphone, Wallet } from "lucide-react";
+import { Banknote, CircleDollarSign, History, Landmark, Pencil, Plus, RotateCcw, Search, Server, Smartphone, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { upsertFundAccount } from "@/app/actions/funds";
+import { resetFundAccount, upsertFundAccount } from "@/app/actions/funds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -36,11 +36,14 @@ function AssetSummary({ label, value, icon: Icon, tone }: { label: string; value
   return <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(value)}</p></div><div className={cn("flex h-11 w-11 items-center justify-center rounded-lg border", tone)}><Icon className="h-5 w-5" aria-hidden="true" /></div></div></div>;
 }
 
-export function FundsClient({ funds, canAdd, canEdit }: { funds: FundRow[]; canAdd: boolean; canEdit: boolean }) {
+export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundRow[]; canAdd: boolean; canEdit: boolean; canReset: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [resetPending, startResetTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetReason, setResetReason] = useState("");
   const [form, setForm] = useState<FundForm>(empty);
   const selected = form.id ? funds.find((item) => item.id === form.id) : undefined;
   const canManage = form.id ? canEdit : canAdd;
@@ -56,6 +59,25 @@ export function FundsClient({ funds, canAdd, canEdit }: { funds: FundRow[]; canA
   function openFund(fund?: FundRow) {
     setForm(fund ? { id: fund.id, name: fund.name, type: fund.type, balance: fund.balance, adjustmentReason: "", note: fund.note ?? "", isActive: fund.isActive } : empty);
     setOpen(true);
+  }
+
+  function resetSaldo() {
+    if (!form.id) return;
+    if (!resetReason.trim()) return void toast.error("Alasan reset saldo wajib diisi");
+    const fundId = form.id;
+    startResetTransition(async () => {
+      try {
+        await resetFundAccount(fundId, resetReason);
+        toast.success("Saldo direset ke Rp0");
+        setResetOpen(false);
+        setResetReason("");
+        setOpen(false);
+        setForm(empty);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal reset saldo");
+      }
+    });
   }
 
   function save(event: React.FormEvent<HTMLFormElement>) {
@@ -117,10 +139,24 @@ export function FundsClient({ funds, canAdd, canEdit }: { funds: FundRow[]; canA
           <Field label="Gambar Bank / E-wallet" hint="Opsional. JPG, PNG, atau WebP maksimal 2 MB."><Input type="file" name="imageFile" accept="image/jpeg,image/png,image/webp" disabled={!canManage} /></Field>
           <Field label="Keterangan"><Textarea value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="Catatan rekening atau penggunaan sumber dana" disabled={!canManage} /></Field>
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>{form.id ? <Button asChild type="button" variant="outline"><Link href={`/fund-mutations?mode=saldo&fund=${form.id}`}><History className="h-4 w-4" />Lihat Riwayat</Link></Button> : null}</div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              {form.id ? <Button asChild type="button" variant="outline"><Link href={`/fund-mutations?mode=saldo&fund=${form.id}`}><History className="h-4 w-4" />Lihat Riwayat</Link></Button> : null}
+              {form.id && canReset && selected && selected.balance > 0 ? <Button type="button" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => setResetOpen(true)}><RotateCcw className="h-4 w-4" />Reset Saldo</Button> : null}
+            </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Tutup</Button>{canManage ? <Button type="submit" disabled={pending}>{pending ? "Menyimpan..." : form.id ? "Simpan Perubahan" : "Tambah Sumber Dana"}</Button> : null}</div>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={resetOpen} onOpenChange={(next) => { setResetOpen(next); if (!next) setResetReason(""); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Reset Saldo {selected?.name}?</DialogTitle><DialogDescription>Saldo akan dijadikan Rp0 dan dicatat sebagai mutasi penyesuaian. Alasan wajib diisi.</DialogDescription></DialogHeader>
+        <Field label="Alasan Reset"><Textarea value={resetReason} onChange={(event) => setResetReason(event.target.value)} placeholder="Contoh: tutup buku awal bulan" required /></Field>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setResetOpen(false)}>Batal</Button>
+          <Button type="button" variant="destructive" onClick={resetSaldo} disabled={resetPending}>{resetPending ? "Mereset..." : "Reset Saldo"}</Button>
+        </div>
       </DialogContent>
     </Dialog>
   </div>;

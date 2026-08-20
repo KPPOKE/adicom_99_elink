@@ -132,6 +132,32 @@ export async function createFundMutation(payload: unknown) {
   revalidateFunds();
 }
 
+export async function resetFundAccount(id: number, reason: string) {
+  await assertTrustedOrigin();
+  const user = await requirePermission("funds.reset");
+  const { activeOutlet } = await outletContext(user);
+  if (!reason.trim()) throw new Error("Alasan reset saldo wajib diisi");
+  await prisma.$transaction(async (tx) => {
+    const account = await tx.fundAccount.findUnique({ where: { id } });
+    if (!account || account.outletId !== activeOutlet.id) throw new Error("Sumber dana tidak ditemukan");
+    const before = toNumber(account.balance);
+    if (before === 0) throw new Error("Saldo sudah Rp0");
+    await applyFundDelta(tx, { outletId: activeOutlet.id, fundAccountId: id, type: "Adjustment", delta: -before, referenceType: "manual_reset", note: reason, userId: user.id });
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        outletId: activeOutlet.id,
+        action: "reset",
+        entity: "fund_account",
+        entityId: id,
+        metadata: { name: account.name, before, after: 0, reason }
+      }
+    });
+  });
+  revalidateFunds();
+}
+
 export async function toggleFundAccount(id: number, isActive: boolean) {
   await assertTrustedOrigin();
   const user = await requirePermission("funds.edit");
