@@ -1,15 +1,16 @@
 "use client";
 
-import { Banknote, CircleDollarSign, History, Landmark, Pencil, Plus, RotateCcw, Search, Server, Smartphone, Wallet } from "lucide-react";
+import { Banknote, CircleDollarSign, History, Landmark, MoreHorizontal, Pencil, Plus, Power, PowerOff, RotateCcw, Search, Server, Smartphone, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { resetFundAccount, upsertFundAccount } from "@/app/actions/funds";
+import { deleteFundAccount, resetFundAccount, toggleFundAccount, upsertFundAccount } from "@/app/actions/funds";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,14 +37,17 @@ function AssetSummary({ label, value, icon: Icon, tone }: { label: string; value
   return <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(value)}</p></div><div className={cn("flex h-11 w-11 items-center justify-center rounded-lg border", tone)}><Icon className="h-5 w-5" aria-hidden="true" /></div></div></div>;
 }
 
-export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundRow[]; canAdd: boolean; canEdit: boolean; canReset: boolean }) {
+export function FundsClient({ funds, canAdd, canEdit, canReset, canDelete }: { funds: FundRow[]; canAdd: boolean; canEdit: boolean; canReset: boolean; canDelete: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [resetPending, startResetTransition] = useTransition();
+  const [deletePending, startDeleteTransition] = useTransition();
+  const [togglePending, startToggleTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetReason, setResetReason] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [form, setForm] = useState<FundForm>(empty);
   const selected = form.id ? funds.find((item) => item.id === form.id) : undefined;
   const canManage = form.id ? canEdit : canAdd;
@@ -74,6 +78,41 @@ export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundR
       toast.success("Saldo direset ke Rp0");
       setResetOpen(false);
       setResetReason("");
+      setOpen(false);
+      setForm(empty);
+      router.refresh();
+    });
+  }
+
+  function deleteFund() {
+    if (!form.id) return;
+    const fundId = form.id;
+    startDeleteTransition(async () => {
+      const result = await deleteFundAccount(fundId);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Sumber dana dihapus");
+      setDeleteOpen(false);
+      setOpen(false);
+      setForm(empty);
+      router.refresh();
+    });
+  }
+
+  function toggleActive() {
+    if (!form.id) return;
+    const fundId = form.id;
+    const nextActive = !form.isActive;
+    if (!nextActive && form.balance !== 0) return void toast.error("Saldo harus nol sebelum dinonaktifkan");
+    startToggleTransition(async () => {
+      const result = await toggleFundAccount(fundId, nextActive);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(nextActive ? "Sumber dana diaktifkan" : "Sumber dana dinonaktifkan");
       setOpen(false);
       setForm(empty);
       router.refresh();
@@ -133,15 +172,44 @@ export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundR
             <Field label="Jenis Saldo"><Select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as FundType })} disabled={!canManage}><option value="Cash">Cash / Laci</option><option value="Bank">Bank</option><option value="Ewallet">E-wallet</option><option value="Pulsa_Server">Server Pulsa</option><option value="Other">Lainnya</option></Select></Field>
             <Field label="Nama Sumber Dana"><Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Contoh: BRI, DANA, LACI" required disabled={!canManage} /></Field>
             <Field label={form.id ? "Saldo Sekarang" : "Saldo Awal"} hint={form.id ? `Saldo awal historis tetap ${formatCurrency(selected?.openingBalance ?? 0)}.` : undefined}><CurrencyInput name="balance" value={form.balance} onChange={(balance) => setForm({ ...form, balance })} disabled={!canManage || Boolean(form.id && !form.isActive)} /></Field>
-            <Field label="Status"><label className="flex h-10 items-center gap-3 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} disabled={!canManage} className="h-4 w-4 accent-blue-600" />Sumber dana aktif</label></Field>
+            <Field label="Status" hint={form.id ? "Gunakan menu aksi di bawah untuk mengubah status." : undefined}><label className="flex h-10 items-center gap-3 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} disabled={!canManage || Boolean(form.id)} className="h-4 w-4 accent-blue-600" />Sumber dana aktif</label></Field>
           </div>
           {balanceChanged ? <Field label="Alasan Penyesuaian" hint="Wajib diisi karena saldo berjalan berubah."><Textarea value={form.adjustmentReason} onChange={(event) => setForm({ ...form, adjustmentReason: event.target.value })} placeholder="Contoh: koreksi hasil rekonsiliasi kas" required disabled={!canManage} /></Field> : null}
           <Field label="Gambar Bank / E-wallet" hint="Opsional. JPG, PNG, atau WebP maksimal 2 MB."><Input type="file" name="imageFile" accept="image/jpeg,image/png,image/webp" disabled={!canManage} /></Field>
           <Field label="Keterangan"><Textarea value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="Catatan rekening atau penggunaan sumber dana" disabled={!canManage} /></Field>
-          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
               {form.id ? <Button asChild type="button" variant="outline"><Link href={`/fund-mutations?mode=saldo&fund=${form.id}`}><History className="h-4 w-4" />Lihat Riwayat</Link></Button> : null}
-              {form.id && canReset && selected && selected.balance > 0 ? <Button type="button" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => setResetOpen(true)}><RotateCcw className="h-4 w-4" />Reset Saldo</Button> : null}
+              {form.id && (canEdit || (canReset && selected && selected.balance > 0) || canDelete) ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="outline" size="icon" title="Menu Aksi"><MoreHorizontal className="h-4 w-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 p-1.5">
+                    {canEdit ? (
+                      <DropdownMenuItem onClick={toggleActive} disabled={togglePending} className="text-amber-600 focus:text-amber-700 focus:bg-amber-50">
+                        {form.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                        <span>{form.isActive ? "Nonaktifkan" : "Aktifkan"}</span>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canReset && selected && selected.balance > 0 ? (
+                      <DropdownMenuItem onClick={() => setResetOpen(true)} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Reset Saldo</span>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canDelete ? (
+                      <>
+                        {canEdit || (canReset && selected && selected.balance > 0) ? <DropdownMenuSeparator /> : null}
+                        <DropdownMenuItem onClick={() => setDeleteOpen(true)} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Hapus</span>
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Tutup</Button>{canManage ? <Button type="submit" disabled={pending}>{pending ? "Menyimpan..." : form.id ? "Simpan Perubahan" : "Tambah Sumber Dana"}</Button> : null}</div>
           </div>
@@ -156,6 +224,16 @@ export function FundsClient({ funds, canAdd, canEdit, canReset }: { funds: FundR
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => setResetOpen(false)}>Batal</Button>
           <Button type="button" variant="destructive" onClick={resetSaldo} disabled={resetPending}>{resetPending ? "Mereset..." : "Reset Saldo"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Hapus {selected?.name}?</DialogTitle><DialogDescription>Sumber dana hanya bisa dihapus jika saldo Rp0 dan tidak memiliki riwayat transaksi, mutasi, transfer, atau piutang. Tindakan ini tidak bisa dibatalkan.</DialogDescription></DialogHeader>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>Batal</Button>
+          <Button type="button" variant="destructive" onClick={deleteFund} disabled={deletePending}>{deletePending ? "Menghapus..." : "Hapus"}</Button>
         </div>
       </DialogContent>
     </Dialog>

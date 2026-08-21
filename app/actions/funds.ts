@@ -186,6 +186,45 @@ async function resetFundAccountInner(id: number, reason: string) {
   return { success: true as const };
 }
 
+export async function deleteFundAccount(id: number) {
+  try {
+    return await deleteFundAccountInner(id);
+  } catch (error) {
+    return { success: false as const, error: getActionErrorMessage(error) };
+  }
+}
+
+async function deleteFundAccountInner(id: number) {
+  await assertTrustedOrigin();
+  const user = await requirePermission("funds.delete");
+  const { activeOutlet } = await outletContext(user);
+  const account = await prisma.fundAccount.findUnique({
+    where: { id },
+    include: {
+      _count: { select: { transactions: true, mutations: true, sourceTransfers: true, targetTransfers: true, receivables: true, financeRecords: true } }
+    }
+  });
+  if (!account || account.outletId !== activeOutlet.id) throw new Error("Sumber dana tidak ditemukan");
+  const hasHistory = Object.values(account._count).some((value) => value > 0) || toNumber(account.balance) !== 0;
+  if (hasHistory) throw new Error("Sumber dana masih memiliki riwayat atau saldo, tidak bisa dihapus. Gunakan Nonaktifkan.");
+  await prisma.$transaction(async (tx) => {
+    await tx.fundAccount.delete({ where: { id } });
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        userEmail: user.email,
+        outletId: activeOutlet.id,
+        action: "delete",
+        entity: "fund_account",
+        entityId: id,
+        metadata: { name: account.name, type: account.type }
+      }
+    });
+  });
+  revalidateFunds();
+  return { success: true as const };
+}
+
 export async function toggleFundAccount(id: number, isActive: boolean) {
   try {
     return await toggleFundAccountInner(id, isActive);
