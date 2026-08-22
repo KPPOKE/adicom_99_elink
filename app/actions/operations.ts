@@ -823,15 +823,40 @@ async function upsertFinanceRecordInner(formData: FormData) {
     description: parsed.description || null,
     date: new Date(`${parsed.date}T00:00:00`),
     referenceType: "manual",
+    fundAccountId: parsed.fundAccountId ?? null,
     outletId: activeOutlet.id,
     userId: user.id
   };
   await prisma.$transaction(async (tx) => {
     const existing = parsed.id ? await tx.financeRecord.findUnique({ where: { id: parsed.id } }) : null;
     if (parsed.id && (!existing || existing.outletId !== activeOutlet.id || existing.referenceType !== "manual")) throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
+    if (existing?.fundAccountId) {
+      await applyFundDelta(tx, {
+        outletId: activeOutlet.id,
+        fundAccountId: existing.fundAccountId,
+        type: "Reversal",
+        delta: existing.type === "income" ? -toNumber(existing.amount) : toNumber(existing.amount),
+        referenceType: "finance_record_reverse",
+        referenceId: existing.id,
+        note: `Pembalikan sebelum edit: ${existing.category}`,
+        userId: user.id
+      });
+    }
     const record = parsed.id
       ? await tx.financeRecord.update({ where: { id: parsed.id }, data })
       : await tx.financeRecord.create({ data });
+    if (parsed.fundAccountId) {
+      await applyFundDelta(tx, {
+        outletId: activeOutlet.id,
+        fundAccountId: parsed.fundAccountId,
+        type: parsed.type === "income" ? "Deposit_In" : "Withdraw_Out",
+        delta: parsed.type === "income" ? parsed.amount : -parsed.amount,
+        referenceType: "finance_record",
+        referenceId: record.id,
+        note: `${parsed.type === "income" ? "Pemasukan" : "Pengeluaran"}: ${parsed.category}`,
+        userId: user.id
+      });
+    }
     await tx.auditLog.create({
       data: {
         userId: user.id,
@@ -860,6 +885,18 @@ export async function deleteFinanceRecord(id: number) {
     await prisma.$transaction(async (tx) => {
       const record = await tx.financeRecord.findUnique({ where: { id } });
       if (!record || record.outletId !== activeOutlet.id || record.referenceType !== "manual") throw new Error("Catatan keuangan tidak ditemukan di cabang aktif");
+      if (record.fundAccountId) {
+        await applyFundDelta(tx, {
+          outletId: activeOutlet.id,
+          fundAccountId: record.fundAccountId,
+          type: "Reversal",
+          delta: record.type === "income" ? -toNumber(record.amount) : toNumber(record.amount),
+          referenceType: "finance_record_reverse",
+          referenceId: record.id,
+          note: `Pembalikan hapus: ${record.category}`,
+          userId: user.id
+        });
+      }
       await tx.financeRecord.delete({ where: { id } });
       await tx.auditLog.create({
         data: {

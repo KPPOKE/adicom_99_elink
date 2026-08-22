@@ -31,9 +31,10 @@ type FinanceRow = {
   description: string | null;
   date: string | Date;
   referenceType: string | null;
+  fundAccountId: number | null;
 };
 
-export function FinanceClient({ records, canManage, canEdit, canDelete, canViewProfit, pagination, filterValues, categories, summary }: {
+export function FinanceClient({ records, canManage, canEdit, canDelete, canViewProfit, pagination, filterValues, categories, fundAccounts = [], summary }: {
   records: FinanceRow[];
   canManage: boolean;
   canEdit: boolean;
@@ -42,6 +43,7 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
   pagination: { page: number; pageSize: number; total: number; query: Record<string, string> };
   filterValues: { type: string; category: string };
   categories: string[];
+  fundAccounts?: { id: number; name: string; type: string }[];
   summary: { income: number; expense: number };
 }) {
   const router = useRouter();
@@ -56,7 +58,8 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
       category: "",
       amount: 0,
       date: new Date().toISOString().slice(0, 10),
-      description: ""
+      description: "",
+      fundAccountId: undefined
     }
   });
 
@@ -68,7 +71,8 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
         category: "",
         amount: 0,
         date: new Date().toISOString().slice(0, 10),
-        description: ""
+        description: "",
+        fundAccountId: undefined
       });
     }
     setOpen(newOpen);
@@ -82,7 +86,8 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
       category: record.category,
       amount: record.amount,
       date: new Date(record.date).toISOString().slice(0, 10),
-      description: record.description ?? ""
+      description: record.description ?? "",
+      fundAccountId: record.fundAccountId ?? undefined
     });
     setOpen(true);
   };
@@ -97,7 +102,8 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
         formData.append("amount", String(values.amount));
         formData.append("date", values.date);
         formData.append("description", values.description ?? "");
-        
+        if (values.fundAccountId) formData.append("fundAccountId", String(values.fundAccountId));
+
         const result = await upsertFinanceRecord(formData);
         if (!result.success) {
           toast.error(result.error);
@@ -223,6 +229,29 @@ export function FinanceClient({ records, canManage, canEdit, canDelete, canViewP
                             <Select name="type" onChange={(e) => field.onChange(e.target.value)} value={field.value}>
                               <option value="income">Pemasukan</option>
                               <option value="expense">Pengeluaran</option>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="fundAccountId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Sumber Dana{!editing ? " *" : ""}</FormLabel>
+                            <Select
+                              name="fundAccountId"
+                              value={field.value ? String(field.value) : ""}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            >
+                              <option value="">Pilih sumber dana</option>
+                              {fundAccounts.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.name} ({acc.type})
+                                </option>
+                              ))}
                             </Select>
                             <FormMessage />
                           </FormItem>

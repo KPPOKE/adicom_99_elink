@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PaymentFields } from "@/components/shared/payment-fields";
+import { ReportDownloadDropdown } from "@/components/shared/report-download-dropdown";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
 import { deleteTransaction, completePendingTransaction, createTransaction, updateTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
@@ -881,7 +882,7 @@ export function TransactionClient({
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={displayTransactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} />
+          <DataTable columns={columns} data={displayTransactions} searchPlaceholder="Cari transaksi..." serverPagination={pagination} filters={<ReportDownloadDropdown kind="sales" label="📄 Unduh Laporan Transaksi..." />} />
         </CardContent>
       </Card>
 

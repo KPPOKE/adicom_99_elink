@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCurrentUser } from "@/lib/auth";
+import { bankTransferKindLabels } from "@/lib/bank-transfer-labels";
 import { outletContext } from "@/lib/outlet";
 import { prisma } from "@/lib/prisma";
 import { safeSpreadsheetValue } from "@/lib/spreadsheet";
@@ -81,7 +82,7 @@ export async function loadReportData(filters: ReportFilters) {
   const { activeOutlet } = await outletContext(user);
   const dateWhere = range.start && range.end ? { gte: range.start, lt: range.end } : undefined;
   const outletWhere = { outletId: activeOutlet.id };
-  const [transactions, services, allItems, finance] = await Promise.all([
+  const [transactions, services, allItems, finance, bankTransfers] = await Promise.all([
     prisma.transaction.findMany({
       where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere,
       include: { items: { include: { item: true } } },
@@ -97,6 +98,12 @@ export async function loadReportData(filters: ReportFilters) {
     prisma.financeRecord.findMany({
       where: dateWhere ? { ...outletWhere, date: dateWhere } : outletWhere,
       orderBy: { date: "desc" },
+      take: REPORT_EXPORT_ROW_LIMIT
+    }),
+    prisma.bankTransfer.findMany({
+      where: dateWhere ? { ...outletWhere, createdAt: dateWhere } : outletWhere,
+      include: { sourceFund: true, targetFund: true },
+      orderBy: { createdAt: "desc" },
       take: REPORT_EXPORT_ROW_LIMIT
     })
   ]);
@@ -118,7 +125,7 @@ export async function loadReportData(filters: ReportFilters) {
     expense: finance.filter((item) => item.type === "expense" && (item.referenceType === ref || (!item.referenceType && ref === "manual"))).reduce((sum, item) => sum + toNumber(item.amount), 0)
   }));
 
-  return { transactions, services, items, finance, income, expense, grossProfit, netProfit, chartData, range };
+  return { transactions, services, items, finance, bankTransfers, income, expense, grossProfit, netProfit, chartData, range };
 }
 
 export async function loadReportPreview(filters: ReportFilters) {
@@ -175,6 +182,21 @@ export function reportCsv(kind: string, data: Awaited<ReturnType<typeof loadRepo
     return [["Tanggal", "Tipe", "Kategori", "Nominal", "Referensi", "Deskripsi"], ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
   }
 
+  if (kind === "bank-transfer") {
+    const rows = data.bankTransfers.map((item) => [
+      item.kodeTransfer,
+      formatDate(item.createdAt),
+      bankTransferKindLabels[item.kind] ?? item.kind,
+      item.sourceFund?.name ?? "-",
+      item.targetFund?.name ?? "-",
+      toNumber(item.amount),
+      toNumber(item.adminFee) + toNumber(item.adminBankFee) + toNumber(item.externalAdminFee),
+      toNumber(item.totalReceived),
+      item.status
+    ]);
+    return [["Kode Transfer", "Tanggal", "Jenis", "Sumber Dana", "Terima Dana", "Nominal", "Admin Fee", "Total Diterima", "Status"], ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+  }
+
   const rows = data.transactions.map((item) => [
     item.kodeTransaksi,
     formatDate(item.createdAt),
@@ -223,6 +245,23 @@ export function reportDataset(kind: string, data: Awaited<ReturnType<typeof load
       title: "Laporan Stok Habis / Harus Dipesan",
       headers: ["Kode", "Nama Barang", "Kategori", "Stok Tersedia", "Dipesan Service", "Stok Minimum", "Satuan"],
       rows: data.items.map((item) => [item.kodeBarang, item.namaBarang, item.category.name, item.stok, item.reservedStock, item.stokMinimum, item.satuan])
+    };
+  }
+  if (kind === "bank-transfer") {
+    return {
+      title: "Laporan MiniATM",
+      headers: ["Kode Transfer", "Tanggal", "Jenis", "Sumber Dana", "Terima Dana", "Nominal", "Admin Fee", "Total Diterima", "Status"],
+      rows: data.bankTransfers.map((item) => [
+        item.kodeTransfer,
+        formatDate(item.createdAt),
+        bankTransferKindLabels[item.kind] ?? item.kind,
+        item.sourceFund?.name ?? "-",
+        item.targetFund?.name ?? "-",
+        toNumber(item.amount),
+        toNumber(item.adminFee) + toNumber(item.adminBankFee) + toNumber(item.externalAdminFee),
+        toNumber(item.totalReceived),
+        item.status
+      ])
     };
   }
   if (kind === "profit-loss") {

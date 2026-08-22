@@ -97,7 +97,12 @@ export const financeSchema = z.object({
   category: z.string().min(2, "Kategori wajib diisi"),
   amount: numeric.pipe(z.number().min(1, "Nominal wajib diisi")),
   description: z.string().optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid")
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal tidak valid"),
+  fundAccountId: z.coerce.number<number>().int().min(1).optional()
+}).superRefine((data, ctx) => {
+  if (!data.id && !data.fundAccountId) {
+    ctx.addIssue({ code: "custom", path: ["fundAccountId"], message: "Sumber dana wajib diisi" });
+  }
 });
 export type FinanceFormValues = z.output<typeof financeSchema>;
 

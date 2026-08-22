@@ -22,12 +22,13 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
     type ? { type } : {},
     query.category ? { category: query.category } : {}
   ] };
-  const [records, total, income, expense, categories] = await Promise.all([
+  const [records, total, income, expense, categories, fundAccounts] = await Promise.all([
     prisma.financeRecord.findMany({ where, orderBy: { date: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     prisma.financeRecord.count({ where }),
     prisma.financeRecord.aggregate({ where: { AND: [where, { type: "income" }] }, _sum: { amount: true } }),
     prisma.financeRecord.aggregate({ where: { AND: [where, { type: "expense" }] }, _sum: { amount: true } }),
-    prisma.financeRecord.groupBy({ by: ["category"], orderBy: { category: "asc" } })
+    prisma.financeRecord.groupBy({ by: ["category"], orderBy: { category: "asc" } }),
+    prisma.fundAccount.findMany({ where: { outletId: activeOutlet.id, isActive: true }, orderBy: [{ type: "asc" }, { name: "asc" }] })
   ]);
   return (
     <>
@@ -44,11 +45,13 @@ export default async function FinancePage({ searchParams }: { searchParams?: Pro
           amount: toNumber(record.amount),
           description: record.description,
           date: record.date.toISOString(),
-          referenceType: record.referenceType
+          referenceType: record.referenceType,
+          fundAccountId: record.fundAccountId
         }))}
         pagination={{ page, pageSize: PAGE_SIZE, total, query }}
         filterValues={{ type: "expense", category: query.category ?? "" }}
         categories={categories.map((item) => item.category)}
+        fundAccounts={fundAccounts.map((acc) => ({ id: acc.id, name: acc.name, type: acc.type }))}
         summary={{ income: user.role.name === "admin" ? toNumber(income._sum.amount) : 0, expense: toNumber(expense._sum.amount) }}
       />
     </>

@@ -16,6 +16,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
 import { PaymentFields } from "@/components/shared/payment-fields";
+import { ReportDownloadDropdown } from "@/components/shared/report-download-dropdown";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
 import { cn, formatCurrency, formatDate, formatWhatsAppPhone, formatWhatsAppServiceReceipt } from "@/lib/utils";
@@ -499,35 +500,7 @@ export function ServiceClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <Select
-            className="w-[210px] text-xs font-semibold bg-white shadow-2xs"
-            defaultValue=""
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val) {
-                window.open(val, "_blank");
-                e.target.value = "";
-              }
-            }}
-          >
-            <option value="" disabled>📄 Unduh Laporan Service...</option>
-            <optgroup label="Laporan Harian (Hari Ini)">
-              <option value="/reports/export?kind=service&period=today&format=pdf">PDF Harian</option>
-              <option value="/reports/export?kind=service&period=today&format=xlsx">Excel Harian</option>
-            </optgroup>
-            <optgroup label="Laporan Mingguan (Minggu Ini)">
-              <option value="/reports/export?kind=service&period=week&format=pdf">PDF Mingguan</option>
-              <option value="/reports/export?kind=service&period=week&format=xlsx">Excel Mingguan</option>
-            </optgroup>
-            <optgroup label="Laporan Bulanan (Bulan Ini)">
-              <option value="/reports/export?kind=service&period=month&format=pdf">PDF Bulanan</option>
-              <option value="/reports/export?kind=service&period=month&format=xlsx">Excel Bulanan</option>
-            </optgroup>
-            <optgroup label="Laporan Tahunan (Tahun Ini)">
-              <option value="/reports/export?kind=service&period=year&format=pdf">PDF Tahunan</option>
-              <option value="/reports/export?kind=service&period=year&format=xlsx">Excel Tahunan</option>
-            </optgroup>
-          </Select>
+          <ReportDownloadDropdown kind="service" label="📄 Unduh Laporan Service..." />
 
           {canManageService ? (
             <Dialog open={open} onOpenChange={handleOpenChange}>

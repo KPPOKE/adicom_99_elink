@@ -12,6 +12,7 @@ import { deleteBankTransfer, finalizeBankTransfer, reopenBankTransfer, upsertBan
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ClosingCashDialog } from "@/components/closing-cash-dialog";
 import { DataTable } from "@/components/shared/data-table";
+import { ReportDownloadDropdown } from "@/components/shared/report-download-dropdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -21,6 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { findAdminFeeAmount, type AdminFeeRuleLite } from "@/lib/admin-fee";
+import { bankTransferKindLabels } from "@/lib/bank-transfer-labels";
 import { cashWithdrawalLedger, feeIncomeLedger, operationalLedger, pulsaLedger, transferLedger } from "@/lib/fund-ledger";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { bankTransferSchema, type BankTransferFormValues } from "@/lib/validators";
@@ -58,15 +60,7 @@ type StaffOption = { id: number; name: string };
 
 const transferTypes = ["Sesama Bank", "Antar Bank", "E-wallet", "Virtual Account", "BPJS", "PDAM", "PLN", "Internet", "Lainnya"];
 const commonBanks = ["BCA", "BNI", "BRI", "BSI", "Bank Mandiri", "Bank Jago", "CIMB Niaga", "DANA", "OVO", "GoPay", "ShopeePay"];
-const kindLabels: Record<TransferRow["kind"], string> = {
-  Transfer: "Transfer",
-  Tarik_Tunai: "Tarik Tunai",
-  Jasa_Transfer: "Jasa Transfer",
-  Fee_Brilink: "Fee Brilink",
-  Mode_Pulsa: "Mode Pulsa",
-  Pembayaran_Digital: "Pembayaran Digital",
-  Operasional: "Operasional"
-};
+const kindLabels = bankTransferKindLabels;
 function isFeeIncomeKind(kind: TransferRow["kind"]) {
   return kind === "Jasa_Transfer" || kind === "Fee_Brilink";
 }
@@ -187,7 +181,7 @@ export function BankTransferClient({ transfers, role, canManage, canEdit, canDel
   const cashFunds = useMemo(() => funds.filter((item) => item.type === "Cash"), [funds]);
   const balanceFunds = useMemo(() => funds.filter((item) => item.type !== "Cash"), [funds]);
   const sourceOptions = pulsa || operational ? funds : kind === "Transfer" ? balanceFunds : cashFunds;
-  const targetOptions = feeIncome || pulsa ? funds : kind === "Transfer" ? cashFunds : balanceFunds;
+  const targetOptions = feeIncome || pulsa || kind === "Transfer" ? funds : balanceFunds;
   const source = funds.find((item) => item.id === Number(sourceFundId));
   const target = funds.find((item) => item.id === Number(targetFundId));
   const ledger = feeIncome
@@ -361,7 +355,7 @@ export function BankTransferClient({ transfers, role, canManage, canEdit, canDel
       <SummaryCard label="Tarik Tunai" value={summary.tarikAmount} helper="Hari ini" icon={<Wallet className="h-4 w-4" />} className="bg-[#166534] text-white border-transparent" />
       <SummaryCard label="Omset" value={summary.turnover} helper="Nominal transaksi" icon={<Landmark className="h-4 w-4" />} className="bg-[#0284c7] text-white border-transparent" />
       {canViewBankFee ? <SummaryCard label="Admin Bank" value={summary.bankFee} helper="Biaya bank" icon={<Landmark className="h-4 w-4" />} className="bg-[#ea580c] text-white border-transparent" /> : null}
-      {canViewBankFee ? <SummaryCard label="Operasional" value={summary.operational} helper="Biaya saldo" icon={<Wallet className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" /> : null}
+      {canViewBankFee ? <SummaryCard label="Operasional Hari Ini" value={summary.operational} helper="Reset otomatis tiap hari, bukan saldo tersimpan" icon={<Wallet className="h-4 w-4" />} className="bg-[#991b1b] text-white border-transparent" /> : null}
       {canViewProfit ? <SummaryCard label="Profit" value={summary.profit} helper="Setelah biaya" icon={<Send className="h-4 w-4" />} className="bg-[#065f46] text-white border-transparent" /> : null}
     </section>
 
@@ -423,6 +417,7 @@ export function BankTransferClient({ transfers, role, canManage, canEdit, canDel
           <label className="flex w-full flex-col gap-1.5 sm:w-44"><span className="text-xs text-slate-600">Sumber dana</span><Select name="fund" aria-label="Filter sumber dana" defaultValue={filterValues.fund}><option value="">Semua Dana</option>{funds.map((fund) => <option key={fund.id} value={fund.id}>{fund.name}</option>)}</Select></label>
           {role === "admin" ? <label className="flex w-full flex-col gap-1.5 sm:min-w-48 sm:flex-1 lg:max-w-64"><span className="text-xs text-slate-600">Transaksi oleh</span><Select name="pegawai" aria-label="Filter pegawai" defaultValue={filterValues.pegawai}><option value="">Semua Pegawai</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></label> : null}
           <label className="flex w-full flex-col gap-1.5 sm:w-40"><span className="text-xs text-slate-600">Status</span><Select name="status" aria-label="Filter status" defaultValue={filterValues.status}><option value="">Semua Status</option><option value="Berhasil">Berhasil</option><option value="Pending">Pending</option><option value="Gagal">Gagal</option></Select></label>
+          <ReportDownloadDropdown kind="bank-transfer" label="📄 Unduh Laporan MiniATM..." />
           <Button type="submit" variant="outline" className="w-full sm:w-auto">Terapkan</Button>
           <Button asChild type="button" variant="ghost" className="w-full sm:w-auto"><Link href="?date=all">Semua Tanggal</Link></Button>
           {canManage ? <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setEditing(null); form.reset(defaults); } }}><DialogTrigger asChild><Button type="button"><Plus className="h-4 w-4" />Tambah Transaksi</Button></DialogTrigger><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>{editing ? `Proses ${editing.kodeTransfer}` : "Input Transaksi MiniATM"}</DialogTitle><DialogDescription>Pilih jenis transaksi, isi nominal, lalu periksa estimasi saldo sebelum diproses.</DialogDescription></DialogHeader><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">

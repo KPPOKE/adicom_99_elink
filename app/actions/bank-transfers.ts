@@ -99,8 +99,8 @@ async function validateFundFlow(tx: Prisma.TransactionClient, transfer: BankTran
   const source = funds.find((fund) => fund.id === transfer.sourceFundId);
   const target = funds.find((fund) => fund.id === transfer.targetFundId);
   if (!source || !target) throw new Error("Sumber dana tidak valid");
-  if (transfer.kind === "Transfer" && (source.type === "Cash" || target.type !== "Cash")) {
-    throw new Error("Transfer harus memakai saldo bank/e-wallet dan diterima di kas");
+  if (transfer.kind === "Transfer" && source.type === "Cash") {
+    throw new Error("Transfer harus memakai saldo bank/e-wallet sebagai sumber dana");
   }
   if (transfer.kind === "Tarik_Tunai" && (source.type !== "Cash" || target.type === "Cash")) {
     throw new Error("Tarik tunai harus memakai kas dan diterima di bank/e-wallet");
