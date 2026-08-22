@@ -226,6 +226,7 @@ test.describe("UAT operational workflow", () => {
     await page.goto("/finance");
     await openDialog(page, "Tambah Pengeluaran");
     await page.locator('select[name="type"]').selectOption("expense");
+    await page.locator('select[name="fundAccountId"]').selectOption({ label: "LACI (Cash)" });
     await page.locator('input[name="category"]').fill(`${suffix}-Expense`);
     await page.locator('input[name="amount"]').fill("12000");
     await page.locator('textarea[name="description"]').fill("Expense UAT otomatis");
