@@ -79,6 +79,7 @@ export function formatWhatsAppServiceReceipt(data: {
   technicianNote?: string | null;
   status: string;
   paymentStatus: string;
+  paymentMethod?: string | null;
   estimatedCost?: unknown;
   laborCost?: unknown;
   finalCost?: unknown;
@@ -87,7 +88,8 @@ export function formatWhatsAppServiceReceipt(data: {
   const dateStr = formatDateTime(data.receivedDate);
   const deviceStr = [data.deviceType, data.deviceBrand, data.deviceModel].filter(Boolean).join(" ");
   const statusStr = data.status.replace("_", " ");
-  const paymentStr = data.paymentStatus === "paid" ? "Lunas" : "Belum Dibayar";
+  const paymentStr =
+    data.paymentStatus === "paid" ? `Lunas${data.paymentMethod ? ` (${data.paymentMethod === "Cash" ? "Tunai" : data.paymentMethod})` : ""}` : "Belum Dibayar";
   const estCost = formatCurrency(toNumber(data.estimatedCost));
   const laborCost = formatCurrency(toNumber(data.laborCost));
   const finalCost = formatCurrency(toNumber(data.finalCost) || toNumber(data.estimatedCost));

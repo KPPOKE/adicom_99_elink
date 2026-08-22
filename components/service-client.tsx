@@ -15,9 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DataTable } from "@/components/shared/data-table";
+import { PaymentFields } from "@/components/shared/payment-fields";
 import { PaymentStatusBadge, ServiceStatusBadge } from "@/components/shared/status-badge";
 import { deleteService, markServicePaid, updateServiceStatus, upsertService } from "@/app/actions/operations";
 import { cn, formatCurrency, formatDate, formatWhatsAppPhone, formatWhatsAppServiceReceipt } from "@/lib/utils";
+import { filterFundAccountsByMethod } from "@/lib/payment-methods";
 import { hasPermission } from "@/lib/permission-keys";
 
 import { useFieldArray, useForm } from "react-hook-form";
@@ -49,6 +51,11 @@ type ServiceRow = {
   createdAt?: string;
   completedDate: string | null;
   pickedUpDate: string | null;
+  paymentMethod: string | null;
+  paidAmount: number;
+  changeAmount: number;
+  fundAccountId: number | null;
+  fundAccountName: string | null;
 };
 
 type SparePartOption = { id: number; namaBarang: string; kodeBarang: string; hargaJual: number; stok: number; categoryName?: string; satuan?: string };
@@ -57,6 +64,7 @@ export function ServiceClient({
   services,
   customers = [],
   items = [],
+  fundAccounts = [],
   role = "staff",
   permissions = [],
   pagination,
@@ -65,6 +73,7 @@ export function ServiceClient({
   services: ServiceRow[];
   customers?: { id: number; name: string; phone: string | null }[];
   items?: SparePartOption[];
+  fundAccounts?: { id: number; name: string; type: string }[];
   role?: "admin" | "staff";
   permissions?: string[];
   pagination?: { page: number; pageSize: number; total: number; query: Record<string, string> };
@@ -79,6 +88,55 @@ export function ServiceClient({
   const canEditService = hasPermission(role, permissions, "services.edit");
   const canDeleteService = hasPermission(role, permissions, "services.delete");
   const canManageService = hasPermission(role, permissions, "services.manage");
+
+  // "Bayar Service" dialog state, kept separate from the create/edit service form
+  const [payingService, setPayingService] = useState<ServiceRow | null>(null);
+  const [payMethod, setPayMethod] = useState("Cash");
+  const [payAmount, setPayAmount] = useState(0);
+  const [payFundAccountId, setPayFundAccountId] = useState<number | null>(null);
+  const [paySaving, setPaySaving] = useState(false);
+
+  const payAvailableAccounts = useMemo(
+    () => filterFundAccountsByMethod(fundAccounts, payMethod),
+    [fundAccounts, payMethod]
+  );
+  const effectivePayFundAccountId = payAvailableAccounts.some((acc) => acc.id === payFundAccountId)
+    ? payFundAccountId
+    : (payAvailableAccounts[0]?.id ?? null);
+
+  function openPayDialog(service: ServiceRow) {
+    setPayingService(service);
+    setPayMethod("Cash");
+    setPayAmount(service.finalCost);
+    setPayFundAccountId(null);
+  }
+
+  function closePayDialog() {
+    setPayingService(null);
+  }
+
+  function submitMarkPaid() {
+    if (!payingService) return;
+    setPaySaving(true);
+    startTransition(async () => {
+      try {
+        const result = await markServicePaid(payingService.id, {
+          paymentMethod: payMethod,
+          paidAmount: payAmount,
+          fundAccountId: effectivePayFundAccountId
+        });
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Service ditandai lunas");
+        closePayDialog();
+        router.refresh();
+      } finally {
+        setPaySaving(false);
+      }
+    });
+  }
 
   const displayServices = useMemo(() => {
     if (servicePeriod === "custom" && serviceCustomDate) {
@@ -231,7 +289,23 @@ export function ServiceClient({
       )
     },
     { id: "status", header: () => <div className="text-center">Status</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => <div className="flex w-full justify-center"><ServiceStatusBadge status={row.original.status} /></div> },
-    { id: "paymentStatus", header: () => <div className="text-center">Pembayaran</div>, meta: { headerClassName: "text-center", cellClassName: "text-center" }, cell: ({ row }) => <div className="flex w-full justify-center"><PaymentStatusBadge status={row.original.paymentStatus} /></div> },
+    {
+      id: "paymentStatus",
+      header: () => <div className="text-center">Pembayaran</div>,
+      meta: { headerClassName: "text-center", cellClassName: "text-center" },
+      cell: ({ row }) => (
+        <div className="flex w-full flex-col items-center gap-0.5">
+          <PaymentStatusBadge status={row.original.paymentStatus} />
+          {row.original.paymentStatus === "paid" ? (
+            <span className="text-[10px] text-slate-500">
+              {row.original.paymentMethod
+                ? `${row.original.paymentMethod === "Cash" ? "Tunai" : row.original.paymentMethod}${row.original.fundAccountName ? ` (${row.original.fundAccountName})` : ""}`
+                : "Metode tidak tercatat"}
+            </span>
+          ) : null}
+        </div>
+      )
+    },
     { header: "Biaya", cell: ({ row }) => <span className="whitespace-nowrap font-medium text-xs">{formatCurrency(row.original.finalCost || row.original.estimatedCost)}</span> },
     { header: "Masuk", cell: ({ row }) => <span className="whitespace-nowrap text-xs">{formatDate(row.original.receivedDate)}</span> },
     {
@@ -315,6 +389,7 @@ export function ServiceClient({
                         technicianNote: row.original.technicianNote,
                         status: row.original.status,
                         paymentStatus: row.original.paymentStatus,
+                        paymentMethod: row.original.paymentMethod,
                         estimatedCost: row.original.estimatedCost,
                         laborCost: row.original.laborCost,
                         finalCost: row.original.finalCost,
@@ -331,28 +406,16 @@ export function ServiceClient({
               ) : null}
 
               {row.original.paymentStatus !== "paid" ? (
-                <ConfirmDialog
-                  title="Tandai service lunas?"
-                  description="Pemasukan service akan dibuat di catatan keuangan."
-                  confirmLabel="Tandai Lunas"
-                  onConfirm={() =>
-                    startTransition(async () => {
-                      const result = await markServicePaid(row.original.id);
-                      if (!result.success) {
-                        toast.error(result.error);
-                        return;
-                      }
-                      toast.success("Service ditandai lunas");
-                      router.refresh();
-                    })
-                  }
-                  trigger={
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50">
-                      <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
-                      <span>Tandai Lunas</span>
-                    </DropdownMenuItem>
-                  }
-                />
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    openPayDialog(row.original);
+                  }}
+                  className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
+                >
+                  <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Bayar Service</span>
+                </DropdownMenuItem>
               ) : null}
 
               {canDeleteService ? (
@@ -846,6 +909,44 @@ export function ServiceClient({
           </div>
         }
       />
+
+      <Dialog open={payingService !== null} onOpenChange={(nextOpen) => !nextOpen && closePayDialog()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bayar Service {payingService?.kodeService}</DialogTitle>
+          </DialogHeader>
+          {payingService ? (
+            <div className="space-y-4">
+              <div className="text-sm text-slate-600">
+                <p className="font-semibold text-slate-900">{payingService.customerName}</p>
+                <p>{payingService.deviceType} {payingService.deviceBrand} {payingService.deviceModel}</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.03] p-3.5 flex justify-between items-center">
+                <span className="text-sm font-extrabold text-slate-700">TOTAL TAGIHAN</span>
+                <span className="text-xl font-black text-blue-600">{formatCurrency(payingService.finalCost)}</span>
+              </div>
+              <PaymentFields
+                paymentMethod={payMethod}
+                onPaymentMethodChange={setPayMethod}
+                availableAccounts={payAvailableAccounts}
+                fundAccountId={effectivePayFundAccountId}
+                onFundAccountIdChange={setPayFundAccountId}
+                paidAmount={payAmount}
+                onPaidAmountChange={setPayAmount}
+                grandTotal={payingService.finalCost}
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={closePayDialog}>
+                  Batal
+                </Button>
+                <Button type="button" onClick={submitMarkPaid} disabled={isPending || paySaving}>
+                  {isPending || paySaving ? "Menyimpan..." : "Tandai Lunas"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

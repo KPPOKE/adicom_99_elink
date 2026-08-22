@@ -305,3 +305,10 @@ export const transactionSchema = z.object({
 });
 export type TransactionPayload = z.output<typeof transactionSchema>;
 
+export const markServicePaidSchema = z.object({
+  paymentMethod: z.enum(["Cash", "Transfer", "QRIS", "Ewallet"]),
+  paidAmount: money,
+  fundAccountId: z.coerce.number<number>().optional().nullable()
+});
+export type MarkServicePaidValues = z.output<typeof markServicePaidSchema>;
+

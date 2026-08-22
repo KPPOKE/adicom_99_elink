@@ -16,9 +16,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { PaymentFields } from "@/components/shared/payment-fields";
 import { TransactionStatusBadge } from "@/components/shared/status-badge";
 import { deleteTransaction, completePendingTransaction, createTransaction, updateTransaction } from "@/app/actions/operations";
 import { formatCurrency, formatDateTime, cn } from "@/lib/utils";
+import { filterFundAccountsByMethod } from "@/lib/payment-methods";
 
 import { useCartStore } from "@/lib/store/useCartStore";
 import { transactionSchema } from "@/lib/validators";
@@ -152,19 +154,10 @@ export function TransactionClient({
   }, []);
 
   // Filter active accounts based on the selected payment method type
-  const availableAccounts = useMemo(() => {
-    if (!fundAccounts) return [];
-    if (cart.paymentMethod === "Cash") {
-      return fundAccounts.filter((acc) => acc.type === "Cash");
-    }
-    if (cart.paymentMethod === "Transfer") {
-      return fundAccounts.filter((acc) => acc.type === "Bank");
-    }
-    if (cart.paymentMethod === "QRIS" || cart.paymentMethod === "Ewallet") {
-      return fundAccounts.filter((acc) => acc.type === "Ewallet");
-    }
-    return [];
-  }, [fundAccounts, cart.paymentMethod]);
+  const availableAccounts = useMemo(
+    () => filterFundAccountsByMethod(fundAccounts ?? [], cart.paymentMethod),
+    [fundAccounts, cart.paymentMethod]
+  );
 
   // Auto-select first account when method changes
   useEffect(() => {
@@ -181,19 +174,16 @@ export function TransactionClient({
 
   const total = useMemo(() => cart.lines.reduce((sum, line) => sum + line.qty * line.price, 0), [cart.lines]);
   const grandTotal = Math.max(0, total - cart.diskon);
-  const change = cart.paymentMethod === "Cash" ? Math.max(0, cart.paidAmount - grandTotal) : 0;
   const hasDigitalItem = cart.lines.some((line) => items.find((item) => item.id === line.itemId)?.categoryName === "Produk Digital");
 
   // Edit Transaksi dialog: totals and account options derived from local edit state
   const editTotal = useMemo(() => editLines.reduce((sum, line) => sum + line.qty * line.price, 0), [editLines]);
   const editGrandTotal = Math.max(0, editTotal - editDiskon);
   const editChange = editPaymentMethod === "Cash" ? Math.max(0, editPaidAmount - editGrandTotal) : 0;
-  const editAvailableAccounts = useMemo(() => {
-    if (editPaymentMethod === "Cash") return fundAccounts.filter((acc) => acc.type === "Cash");
-    if (editPaymentMethod === "Transfer") return fundAccounts.filter((acc) => acc.type === "Bank");
-    if (editPaymentMethod === "QRIS" || editPaymentMethod === "Ewallet") return fundAccounts.filter((acc) => acc.type === "Ewallet");
-    return [];
-  }, [fundAccounts, editPaymentMethod]);
+  const editAvailableAccounts = useMemo(
+    () => filterFundAccountsByMethod(fundAccounts, editPaymentMethod),
+    [fundAccounts, editPaymentMethod]
+  );
   // Falls back to the first account of the newly selected payment type once
   // editFundAccountId no longer matches it (e.g. user switches Cash -> Transfer),
   // without needing an effect to keep a separate piece of state in sync.
@@ -294,25 +284,6 @@ export function TransactionClient({
       return matchSearch && matchCategory;
     });
   }, [items, searchQuery, selectedCategory]);
-
-  // Suggest paid amounts for cash suggestions
-  const cashSuggestions = useMemo(() => {
-    if (grandTotal <= 0) return [];
-    const suggestions = new Set<number>();
-    suggestions.add(grandTotal); // Pas
-
-    const denominations = [5000, 10000, 20000, 50000, 100000];
-    for (const note of denominations) {
-      if (note > grandTotal) {
-        suggestions.add(note);
-      }
-      const nextMultiple = Math.ceil(grandTotal / note) * note;
-      if (nextMultiple > grandTotal && nextMultiple <= grandTotal + 100000) {
-        suggestions.add(nextMultiple);
-      }
-    }
-    return Array.from(suggestions).sort((a, b) => a - b).slice(0, 4);
-  }, [grandTotal]);
 
   const columns: ColumnDef<TransactionRow>[] = [
     { accessorKey: "kodeTransaksi", header: "Kode" },
@@ -821,105 +792,34 @@ export function TransactionClient({
                 </div>
               </div>
 
-              {/* Premium Payment Method tab style buttons */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-600">Metode Pembayaran</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {["Cash", "Transfer", "QRIS", "Ewallet"].map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => cart.setPaymentMethod(method)}
-                      className={cn(
-                        "py-2 text-[10px] sm:text-xs font-bold rounded-lg border transition-all duration-150 active:scale-95",
-                        cart.paymentMethod === method
-                          ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                      )}
-                    >
-                      {method === "Cash" ? "Tunai" : method}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dynamic Account / Bank selector based on the method */}
-              {availableAccounts.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold text-slate-600">
-                    {cart.paymentMethod === "Cash" ? "Pilih Akun Laci/Kas" : 
-                     cart.paymentMethod === "Transfer" ? "Pilih Bank Penerima" : 
-                     "Pilih E-Wallet / QRIS"}
-                  </Label>
-                  <Select
-                    value={cart.fundAccountId ?? ""}
-                    onInput={(event) => cart.setFundAccountId(Number(event.currentTarget.value) || null)}
-                    className="h-9 text-xs"
-                  >
-                    {availableAccounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-
-              {/* Totals panel */}
-              <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.03] p-3.5 space-y-2">
-                <div className="flex justify-between text-xs text-slate-500 font-bold">
-                  <span>SUBTOTAL</span>
-                  <span className="text-slate-800 font-extrabold">{formatCurrency(total)}</span>
-                </div>
-                {cart.diskon > 0 && (
-                  <div className="flex justify-between text-xs text-red-500 font-bold">
-                    <span>DISKON</span>
-                    <span>-{formatCurrency(cart.diskon)}</span>
+              <PaymentFields
+                paymentMethod={cart.paymentMethod}
+                onPaymentMethodChange={cart.setPaymentMethod}
+                availableAccounts={availableAccounts}
+                fundAccountId={cart.fundAccountId}
+                onFundAccountIdChange={cart.setFundAccountId}
+                paidAmount={cart.paidAmount}
+                onPaidAmountChange={cart.setPaidAmount}
+                grandTotal={grandTotal}
+                totalsSlot={
+                  <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.03] p-3.5 space-y-2">
+                    <div className="flex justify-between text-xs text-slate-500 font-bold">
+                      <span>SUBTOTAL</span>
+                      <span className="text-slate-800 font-extrabold">{formatCurrency(total)}</span>
+                    </div>
+                    {cart.diskon > 0 && (
+                      <div className="flex justify-between text-xs text-red-500 font-bold">
+                        <span>DISKON</span>
+                        <span>-{formatCurrency(cart.diskon)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-blue-500/10 pt-2 flex justify-between items-center">
+                      <span className="text-sm font-extrabold text-slate-700">TOTAL</span>
+                      <span className="text-xl font-black text-blue-600">{formatCurrency(grandTotal)}</span>
+                    </div>
                   </div>
-                )}
-                <div className="border-t border-blue-500/10 pt-2 flex justify-between items-center">
-                  <span className="text-sm font-extrabold text-slate-700">TOTAL</span>
-                  <span className="text-xl font-black text-blue-600">{formatCurrency(grandTotal)}</span>
-                </div>
-              </div>
-
-              {/* Paid amount & quick suggestions */}
-              <div className="space-y-1">
-                <Label className="text-xs font-bold text-slate-600">Jumlah Uang Dibayar</Label>
-                <CurrencyInput name="paidAmount" value={cart.paidAmount} onChange={cart.setPaidAmount} className="h-9 text-xs" />
-                
-                {/* Cash suggestions */}
-                {cart.paymentMethod === "Cash" && cashSuggestions.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {cashSuggestions.map((amount) => (
-                      <button
-                        key={amount}
-                        type="button"
-                        onClick={() => cart.setPaidAmount(amount)}
-                        className="px-2 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded text-slate-700 font-bold transition duration-150 active:scale-95"
-                      >
-                        {amount === grandTotal ? "Pas" : formatCurrency(amount)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Automatic Change Display */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex justify-between items-center">
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Uang Kembalian</p>
-                  <p className={cn(
-                    "text-base font-extrabold mt-0.5",
-                    change > 0 ? "text-green-600" : "text-slate-800"
-                  )}>
-                    {formatCurrency(change)}
-                  </p>
-                </div>
-                <span className="text-[9px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">
-                  Otomatis
-                </span>
-              </div>
+                }
+              />
 
               {/* Save button */}
               <Button 

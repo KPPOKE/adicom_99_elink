@@ -17,7 +17,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
   const { activeOutlet } = await outletContext(user);
   const service = await prisma.service.findFirst({
     where: { id: Number(id), outletId: activeOutlet.id },
-    include: { customer: true, user: true, financeRecords: true, parts: { include: { item: true } } }
+    include: { customer: true, user: true, financeRecords: true, parts: { include: { item: true } }, fundAccount: true }
   });
   if (!service) notFound();
 
@@ -52,6 +52,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                       technicianNote: service.technicianNote,
                       status: service.status,
                       paymentStatus: service.paymentStatus,
+                      paymentMethod: service.paymentMethod,
                       estimatedCost: service.estimatedCost,
                       laborCost: service.laborCost,
                       finalCost: service.finalCost
@@ -111,6 +112,16 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               <Info label="Sparepart" value={formatCurrency(service.parts.reduce((sum, part) => sum + toNumber(part.subtotal), 0))} />
               <Info label="Biaya Final" value={formatCurrency(toNumber(service.finalCost))} strong />
               <Info label="Dibayar" value={service.paidAt ? formatDateTime(service.paidAt) : "-"} />
+              {service.paymentStatus === "paid" ? (
+                <Info
+                  label="Metode Bayar"
+                  value={
+                    service.paymentMethod
+                      ? `${service.paymentMethod === "Cash" ? "Tunai" : service.paymentMethod}${service.fundAccount ? ` (${service.fundAccount.name})` : ""}`
+                      : "Metode tidak tercatat"
+                  }
+                />
+              ) : null}
             </CardContent>
           </Card>
         </div>

@@ -351,6 +351,11 @@ model Service {
   status             ServiceStatus   @default(Masuk)
   paymentStatus      PaymentStatus   @default(unpaid) @map("payment_status")
   paidAt             DateTime?       @map("paid_at")
+  paymentMethod      PaymentMethod?  @map("payment_method")
+  paidAmount         Decimal         @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  changeAmount       Decimal         @default(0) @map("change_amount") @db.Decimal(14, 2)
+  fundAccountId      Int?            @map("fund_account_id")
+  fundAccount        FundAccount?    @relation(fields: [fundAccountId], references: [id])
   technicianNote     String?         @map("technician_note") @db.Text
   receivedDate       DateTime        @default(now()) @map("received_date")
   completedDate      DateTime?       @map("completed_date")
@@ -371,6 +376,7 @@ model Service {
   @@index([receivedDate])
   @@index([status])
   @@index([paymentStatus])
+  @@index([fundAccountId])
   @@index([status, paymentStatus, receivedDate])
   @@index([outletId, paymentStatus, paidAt])
   @@index([outletId, status, receivedDate])
@@ -510,6 +516,7 @@ model FundAccount {
   receivables     Receivable[]
   transactions    Transaction[]
   financeRecords  FinanceRecord[]
+  services        Service[]
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 

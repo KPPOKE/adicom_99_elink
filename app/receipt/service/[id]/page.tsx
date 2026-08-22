@@ -113,6 +113,14 @@ export default async function PublicServiceReceiptPage({
               <span className="text-slate-600 font-medium">Status Bayar</span>
               <PaymentStatusBadge status={service.paymentStatus} />
             </div>
+            {service.paymentStatus === "paid" ? (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600 font-medium">Metode Bayar</span>
+                <span className="font-semibold text-slate-800">
+                  {service.paymentMethod ? (service.paymentMethod === "Cash" ? "Tunai" : service.paymentMethod) : "Tidak tercatat"}
+                </span>
+              </div>
+            ) : null}
 
             <div className="border-t border-slate-100 pt-3 space-y-1.5">
               <Row label="Estimasi" value={formatCurrency(toNumber(service.estimatedCost))} />

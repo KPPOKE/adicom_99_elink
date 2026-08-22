@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/permissions";
 import { assertTrustedOrigin } from "@/lib/security";
 import { dateCode, toNumber } from "@/lib/utils";
 import { outletContext } from "@/lib/outlet";
-import { financeSchema, serviceSchema, transactionSchema } from "@/lib/validators";
+import { financeSchema, serviceSchema, transactionSchema, markServicePaidSchema } from "@/lib/validators";
 import { getActionErrorMessage } from "@/lib/errors";
 import { applyFundDelta } from "@/lib/fund-ledger";
 
@@ -655,25 +655,42 @@ async function upsertServiceInner(formData: FormData) {
   return { success: true as const };
 }
 
-export async function markServicePaid(id: number) {
+export async function markServicePaid(id: number, payload: unknown) {
   try {
-    return await markServicePaidInner(id);
+    return await markServicePaidInner(id, payload);
   } catch (error) {
     return { success: false as const, error: getActionErrorMessage(error) };
   }
 }
 
-async function markServicePaidInner(id: number) {
+async function markServicePaidInner(id: number, payload: unknown) {
   await assertTrustedOrigin();
   const user = await requirePermission("services.manage");
   const { activeOutlet } = await outletContext(user);
+  const parsed = markServicePaidSchema.parse(payload);
   await prisma.$transaction(async (tx) => {
     const service = await tx.service.findUnique({ where: { id }, include: { financeRecords: true } });
     if (!service || service.outletId !== activeOutlet.id) throw new Error("Service tidak ditemukan di cabang aktif");
     if (service.status === "Batal") throw new Error("Service batal tidak dapat dibayar");
     if (service.paymentStatus === "paid") throw new Error("Service sudah dibayar");
-    if (toNumber(service.finalCost) <= 0) throw new Error("Biaya final wajib diisi sebelum pembayaran");
-    await tx.service.update({ where: { id }, data: { paymentStatus: "paid", paidAt: new Date() } });
+    const finalCost = toNumber(service.finalCost);
+    if (finalCost <= 0) throw new Error("Biaya final wajib diisi sebelum pembayaran");
+    if (parsed.paymentMethod === "Cash" && parsed.paidAmount < finalCost) {
+      throw new Error("Uang dibayar tidak boleh kurang dari biaya service");
+    }
+    const changeAmount = parsed.paymentMethod === "Cash" ? Math.max(0, parsed.paidAmount - finalCost) : 0;
+
+    await tx.service.update({
+      where: { id },
+      data: {
+        paymentStatus: "paid",
+        paidAt: new Date(),
+        paymentMethod: parsed.paymentMethod,
+        paidAmount: parsed.paidAmount,
+        changeAmount,
+        fundAccountId: parsed.fundAccountId || null
+      }
+    });
     if (!service.financeRecords.some((record) => record.type === "income")) {
       await tx.financeRecord.create({
         data: {
@@ -685,12 +702,34 @@ async function markServicePaidInner(id: number) {
           referenceId: service.id,
           serviceId: service.id,
           outletId: service.outletId,
-          userId: user.id
+          userId: user.id,
+          fundAccountId: parsed.fundAccountId || null
         }
       });
+      if (parsed.fundAccountId) {
+        await applyFundDelta(tx, {
+          outletId: activeOutlet.id,
+          fundAccountId: parsed.fundAccountId,
+          type: "Deposit_In",
+          delta: finalCost,
+          referenceType: "service",
+          referenceId: service.id,
+          note: `Pembayaran service ${service.kodeService}`,
+          userId: user.id
+        });
+      }
     }
     await tx.auditLog.create({
-      data: { userId: user.id, userEmail: user.email, outletId: activeOutlet.id, action: "mark_paid", entity: "service", entityId: id, metadata: { kodeService: service.kodeService, before: { paymentStatus: service.paymentStatus }, after: { paymentStatus: "paid" }, finalCost: toNumber(service.finalCost) } }
+      data: {
+        userId: user.id, userEmail: user.email, outletId: activeOutlet.id,
+        action: "mark_paid", entity: "service", entityId: id,
+        metadata: {
+          kodeService: service.kodeService,
+          before: { paymentStatus: service.paymentStatus },
+          after: { paymentStatus: "paid", paymentMethod: parsed.paymentMethod, fundAccountId: parsed.fundAccountId },
+          finalCost
+        }
+      }
     });
   });
   revalidateServicePaths();

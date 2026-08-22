@@ -23,7 +23,7 @@ export default async function ServiceInvoicePage({
   const [service, setting] = await Promise.all([
     prisma.service.findFirst({
       where: { id: Number(id), outletId: activeOutlet.id },
-      include: { user: true, customer: true, parts: { include: { item: true } } }
+      include: { user: true, customer: true, parts: { include: { item: true } }, fundAccount: true }
     }),
     prisma.setting.findFirst()
   ]);
@@ -97,6 +97,16 @@ export default async function ServiceInvoicePage({
           <Row label="Biaya Jasa" value={formatCurrency(toNumber(service.laborCost))} />
           <Row label="Biaya Final" value={formatCurrency(cost)} strong />
           {service.paidAt ? <Row label="Dibayar" value={formatDateTime(service.paidAt)} /> : null}
+          {service.paymentStatus === "paid" ? (
+            <Row
+              label="Metode Bayar"
+              value={
+                service.paymentMethod
+                  ? `${service.paymentMethod === "Cash" ? "Tunai" : service.paymentMethod}${service.fundAccount ? ` (${service.fundAccount.name})` : ""}`
+                  : "Tidak tercatat"
+              }
+            />
+          ) : null}
         </section>
 
         <footer className="mt-6 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
