@@ -46,8 +46,13 @@ describe("validators", () => {
   });
 
   it("requires positive amount for finance records", () => {
-    expect(financeSchema.safeParse({ type: "expense", category: "Operasional", amount: 0, date: "2026-07-08" }).success).toBe(false);
-    expect(financeSchema.safeParse({ type: "income", category: "Manual", amount: 1000, date: "2026-07-08" }).success).toBe(true);
+    expect(financeSchema.safeParse({ type: "expense", category: "Operasional", amount: 0, date: "2026-07-08", fundAccountId: 1 }).success).toBe(false);
+    expect(financeSchema.safeParse({ type: "income", category: "Manual", amount: 1000, date: "2026-07-08", fundAccountId: 1 }).success).toBe(true);
+  });
+
+  it("requires a fund account when creating a new finance record but not when editing an existing one", () => {
+    expect(financeSchema.safeParse({ type: "expense", category: "Operasional", amount: 1000, date: "2026-07-08" }).success).toBe(false);
+    expect(financeSchema.safeParse({ id: 5, type: "expense", category: "Operasional", amount: 1000, date: "2026-07-08" }).success).toBe(true);
   });
 
   it("validates bank transfer recipient and money fields", () => {
